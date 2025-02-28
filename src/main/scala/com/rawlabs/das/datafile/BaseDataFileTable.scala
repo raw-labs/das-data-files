@@ -1,13 +1,26 @@
+/*
+ * Copyright 2024 RAW Labs S.A.
+ *
+ * Use of this software is governed by the Business Source License
+ * included in the file licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with
+ * the Business Source License, use of this software will be governed
+ * by the Apache License, Version 2.0, included in the file
+ * licenses/APL.txt.
+ */
+
 package com.rawlabs.das.datafile
+
+import scala.jdk.CollectionConverters._
+
+import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, types => sparkTypes}
 
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkException}
 import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
-import com.rawlabs.protocol.das.v1.tables.{TableDefinition, Column => ProtoColumn, Row => ProtoRow}
+import com.rawlabs.protocol.das.v1.tables.{Column => ProtoColumn, Row => ProtoRow, TableDefinition}
 import com.rawlabs.protocol.das.v1.types._
-import org.apache.spark.sql.{DataFrame, Row, Column => SparkColumn, types => sparkTypes}
-
-import scala.jdk.CollectionConverters._
 
 /**
  * An abstract base class for "Data File" tables. Common logic:
@@ -208,10 +221,214 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
     result
   }
 
+  // -------------------------------------------------------------------
+  // 5) Utilities for schema mapping, building proto Values, etc.
+  // -------------------------------------------------------------------
+  /**
+   * Convert a Spark DataType to a DAS Type, handling:
+   *   - basic primitives (Byte, Short, Int, Long, Float, Double, Bool, String)
+   *   - DecimalType => Decimal
+   *   - DateType => Date
+   *   - TimestampType => Timestamp
+   *   - ArrayType => ListType
+   *   - StructType => RecordType
+   *   - MapType => (optionally) RecordType
+   * Anything unrecognized falls back to a string type by default.
+   */
+  private def sparkTypeToDAS(
+      sparkType: org.apache.spark.sql.types.DataType,
+      nullable: Boolean): com.rawlabs.protocol.das.v1.types.Type = {
+
+    import com.rawlabs.protocol.das.v1.types.{Type => DasType, _}
+
+    sparkType match {
+
+      // -----------------------------------------
+      // 1) Basic numeric types
+      // -----------------------------------------
+      case sparkTypes.ByteType =>
+        DasType
+          .newBuilder()
+          .setByte(ByteType.newBuilder().setNullable(nullable))
+          .build()
+
+      case sparkTypes.ShortType =>
+        DasType
+          .newBuilder()
+          .setShort(ShortType.newBuilder().setNullable(nullable))
+          .build()
+
+      case sparkTypes.IntegerType =>
+        DasType
+          .newBuilder()
+          .setInt(IntType.newBuilder().setNullable(nullable))
+          .build()
+
+      case sparkTypes.LongType =>
+        DasType
+          .newBuilder()
+          .setLong(LongType.newBuilder().setNullable(nullable))
+          .build()
+
+      case sparkTypes.FloatType =>
+        DasType
+          .newBuilder()
+          .setFloat(FloatType.newBuilder().setNullable(nullable))
+          .build()
+
+      case sparkTypes.DoubleType =>
+        DasType
+          .newBuilder()
+          .setDouble(DoubleType.newBuilder().setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 2) Boolean
+      // -----------------------------------------
+      case sparkTypes.BooleanType =>
+        DasType
+          .newBuilder()
+          .setBool(BoolType.newBuilder().setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 3) Decimal
+      // -----------------------------------------
+      case _: sparkTypes.DecimalType =>
+        // We lose precision/scale metadata in the "DecimalType" proto,
+        // but at least we flag it's decimal.
+        DasType
+          .newBuilder()
+          .setDecimal(DecimalType.newBuilder().setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 4) String
+      // -----------------------------------------
+      case sparkTypes.StringType =>
+        DasType
+          .newBuilder()
+          .setString(StringType.newBuilder().setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 5) Date & Timestamp
+      // -----------------------------------------
+      case sparkTypes.DateType =>
+        DasType
+          .newBuilder()
+          .setDate(DateType.newBuilder().setNullable(nullable))
+          .build()
+
+      case sparkTypes.TimestampType =>
+        DasType
+          .newBuilder()
+          .setTimestamp(TimestampType.newBuilder().setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 6) Binary
+      // -----------------------------------------
+      case sparkTypes.BinaryType =>
+        DasType
+          .newBuilder()
+          .setBinary(BinaryType.newBuilder().setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 7) Arrays => ListType
+      // -----------------------------------------
+      case sparkTypes.ArrayType(elementType, elementContainsNull) =>
+        val elementDasType = sparkTypeToDAS(elementType, elementContainsNull)
+        DasType
+          .newBuilder()
+          .setList(
+            ListType
+              .newBuilder()
+              .setInnerType(elementDasType)
+              .setNullable(nullable))
+          .build()
+
+      // -----------------------------------------
+      // 8) Struct => RecordType
+      // -----------------------------------------
+      case sparkTypes.StructType(fields) =>
+        // Convert each Spark field => an AttrType
+        val attsBuilder = RecordType.newBuilder().setNullable(nullable)
+        fields.foreach { field =>
+          val dasFieldType = sparkTypeToDAS(field.dataType, field.nullable)
+          attsBuilder.addAtts(
+            AttrType
+              .newBuilder()
+              .setName(field.name)
+              .setTipe(dasFieldType))
+        }
+
+        DasType
+          .newBuilder()
+          .setRecord(attsBuilder.build())
+          .build()
+
+      // -----------------------------------------
+      // 9) Map => (optionally) RecordType or fallback
+      // -----------------------------------------
+      case sparkTypes.MapType(keyType, valueType, valueContainsNull) =>
+        // The DAS proto does not have a native map type,
+        // so you can store it as a record with "key" and "value" list, or something else.
+        //
+        // For example, treat map as a struct with two arrays: "keys" and "values":
+        // (This is one approach. Another approach is to treat each entry as a record.)
+        val mapAsRecord = RecordType.newBuilder().setNullable(nullable)
+
+        // Create an AttrType for "keys"
+        val keysType = sparkTypeToDAS(keyType, nullable = false)
+        val keysListType = DasType
+          .newBuilder()
+          .setList(
+            ListType
+              .newBuilder()
+              .setInnerType(keysType)
+              .setNullable(true))
+          .build()
+
+        mapAsRecord.addAtts(
+          AttrType
+            .newBuilder()
+            .setName("keys")
+            .setTipe(keysListType))
+
+        // Create an AttrType for "values"
+        val valsType = sparkTypeToDAS(valueType, valueContainsNull)
+        val valsListType = DasType
+          .newBuilder()
+          .setList(
+            ListType
+              .newBuilder()
+              .setInnerType(valsType)
+              .setNullable(true))
+          .build()
+
+        mapAsRecord.addAtts(
+          AttrType
+            .newBuilder()
+            .setName("values")
+            .setTipe(valsListType))
+
+        DasType
+          .newBuilder()
+          .setRecord(mapAsRecord.build())
+          .build()
+
+      // -----------------------------------------
+      // 10) Fallback => String
+      // -----------------------------------------
+      case other =>
+        throw new DASSdkException(s"Unsupported Spark type: ${other.typeName}")
+    }
+  }
 
   /**
-   * Recursively converts a raw Spark value into a DAS Value,
-   * guided by a DAS Type (i.e. from 'types.proto').
+   * Recursively converts a raw Spark value into a DAS Value, guided by a DAS Type (i.e. from 'types.proto').
    *
    * Handles:
    *   - primitives (int, long, bool, float, double, string)
@@ -220,26 +437,23 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
    *   - optional map => stored as a ValueRecord (or fallback)
    *   - decimal, binary, etc. if you need them
    */
-  private def rawToProtoValue(
-                                 rawValue: Any,
-                                 dasType: Type,
-                                 colName: String
-                               ): Value = {
+  private def rawToProtoValue(rawValue: Any, dasType: Type, colName: String): Value = {
 
     // 0) Null check
     if (rawValue == null) {
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setNull(ValueNull.newBuilder().build())
         .build()
     }
 
     // 1) If the type is known primitive
     if (dasType.hasString) {
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setString(ValueString.newBuilder().setV(rawValue.toString))
         .build()
-    }
-    else if (dasType.hasInt) {
+    } else if (dasType.hasInt) {
       val intVal = rawValue match {
         case i: Int    => i
         case l: Long   => l.toInt
@@ -247,11 +461,11 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to int ($colName)")
       }
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setInt(ValueInt.newBuilder().setV(intVal))
         .build()
-    }
-    else if (dasType.hasLong) {
+    } else if (dasType.hasLong) {
       val longVal = rawValue match {
         case l: Long   => l
         case i: Int    => i.toLong
@@ -259,22 +473,22 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to long ($colName)")
       }
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setLong(ValueLong.newBuilder().setV(longVal))
         .build()
-    }
-    else if (dasType.hasBool) {
+    } else if (dasType.hasBool) {
       val boolVal = rawValue match {
         case b: Boolean => b
         case s: String  => s.toBoolean
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to bool ($colName)")
       }
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setBool(ValueBool.newBuilder().setV(boolVal))
         .build()
-    }
-    else if (dasType.hasDouble) {
+    } else if (dasType.hasDouble) {
       val dblVal = rawValue match {
         case d: Double => d
         case f: Float  => f.toDouble
@@ -282,11 +496,11 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to double ($colName)")
       }
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setDouble(ValueDouble.newBuilder().setV(dblVal))
         .build()
-    }
-    else if (dasType.hasFloat) {
+    } else if (dasType.hasFloat) {
       val fltVal = rawValue match {
         case f: Float  => f
         case d: Double => d.toFloat
@@ -294,7 +508,8 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to float ($colName)")
       }
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setFloat(ValueFloat.newBuilder().setV(fltVal))
         .build()
     }
@@ -308,9 +523,7 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         case iter: Iterable[_] => iter.toSeq
         // Spark often uses WrappedArray for arrays
         case other =>
-          throw new DASSdkException(
-            s"Cannot convert $other to list type for col=$colName"
-          )
+          throw new DASSdkException(s"Cannot convert $other to list type for col=$colName")
       }
 
       val listBuilder = ValueList.newBuilder()
@@ -328,7 +541,7 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         case row: Row =>
           val recordBuilder = ValueRecord.newBuilder()
           val structInfo = dasType.getRecord
-          val fieldDefs = structInfo.getAttsList.asScala  // each is AttrType
+          val fieldDefs = structInfo.getAttsList.asScala // each is AttrType
 
           // For each attribute in the DAS record definition:
           fieldDefs.foreach { att =>
@@ -340,42 +553,46 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
 
             val nestedVal = rawToProtoValue(childValue, fieldType, s"$colName.$fieldName")
             recordBuilder.addAtts(
-              ValueRecordAttr.newBuilder()
+              ValueRecordAttr
+                .newBuilder()
                 .setName(fieldName)
-                .setValue(nestedVal)
-            )
+                .setValue(nestedVal))
           }
           return Value.newBuilder().setRecord(recordBuilder.build()).build()
 
-        // Optionally handle map => record if you want that approach
-        case map: Map[String, _] =>
+        // Optionally handle map[String, Any] => record if you want that approach
+        // I am
+        case map: Map[_, _] =>
+          val realMap =
+            try {
+              map.asInstanceOf[Map[String, _]]
+            } catch {
+              case _: ClassCastException =>
+                throw new DASSdkException(s"Cannot convert $map to map[String, _] for col=$colName")
+            }
           val recordBuilder = ValueRecord.newBuilder()
           val structInfo = dasType.getRecord
           val fieldDefs = structInfo.getAttsList.asScala
           fieldDefs.foreach { att =>
             val fieldName = att.getName
             val fieldType = att.getTipe
-            map.get(fieldName) match {
+            realMap.get(fieldName) match {
               case Some(v) =>
                 val nestedVal = rawToProtoValue(v, fieldType, s"$colName.$fieldName")
-                recordBuilder.addAtts(
-                  ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal)
-                )
+                recordBuilder.addAtts(ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal))
               case None =>
                 // Possibly set null, or skip
                 recordBuilder.addAtts(
-                  ValueRecordAttr.newBuilder()
+                  ValueRecordAttr
+                    .newBuilder()
                     .setName(fieldName)
-                    .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance))
-                )
+                    .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance)))
             }
           }
           return Value.newBuilder().setRecord(recordBuilder.build()).build()
 
         case other =>
-          throw new DASSdkException(
-            s"Cannot convert $other to record type for col=$colName"
-          )
+          throw new DASSdkException(s"Cannot convert $other to record type for col=$colName")
       }
     }
 
@@ -383,16 +600,20 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
     if (dasType.hasDecimal) {
       // Spark typically uses java.math.BigDecimal internally
       val decimalStr = rawValue.toString
-      return Value.newBuilder()
+      return Value
+        .newBuilder()
         .setDecimal(ValueDecimal.newBuilder().setV(decimalStr))
         .build()
     }
     if (dasType.hasBinary) {
       rawValue match {
         case bytes: Array[Byte] =>
-          return Value.newBuilder()
-            .setBinary(ValueBinary.newBuilder()
-              .setV(com.google.protobuf.ByteString.copyFrom(bytes)))
+          return Value
+            .newBuilder()
+            .setBinary(
+              ValueBinary
+                .newBuilder()
+                .setV(com.google.protobuf.ByteString.copyFrom(bytes)))
             .build()
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to binary ($colName)")
@@ -400,7 +621,8 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
     }
 
     // 5) Fallback to string if none of the above matched
-    return Value.newBuilder()
+    return Value
+      .newBuilder()
       .setString(ValueString.newBuilder().setV(rawValue.toString))
       .build()
   }

@@ -1,13 +1,23 @@
+/*
+ * Copyright 2024 RAW Labs S.A.
+ *
+ * Use of this software is governed by the Business Source License
+ * included in the file licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with
+ * the Business Source License, use of this software will be governed
+ * by the Apache License, Version 2.0, included in the file
+ * licenses/APL.txt.
+ */
+
 package com.rawlabs.das.datafile
 
-import com.rawlabs.das.sdk.DASSdkException
 import com.rawlabs.das.sdk.scala.DASTable
-import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId, Row => ProtoRow}
-import com.rawlabs.protocol.das.v1.types._
+import com.rawlabs.protocol.das.v1.query.Qual
+import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class JsonTable(tableName: String, url: String, options: Map[String, String], spark: SparkSession)
+class JsonTable(tableName: String, url: String, options: Map[String, String], sparkSession: SparkSession)
   extends BaseDataFileTable(tableName, url) {
 
   override def format: String = "json"
@@ -46,7 +56,7 @@ class JsonTable(tableName: String, url: String, options: Map[String, String], sp
     // For example, we might want multiLine option if reading multi-line JSON:
     val multiLine = options.get("multiLine").exists(_.toBoolean)
 
-    spark.read
+    sparkSession.read
       .option("multiLine", multiLine.toString)
       .option("inferSchema", "true")
       .json(url)
