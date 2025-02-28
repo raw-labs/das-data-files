@@ -10,7 +10,7 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafile
+package com.rawlabs.das.datafiles
 
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
