@@ -7,7 +7,7 @@ import com.rawlabs.protocol.das.v1.tables.TableDefinition
 /**
  * The main plugin class that registers one table per file.
  */
-class DASDataFile(options: Map[String, String]) extends DASSdk {
+class DASDataFiles(options: Map[String, String]) extends DASSdk {
 
   // For example, create a Spark session that all tables share.
   // In a production plugin, you might configure Spark more carefully:
@@ -15,17 +15,18 @@ class DASDataFile(options: Map[String, String]) extends DASSdk {
     import org.apache.spark.sql.SparkSession
     SparkSession
       .builder()
-      .appName("DASMultiFormat")
+      .appName("DASDataFiles")
       .master("local[*]") // or read from some config
       .getOrCreate()
   }
 
-  private val fileOptions = new DASDataFileOptions(options)
+  private val fileOptions = new DASDataFilesOptions(options)
 
   // Build a list of our tables
   private val tables: Map[String, BaseDataFileTable] = fileOptions.tableConfigs.map { config =>
     config.format match {
       case "csv" => config.name -> new CsvTable(config.name, config.url, config.options, spark)
+      case "json" => config.name -> new JsonTable(config.name, config.url, config.options, spark)
     }
   }.toMap
 

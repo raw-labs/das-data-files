@@ -11,7 +11,7 @@ case class DataFileConfig(name: String, url: String, format: String, options: Ma
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
  */
-class DASDataFileOptions(options: Map[String, String]) {
+class DASDataFilesOptions(options: Map[String, String]) {
 
   // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
   val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)

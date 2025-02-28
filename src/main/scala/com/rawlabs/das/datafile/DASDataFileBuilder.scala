@@ -13,6 +13,6 @@ class DASDataFileBuilder extends DASSdkBuilder {
   override def dasType: String = "datafiles"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
-    new DASDataFile(options)
+    new DASDataFiles(options)
   }
 }

@@ -5,7 +5,7 @@ import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkException}
 import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
 import com.rawlabs.protocol.das.v1.tables.{TableDefinition, Column => ProtoColumn, Row => ProtoRow}
 import com.rawlabs.protocol.das.v1.types._
-import org.apache.spark.sql.{DataFrame, types => sparkTypes}
+import org.apache.spark.sql.{DataFrame, Row, Column => SparkColumn, types => sparkTypes}
 
 import scala.jdk.CollectionConverters._
 
@@ -22,6 +22,9 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
   def format: String
 
   def tableDefinition: TableDefinition
+
+  override def getTablePathKeys: Seq[com.rawlabs.protocol.das.v1.query.PathKey] = Seq.empty
+  override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = Seq.empty
 
   // -------------------------------------------------------------------
   // 1) Infer the schema and columns once, store them
@@ -73,7 +76,7 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
 
         finalCols.foreach { col =>
           val rawVal = row.getAs[Any](col)
-          val dasType = colTypesMap.getOrElse(col, mkStringType())
+          val dasType = colTypesMap.getOrElse(col, throw new DASSdkException(s"Column $col not found in schema"))
           val protoVal = rawToProtoValue(rawVal, dasType, col)
           rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
         }
@@ -105,10 +108,12 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
   // -------------------------------------------------------------------
   // 4) Optionally, common pushdown logic
   // -------------------------------------------------------------------
-  protected def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
-    // For example, only handle EQUALS for string/int/bool
+  private def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
     import org.apache.spark.sql.functions._
+    import com.rawlabs.protocol.das.v1.query.Operator
+
     var result = df
+
     for (q <- quals) {
       if (q.hasSimpleQual) {
         val sq = q.getSimpleQual
@@ -116,99 +121,288 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
         val colName = q.getName
         val valProto = sq.getValue
 
-        // Only handle EQUALS in this base example
-        if (op.getNumber != com.rawlabs.protocol.das.v1.query.Operator.EQUALS_VALUE) {
-          // skip or throw
-          throw new DASSdkException(s"Only EQUALS operator supported (col=$colName). Found: $op")
+        val filterCol = col(colName)
+
+        // Convert the proto Value into a native Scala type
+        val typedValue: Any = {
+          if (valProto.hasNull) {
+            // For example, Spark handles col IS NULL / col IS NOT NULL differently,
+            // so "x = null" won't match anything. You might throw or skip.
+            throw new DASSdkException(s"Filtering on NULL is not fully supported in base class (col=$colName).")
+          } else if (valProto.hasString) {
+            valProto.getString.getV
+          } else if (valProto.hasInt) {
+            valProto.getInt.getV
+          } else if (valProto.hasLong) {
+            valProto.getLong.getV
+          } else if (valProto.hasBool) {
+            valProto.getBool.getV
+          } else if (valProto.hasDouble) {
+            valProto.getDouble.getV
+          } else if (valProto.hasFloat) {
+            valProto.getFloat.getV
+          } else {
+            throw new DASSdkException(s"Unsupported filter type on col=$colName in base class.")
+          }
         }
 
-        val filterCol = col(colName)
-        if (valProto.hasString) {
-          result = result.filter(filterCol === valProto.getString.getV)
-        } else if (valProto.hasInt) {
-          result = result.filter(filterCol === valProto.getInt.getV)
-        } else if (valProto.hasBool) {
-          result = result.filter(filterCol === valProto.getBool.getV)
-        } else {
-          throw new DASSdkException(s"Unsupported filter type on col=$colName in base class.")
+        // Build the Spark filter expression based on the operator
+        val condition: SparkColumn = op match {
+          case Operator.EQUALS =>
+            filterCol === typedValue
+
+          case Operator.NOT_EQUALS =>
+            filterCol =!= typedValue
+
+          case Operator.LESS_THAN =>
+            filterCol < typedValue
+
+          case Operator.LESS_THAN_OR_EQUAL =>
+            filterCol <= typedValue
+
+          case Operator.GREATER_THAN =>
+            filterCol > typedValue
+
+          case Operator.GREATER_THAN_OR_EQUAL =>
+            filterCol >= typedValue
+
+          case Operator.LIKE =>
+            // LIKE requires a string pattern, e.g. '%abc%'
+            if (!valProto.hasString) {
+              throw new DASSdkException("LIKE operator requires a string value")
+            }
+            filterCol.like(typedValue.toString)
+
+          case Operator.NOT_LIKE =>
+            if (!valProto.hasString) {
+              throw new DASSdkException("NOT LIKE operator requires a string value")
+            }
+            not(filterCol.like(typedValue.toString))
+
+          case Operator.ILIKE =>
+            // Spark doesn't have ilike() built-in. We can emulate with lower(...) like(...)
+            if (!valProto.hasString) {
+              throw new DASSdkException("ILIKE operator requires a string value")
+            }
+            lower(filterCol).like(typedValue.toString.toLowerCase)
+
+          case Operator.NOT_ILIKE =>
+            if (!valProto.hasString) {
+              throw new DASSdkException("NOT ILIKE operator requires a string value")
+            }
+            not(lower(filterCol).like(typedValue.toString.toLowerCase))
+
+          // You may optionally handle more operators if your proto includes them:
+          //   PLUS, MINUS, TIMES, DIV, MOD, AND, OR, etc.
+          // Typically these are not direct filter operators.
+          // If desired, handle them here or skip/throw:
+          case other =>
+            throw new DASSdkException(s"Operator $other not supported in base class.")
         }
+
+        // Apply the filter to the running result
+        result = result.filter(condition)
       }
     }
+
     result
   }
 
-  // -------------------------------------------------------------------
-  // 5) Utilities for schema mapping, building proto Values, etc.
-  // -------------------------------------------------------------------
-  protected def sparkTypeToDAS(dt: org.apache.spark.sql.types.DataType, nullable: Boolean): Type = {
-    dt match {
-      case sparkTypes.StringType  => Type.newBuilder().setString(StringType.newBuilder().setNullable(nullable)).build()
-      case sparkTypes.IntegerType => Type.newBuilder().setInt(IntType.newBuilder().setNullable(nullable)).build()
-      case sparkTypes.LongType    => Type.newBuilder().setLong(LongType.newBuilder().setNullable(nullable)).build()
-      case sparkTypes.DoubleType  => Type.newBuilder().setDouble(DoubleType.newBuilder().setNullable(nullable)).build()
-      case sparkTypes.FloatType   => Type.newBuilder().setFloat(FloatType.newBuilder().setNullable(nullable)).build()
-      case sparkTypes.BooleanType => Type.newBuilder().setBool(BoolType.newBuilder().setNullable(nullable)).build()
-      // fallback to string
-      case _ => Type.newBuilder().setString(StringType.newBuilder().setNullable(nullable)).build()
-    }
-  }
 
-  protected def rawToProtoValue(rawValue: Any, dasType: Type, colName: String): Value = {
+  /**
+   * Recursively converts a raw Spark value into a DAS Value,
+   * guided by a DAS Type (i.e. from 'types.proto').
+   *
+   * Handles:
+   *   - primitives (int, long, bool, float, double, string)
+   *   - arrays => ValueList
+   *   - struct => ValueRecord
+   *   - optional map => stored as a ValueRecord (or fallback)
+   *   - decimal, binary, etc. if you need them
+   */
+  private def rawToProtoValue(
+                                 rawValue: Any,
+                                 dasType: Type,
+                                 colName: String
+                               ): Value = {
+
+    // 0) Null check
     if (rawValue == null) {
-      return Value
-        .newBuilder()
+      return Value.newBuilder()
         .setNull(ValueNull.newBuilder().build())
         .build()
     }
 
+    // 1) If the type is known primitive
     if (dasType.hasString) {
-      Value.newBuilder().setString(ValueString.newBuilder().setV(rawValue.toString)).build()
-    } else if (dasType.hasInt) {
+      return Value.newBuilder()
+        .setString(ValueString.newBuilder().setV(rawValue.toString))
+        .build()
+    }
+    else if (dasType.hasInt) {
       val intVal = rawValue match {
         case i: Int    => i
         case l: Long   => l.toInt
         case s: String => s.toInt
-        case _         => throw new DASSdkException(s"Cannot convert $rawValue to int ($colName)")
+        case _ =>
+          throw new DASSdkException(s"Cannot convert $rawValue to int ($colName)")
       }
-      Value.newBuilder().setInt(ValueInt.newBuilder().setV(intVal)).build()
-    } else if (dasType.hasLong) {
+      return Value.newBuilder()
+        .setInt(ValueInt.newBuilder().setV(intVal))
+        .build()
+    }
+    else if (dasType.hasLong) {
       val longVal = rawValue match {
         case l: Long   => l
         case i: Int    => i.toLong
         case s: String => s.toLong
-        case _         => throw new DASSdkException(s"Cannot convert $rawValue to long ($colName)")
+        case _ =>
+          throw new DASSdkException(s"Cannot convert $rawValue to long ($colName)")
       }
-      Value.newBuilder().setLong(ValueLong.newBuilder().setV(longVal)).build()
-    } else if (dasType.hasBool) {
+      return Value.newBuilder()
+        .setLong(ValueLong.newBuilder().setV(longVal))
+        .build()
+    }
+    else if (dasType.hasBool) {
       val boolVal = rawValue match {
         case b: Boolean => b
         case s: String  => s.toBoolean
-        case _          => throw new DASSdkException(s"Cannot convert $rawValue to bool ($colName)")
+        case _ =>
+          throw new DASSdkException(s"Cannot convert $rawValue to bool ($colName)")
       }
-      Value.newBuilder().setBool(ValueBool.newBuilder().setV(boolVal)).build()
-    } else if (dasType.hasDouble) {
+      return Value.newBuilder()
+        .setBool(ValueBool.newBuilder().setV(boolVal))
+        .build()
+    }
+    else if (dasType.hasDouble) {
       val dblVal = rawValue match {
         case d: Double => d
         case f: Float  => f.toDouble
         case s: String => s.toDouble
-        case _         => throw new DASSdkException(s"Cannot convert $rawValue to double ($colName)")
+        case _ =>
+          throw new DASSdkException(s"Cannot convert $rawValue to double ($colName)")
       }
-      Value.newBuilder().setDouble(ValueDouble.newBuilder().setV(dblVal)).build()
-    } else if (dasType.hasFloat) {
+      return Value.newBuilder()
+        .setDouble(ValueDouble.newBuilder().setV(dblVal))
+        .build()
+    }
+    else if (dasType.hasFloat) {
       val fltVal = rawValue match {
         case f: Float  => f
         case d: Double => d.toFloat
         case s: String => s.toFloat
-        case _         => throw new DASSdkException(s"Cannot convert $rawValue to float ($colName)")
+        case _ =>
+          throw new DASSdkException(s"Cannot convert $rawValue to float ($colName)")
       }
-      Value.newBuilder().setFloat(ValueFloat.newBuilder().setV(fltVal)).build()
-    } else {
-      // fallback to string
-      Value.newBuilder().setString(ValueString.newBuilder().setV(rawValue.toString)).build()
+      return Value.newBuilder()
+        .setFloat(ValueFloat.newBuilder().setV(fltVal))
+        .build()
     }
+
+    // 2) If we have a list/array type => ValueList
+    if (dasType.hasList) {
+      val innerType = dasType.getList.getInnerType
+      val seq = rawValue match {
+        case s: Seq[_]         => s
+        case arr: Array[_]     => arr.toSeq
+        case iter: Iterable[_] => iter.toSeq
+        // Spark often uses WrappedArray for arrays
+        case other =>
+          throw new DASSdkException(
+            s"Cannot convert $other to list type for col=$colName"
+          )
+      }
+
+      val listBuilder = ValueList.newBuilder()
+      seq.foreach { elem =>
+        val itemValue = rawToProtoValue(elem, innerType, colName + "_elem")
+        listBuilder.addValues(itemValue)
+      }
+      return Value.newBuilder().setList(listBuilder.build()).build()
+    }
+
+    // 3) If we have a record/struct => ValueRecord
+    if (dasType.hasRecord) {
+      // Typically Spark uses Row for struct fields
+      rawValue match {
+        case row: Row =>
+          val recordBuilder = ValueRecord.newBuilder()
+          val structInfo = dasType.getRecord
+          val fieldDefs = structInfo.getAttsList.asScala  // each is AttrType
+
+          // For each attribute in the DAS record definition:
+          fieldDefs.foreach { att =>
+            val fieldName = att.getName
+            val fieldType = att.getTipe
+            // Attempt to find matching index in Row
+            val idx = row.schema.fieldIndex(fieldName)
+            val childValue = row.get(idx)
+
+            val nestedVal = rawToProtoValue(childValue, fieldType, s"$colName.$fieldName")
+            recordBuilder.addAtts(
+              ValueRecordAttr.newBuilder()
+                .setName(fieldName)
+                .setValue(nestedVal)
+            )
+          }
+          return Value.newBuilder().setRecord(recordBuilder.build()).build()
+
+        // Optionally handle map => record if you want that approach
+        case map: Map[String, _] =>
+          val recordBuilder = ValueRecord.newBuilder()
+          val structInfo = dasType.getRecord
+          val fieldDefs = structInfo.getAttsList.asScala
+          fieldDefs.foreach { att =>
+            val fieldName = att.getName
+            val fieldType = att.getTipe
+            map.get(fieldName) match {
+              case Some(v) =>
+                val nestedVal = rawToProtoValue(v, fieldType, s"$colName.$fieldName")
+                recordBuilder.addAtts(
+                  ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal)
+                )
+              case None =>
+                // Possibly set null, or skip
+                recordBuilder.addAtts(
+                  ValueRecordAttr.newBuilder()
+                    .setName(fieldName)
+                    .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance))
+                )
+            }
+          }
+          return Value.newBuilder().setRecord(recordBuilder.build()).build()
+
+        case other =>
+          throw new DASSdkException(
+            s"Cannot convert $other to record type for col=$colName"
+          )
+      }
+    }
+
+    // 4) Optionally, handle decimal, binary, date, etc.
+    if (dasType.hasDecimal) {
+      // Spark typically uses java.math.BigDecimal internally
+      val decimalStr = rawValue.toString
+      return Value.newBuilder()
+        .setDecimal(ValueDecimal.newBuilder().setV(decimalStr))
+        .build()
+    }
+    if (dasType.hasBinary) {
+      rawValue match {
+        case bytes: Array[Byte] =>
+          return Value.newBuilder()
+            .setBinary(ValueBinary.newBuilder()
+              .setV(com.google.protobuf.ByteString.copyFrom(bytes)))
+            .build()
+        case _ =>
+          throw new DASSdkException(s"Cannot convert $rawValue to binary ($colName)")
+      }
+    }
+
+    // 5) Fallback to string if none of the above matched
+    return Value.newBuilder()
+      .setString(ValueString.newBuilder().setV(rawValue.toString))
+      .build()
   }
 
-  protected def mkStringType(): Type = {
-    Type.newBuilder().setString(StringType.newBuilder().setNullable(true)).build()
-  }
 }
