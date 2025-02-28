@@ -30,7 +30,7 @@ import com.rawlabs.protocol.das.v1.types._
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class BaseDataFileTable(val tableName: String, val url: String) extends DASTable {
+abstract class BaseDataFileTable(val tableName: String) extends DASTable {
 
   def format: String
 
@@ -48,7 +48,7 @@ abstract class BaseDataFileTable(val tableName: String, val url: String) extends
    * Convert the Spark schema to a list of (colName -> DAS Type)
    */
   protected lazy val columns: Seq[(String, Type)] = {
-    dfSchema.fields.map { field =>
+    dfSchema.fields.toIndexedSeq.map { field =>
       val dasType = sparkTypeToDAS(field.dataType, field.nullable)
       (field.name, dasType)
     }

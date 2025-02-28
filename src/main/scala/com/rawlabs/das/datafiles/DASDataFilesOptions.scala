@@ -12,13 +12,15 @@
 
 package com.rawlabs.das.datafiles
 
-import com.rawlabs.das.sdk.DASSdkException
 import scala.collection.mutable
+
+import com.rawlabs.das.sdk.DASSdkException
 
 /**
  * Represents a single table’s configuration
  */
-case class DataFileConfig(name: String, url: String, format: String, options: Map[String, String])
+case class DataFileConfig(name: String, url: String, format: Option[String], options: Map[String, String])
+
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -33,28 +35,23 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
   /**
    * Build a list of DataFileConfig from user’s config keys.
-   * - table0_url, table0_format, table0_name (optional), ...
-   * - table1_url, table1_format, table1_name (optional), ...
+   *   - table0_url, table0_format, table0_name (optional), ...
+   *   - table1_url, table1_format, table1_name (optional), ...
    */
   val tableConfigs: Seq[DataFileConfig] = {
     (0 until nrTables).map { i =>
       val prefix = s"table${i}_"
 
       // Mandatory fields
-      val url = options.getOrElse(
-        prefix + "url",
-        throw new DASSdkException(s"Missing '${prefix}url' option for DataFile DAS.")
-      )
-      val format = options.getOrElse(
-        prefix + "format",
-        throw new DASSdkException(s"Missing '${prefix}format' option for DataFile DAS.")
-      )
+      val url =
+        options.getOrElse(prefix + "url", throw new DASSdkException(s"Missing '${prefix}url' option for DataFile DAS."))
+      val format = options.get(prefix + "format")
 
       // Name is optional: if not provided, derive from URL
       val maybeName = options.get(prefix + "name")
       val tableName = maybeName match {
         case Some(n) => ensureUniqueName(n)
-        case None =>
+        case None    =>
           // Derive from file name in URL if not explicitly defined
           val derived = deriveNameFromUrl(url)
           ensureUniqueName(derived)
@@ -66,18 +63,12 @@ class DASDataFilesOptions(options: Map[String, String]) {
         case (k, v) if k.startsWith(option_prefix) => (k.drop(option_prefix.length), v)
       }.toMap
 
-      DataFileConfig(
-        name = tableName,
-        url = url,
-        format = format,
-        options = tableOptions
-      )
+      DataFileConfig(name = tableName, url = url, format = format, options = tableOptions)
     }
   }
 
   /**
-   * Given a URL, derive the table name from the filename. 
-   * E.g. "https://host/path/data.csv" => "data_csv"
+   * Given a URL, derive the table name from the filename. E.g. "https://host/path/data.csv" => "data_csv"
    */
   private def deriveNameFromUrl(url: String): String = {
     // Extract last path segment

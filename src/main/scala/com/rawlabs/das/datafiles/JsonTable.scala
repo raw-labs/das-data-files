@@ -18,7 +18,7 @@ import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, Ta
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class JsonTable(tableName: String, url: String, options: Map[String, String], sparkSession: SparkSession)
-  extends BaseDataFileTable(tableName, url) {
+  extends BaseDataFileTable(tableName) {
 
   override def format: String = "json"
 
@@ -37,11 +37,6 @@ class JsonTable(tableName: String, url: String, options: Map[String, String], sp
 
     builder.build()
   }
-
-  // --------------------------------------------------------------------------
-  // 2) Implement standard DASTable methods
-  // --------------------------------------------------------------------------
-
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // We can't easily know row counts without reading the file.

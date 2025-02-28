@@ -18,10 +18,9 @@ import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, Ta
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class CsvTable(tableName: String, url: String, options: Map[String, String], sparkSession: SparkSession)
-    extends BaseDataFileTable(tableName, url) {
+    extends BaseDataFileTable(tableName) {
 
   override def format: String = "csv"
-
 
   /**
    * Build the table definition for the CSV.
@@ -38,12 +37,6 @@ class CsvTable(tableName: String, url: String, options: Map[String, String], spa
 
     builder.build()
   }
-
-  // --------------------------------------------------------------------------
-  // 2) Implement standard DASTable methods
-  // --------------------------------------------------------------------------
-  override def getTablePathKeys: Seq[com.rawlabs.protocol.das.v1.query.PathKey] = Seq.empty
-  override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = Seq.empty
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // We can't easily know row counts without reading the file, so just guess.

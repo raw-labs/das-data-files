@@ -12,33 +12,52 @@
 
 package com.rawlabs.das.datafiles
 
+import org.apache.spark.sql.SparkSession
+import com.rawlabs.das.datafiles.DASDataFiles.buildSparkSession
+import com.rawlabs.das.sdk.DASSdkException
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
+
+object DASDataFiles {
+
+  def buildSparkSession(options: Map[String, String]): SparkSession = {
+    val builder = SparkSession
+      .builder()
+      .appName("DASDataFiles")
+      .master("local[*]") // or read from some config
+
+    options.get("awsAccessKey").foreach { accessKey =>
+      val secretKey = options.getOrElse("awsSecretKey", throw new DASSdkException("aswSecretKey not found"))
+      builder.config("fs.s3a.access.key", accessKey)
+      builder.config("fs.s3a.secret.key", secretKey)
+    }
+
+    val extraOptions = options.filter(x => x._1.startsWith("extra_config_"))
+    builder.config(extraOptions)
+
+    builder.getOrCreate()
+  }
+}
 
 /**
  * The main plugin class that registers one table per file.
  */
 class DASDataFiles(options: Map[String, String]) extends DASSdk {
 
-  // For example, create a Spark session that all tables share.
-  // In a production plugin, you might configure Spark more carefully:
-  private lazy val spark = {
-    import org.apache.spark.sql.SparkSession
-    SparkSession
-      .builder()
-      .appName("DASDataFiles")
-      .master("local[*]") // or read from some config
-      .getOrCreate()
-  }
+  private lazy val spark = buildSparkSession(options)
 
   private val fileOptions = new DASDataFilesOptions(options)
 
   // Build a list of our tables
   private val tables: Map[String, BaseDataFileTable] = fileOptions.tableConfigs.map { config =>
-    config.format match {
-      case "csv" => config.name -> new CsvTable(config.name, config.url, config.options, spark)
+    val format = config.format.getOrElse(throw new DASSdkException(s"format not specified for table ${config.name}"))
+    format match {
+      case "csv"  => config.name -> new CsvTable(config.name, config.url, config.options, spark)
       case "json" => config.name -> new JsonTable(config.name, config.url, config.options, spark)
+      case "parquet" => config.name -> new ParquetTable(config.name, config.url, config.options, spark)
+      case "xml" => config.name -> new XmlTable(config.name, config.url, config.options, spark)
+      case other  => throw new DASSdkException(s"Unsupported format $other")
     }
   }.toMap
 
