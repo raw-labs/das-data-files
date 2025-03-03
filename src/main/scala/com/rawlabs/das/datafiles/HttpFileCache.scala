@@ -260,7 +260,7 @@ object HttpFileCache {
     val cacheDirStr = config.getString("raw.das.data-files.cache-dir") // e.g. "/tmp/httpCache"
     val cacheDir = new File(cacheDirStr)
 
-    val maxBytes = config.getBytes("raw.das.data-files.cache-dir") // e.g. "1g"
+    val maxBytes = config.getMemorySize("raw.das.data-files.max-cache-size").toBytes // e.g. "1g"
     val highFrac = config.getDouble("raw.das.data-files.high-watermark") // e.g. 0.75
     val lowFrac = config.getDouble("raw.das.data-files.low-watermark") // e.g. 0.50
 

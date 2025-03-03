@@ -21,20 +21,14 @@ import com.rawlabs.das.sdk.DASSdkException
  */
 
 case class HttpConnectionOptions(followRedirects: Boolean, connectTimeout: Int, readTimeout: Int, sslTRustAll: Boolean)
-
-case class HttpFileConfig(
-    method: String,
-    headers: Map[String, String],
-    body: Option[String],
-    httpConnectionOptions: HttpConnectionOptions)
+case class awsCredential(accessKey: String, secretKey: String)
 
 case class DataFileConfig(
     name: String,
     url: String,
     format: Option[String],
     options: Map[String, String],
-    maybeHttpConfig: Option[HttpFileConfig])
-case class awsCredential(accessKey: String, secretKey: String)
+    httpOptions: HttpConnectionOptions)
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -51,7 +45,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
   val extraSparkConfig: Map[String, String] = options.filter(x => x._1.startsWith("extra_config_"))
 
-  val httpConnectionOptions: HttpConnectionOptions = {
+  val httpOptions: HttpConnectionOptions = {
     val followRedirects = options.getOrElse("http_option_followRedirects", "true").toBoolean
     val connectTimeout = options.getOrElse("http_option_connectTimeout", "10000").toInt
     val readTimeout = options.getOrElse("http_option_readTimeout", "10000").toInt
@@ -86,18 +80,6 @@ class DASDataFilesOptions(options: Map[String, String]) {
           ensureUniqueName(derived)
       }
 
-      val maybeHttpConfig: Option[HttpFileConfig] = if (url.startsWith("http://") | url.startsWith("https://")) {
-        val method = options.getOrElse(prefix + "http_method", "GET")
-        val headerPrefix = s"${prefix}http_header_"
-        val headers = options.collect {
-          case (k, v) if k.startsWith(headerPrefix) => (k.drop(headerPrefix.length), v)
-        }
-        val body = options.get(prefix + "http_body")
-        Some(HttpFileConfig(method, headers, body, httpConnectionOptions))
-      } else {
-        None
-      }
-
       // Gather all prefixed options into a sub-map for this table
       val option_prefix = s"${prefix}option_"
       val tableOptions = options.collect {
@@ -109,7 +91,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
         url = url,
         format = format,
         options = tableOptions,
-        maybeHttpConfig = maybeHttpConfig)
+        httpOptions = httpOptions)
     }
   }
 

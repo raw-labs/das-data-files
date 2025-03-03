@@ -32,7 +32,10 @@ import com.rawlabs.protocol.das.v1.types._
  */
 abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFileCache) extends DASTable {
 
+  private case class HttpTableConfig(method: String, headers: Map[String, String], body: Option[String])
+
   val tableName: String = config.name
+
   val url: String = config.url
 
   def format: String
@@ -42,6 +45,19 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   override def getTablePathKeys: Seq[com.rawlabs.protocol.das.v1.query.PathKey] = Seq.empty
 
   override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)
+
+  private val maybeHttpConfig: Option[HttpTableConfig] = if (url.startsWith("http://") | url.startsWith("https://")) {
+    val method = config.options.getOrElse("http_method", "GET")
+    val headerPrefix = "http_header_"
+    val headers = config.options.collect {
+      case (k, v) if k.startsWith(headerPrefix) => (k.drop(headerPrefix.length), v)
+    }
+
+    val body = config.options.get("http_body")
+    Some(HttpTableConfig(method, headers, body))
+  } else {
+    None
+  }
 
   // -------------------------------------------------------------------
   // 1) Infer the schema and columns once, store them
@@ -126,10 +142,9 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   protected def loadDataFrame(): DataFrame
 
   protected def resolveUrlWithCache(): String = {
-    if (url.startsWith("http://") || url.startsWith("https://")) {
-      assert(config.maybeHttpConfig.isDefined)
-      val httpConfig = config.maybeHttpConfig.get
-      val file = httpFileCache.getLocalFileFor(httpConfig.method, url, httpConfig.body, httpConfig.headers)
+    if (maybeHttpConfig.isDefined) {
+      val httpConfig = maybeHttpConfig.get
+      val file = httpFileCache.getLocalFileFor(httpConfig.method, url, httpConfig.body, httpConfig.headers, config.httpOptions)
       file.getAbsolutePath
     } else {
       url

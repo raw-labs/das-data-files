@@ -21,8 +21,8 @@ import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, Ta
 /**
  * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).
  */
-class XmlTable(tableName: String, url: String, options: Map[String, String], spark: SparkSession)
-    extends BaseDataFileTable(tableName) {
+class XmlTable(config: DataFileConfig, spark: SparkSession, httpFileCache: HttpFileCache)
+    extends BaseDataFileTable(config, httpFileCache) {
 
   override def format: String = "xml"
 
@@ -56,12 +56,12 @@ class XmlTable(tableName: String, url: String, options: Map[String, String], spa
     val reader = spark.read.format("xml")
 
     // Pass all prefixed 'option_' keys or just pass them all.
-    options.foreach { case (key, value) =>
+    config.options.foreach { case (key, value) =>
       reader.option(key, value)
     }
 
     // If user didn't specify rowTag, you might default to something:
-    if (!options.contains("rowTag")) {
+    if (!config.options.contains("rowTag")) {
       reader.option("rowTag", "row")
     }
 

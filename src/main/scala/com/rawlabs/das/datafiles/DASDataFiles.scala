@@ -49,10 +49,10 @@ class DASDataFiles(options: Map[String, String]) extends DASSdk {
   private val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
     val format = config.format.getOrElse(throw new DASSdkException(s"format not specified for table ${config.name}"))
     format match {
-      case "csv"     => config.name -> new CsvTable(config.name, config.url, config.options, sparkSession)
-      case "json"    => config.name -> new JsonTable(config.name, config.url, config.options, sparkSession)
-      case "parquet" => config.name -> new ParquetTable(config.name, config.url, config.options, sparkSession)
-      case "xml"     => config.name -> new XmlTable(config.name, config.url, config.options, sparkSession)
+      case "csv"     => config.name -> new CsvTable(config, sparkSession, HttpFileCache.global)
+      case "json"    => config.name -> new JsonTable(config, sparkSession, HttpFileCache.global)
+      case "parquet" => config.name -> new ParquetTable(config, sparkSession, HttpFileCache.global)
+      case "xml"     => config.name -> new XmlTable(config, sparkSession, HttpFileCache.global)
       case other     => throw new DASSdkException(s"Unsupported format $other")
     }
   }.toMap
