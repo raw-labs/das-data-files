@@ -21,6 +21,7 @@ import com.rawlabs.das.sdk.DASSdkException
  */
 case class DataFileConfig(name: String, url: String, format: Option[String], options: Map[String, String])
 
+case class awsCredential(accessKey: String, secretKey: String)
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -29,6 +30,13 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
   // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
   val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)
+
+  val s3Credentials: Option[awsCredential] = options.get("awsAccessKey").map { accessKey =>
+    val secretKey = options.getOrElse("awsSecretKey", throw new DASSdkException("aswSecretKey not found"))
+    awsCredential(accessKey, secretKey)
+  }
+
+  val extraSparkConfig: Map[String, String] = options.filter(x => x._1.startsWith("extra_config_"))
 
   // Keep track of used names so we ensure uniqueness
   private val usedNames = mutable.Set[String]()

@@ -37,7 +37,8 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
   def tableDefinition: TableDefinition
 
   override def getTablePathKeys: Seq[com.rawlabs.protocol.das.v1.query.PathKey] = Seq.empty
-  override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = Seq.empty
+
+  override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)
 
   // -------------------------------------------------------------------
   // 1) Infer the schema and columns once, store them
@@ -55,8 +56,8 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
   }
 
   /**
-   * The main data read flow: 1) loadDataFrame() [abstract method implemented by child classes] 2) optionally apply
-   * filters (pushdown) 3) select requested columns 4) limit 5) convert to DAS rows
+   * The main data read flow: 1) loadDataFrame() [abstract method implemented by child classes] 2) applyQuals (pushdown
+   * filtering) 3) select requested columns 4) applySortKeys 5) limit 6) convert to DAS rows
    */
   override def execute(
       quals: Seq[Qual],
@@ -68,11 +69,14 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
     val filteredDF = applyQuals(df, quals)
 
     val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
-    val dfSelected = filteredDF.select(finalCols.map(c => org.apache.spark.sql.functions.col(c)): _*)
+    val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
+
+    // applySortKeys *before* limit
+    val dfSorted = applySortKeys(dfSelected, sortKeys)
 
     val dfLimited = maybeLimit match {
-      case Some(l) => dfSelected.limit(l.toInt)
-      case None    => dfSelected
+      case Some(l) => dfSorted.limit(l.toInt)
+      case None    => dfSorted
     }
 
     val sparkIter = dfLimited.toLocalIterator().asScala
@@ -160,27 +164,14 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         }
 
         // Build the Spark filter expression based on the operator
-        val condition: SparkColumn = op match {
-          case Operator.EQUALS =>
-            filterCol === typedValue
-
-          case Operator.NOT_EQUALS =>
-            filterCol =!= typedValue
-
-          case Operator.LESS_THAN =>
-            filterCol < typedValue
-
-          case Operator.LESS_THAN_OR_EQUAL =>
-            filterCol <= typedValue
-
-          case Operator.GREATER_THAN =>
-            filterCol > typedValue
-
-          case Operator.GREATER_THAN_OR_EQUAL =>
-            filterCol >= typedValue
-
+        val condition = op match {
+          case Operator.EQUALS                => filterCol === typedValue
+          case Operator.NOT_EQUALS            => filterCol =!= typedValue
+          case Operator.LESS_THAN             => filterCol < typedValue
+          case Operator.LESS_THAN_OR_EQUAL    => filterCol <= typedValue
+          case Operator.GREATER_THAN          => filterCol > typedValue
+          case Operator.GREATER_THAN_OR_EQUAL => filterCol >= typedValue
           case Operator.LIKE =>
-            // LIKE requires a string pattern, e.g. '%abc%'
             if (!valProto.hasString) {
               throw new DASSdkException("LIKE operator requires a string value")
             }
@@ -193,7 +184,6 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
             not(filterCol.like(typedValue.toString))
 
           case Operator.ILIKE =>
-            // Spark doesn't have ilike() built-in. We can emulate with lower(...) like(...)
             if (!valProto.hasString) {
               throw new DASSdkException("ILIKE operator requires a string value")
             }
@@ -205,20 +195,45 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
             }
             not(lower(filterCol).like(typedValue.toString.toLowerCase))
 
-          // You may optionally handle more operators if your proto includes them:
-          //   PLUS, MINUS, TIMES, DIV, MOD, AND, OR, etc.
-          // Typically these are not direct filter operators.
-          // If desired, handle them here or skip/throw:
           case other =>
             throw new DASSdkException(s"Operator $other not supported in base class.")
         }
 
-        // Apply the filter to the running result
         result = result.filter(condition)
       }
     }
 
     result
+  }
+
+  // -------------------------------------------------------------------
+  // 4b) NEW: apply sort keys
+  // -------------------------------------------------------------------
+  /**
+   * For each SortKey, build a Spark Column with ascending or descending order, plus optional nulls first/last if you
+   * want to handle that.
+   *
+   * Note: In your proto, you have `bool is_reversed` and `bool nulls_first`.
+   */
+  private def applySortKeys(df: DataFrame, sortKeys: Seq[SortKey]): DataFrame = {
+    if (sortKeys.isEmpty) {
+      df
+    } else {
+      val sortCols: Seq[SparkColumn] = sortKeys.map { sk =>
+        // if reversed => desc
+        if (sk.getIsReversed && sk.getNullsFirst) {
+          df.col(sk.getName).desc_nulls_first
+        } else if (sk.getIsReversed && !sk.getNullsFirst) {
+          df.col(sk.getName).desc_nulls_last
+        } else if (!sk.getIsReversed && sk.getNullsFirst) {
+          df.col(sk.getName).asc_nulls_first
+        } else {
+          df.col(sk.getName).asc_nulls_last
+        }
+
+      }
+      df.orderBy(sortCols: _*)
+    }
   }
 
   // -------------------------------------------------------------------
@@ -446,10 +461,9 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         .setNull(ValueNull.newBuilder().build())
         .build()
     }
-
     // 1) If the type is known primitive
-    if (dasType.hasString) {
-      return Value
+    else if (dasType.hasString) {
+      Value
         .newBuilder()
         .setString(ValueString.newBuilder().setV(rawValue.toString))
         .build()
@@ -461,7 +475,7 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to int ($colName)")
       }
-      return Value
+      Value
         .newBuilder()
         .setInt(ValueInt.newBuilder().setV(intVal))
         .build()
@@ -473,7 +487,7 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to long ($colName)")
       }
-      return Value
+      Value
         .newBuilder()
         .setLong(ValueLong.newBuilder().setV(longVal))
         .build()
@@ -484,7 +498,7 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to bool ($colName)")
       }
-      return Value
+      Value
         .newBuilder()
         .setBool(ValueBool.newBuilder().setV(boolVal))
         .build()
@@ -496,7 +510,7 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to double ($colName)")
       }
-      return Value
+      Value
         .newBuilder()
         .setDouble(ValueDouble.newBuilder().setV(dblVal))
         .build()
@@ -508,14 +522,14 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to float ($colName)")
       }
-      return Value
+      Value
         .newBuilder()
         .setFloat(ValueFloat.newBuilder().setV(fltVal))
         .build()
     }
 
     // 2) If we have a list/array type => ValueList
-    if (dasType.hasList) {
+    else if (dasType.hasList) {
       val innerType = dasType.getList.getInnerType
       val seq = rawValue match {
         case s: Seq[_]         => s
@@ -531,11 +545,11 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         val itemValue = rawToProtoValue(elem, innerType, colName + "_elem")
         listBuilder.addValues(itemValue)
       }
-      return Value.newBuilder().setList(listBuilder.build()).build()
+      Value.newBuilder().setList(listBuilder.build()).build()
     }
 
     // 3) If we have a record/struct => ValueRecord
-    if (dasType.hasRecord) {
+    else if (dasType.hasRecord) {
       // Typically Spark uses Row for struct fields
       rawValue match {
         case row: Row =>
@@ -589,7 +603,7 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
                     .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance)))
             }
           }
-          return Value.newBuilder().setRecord(recordBuilder.build()).build()
+          Value.newBuilder().setRecord(recordBuilder.build()).build()
 
         case other =>
           throw new DASSdkException(s"Cannot convert $other to record type for col=$colName")
@@ -597,18 +611,17 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
     }
 
     // 4) Optionally, handle decimal, binary, date, etc.
-    if (dasType.hasDecimal) {
+    else if (dasType.hasDecimal) {
       // Spark typically uses java.math.BigDecimal internally
       val decimalStr = rawValue.toString
-      return Value
+      Value
         .newBuilder()
         .setDecimal(ValueDecimal.newBuilder().setV(decimalStr))
         .build()
-    }
-    if (dasType.hasBinary) {
+    } else if (dasType.hasBinary) {
       rawValue match {
         case bytes: Array[Byte] =>
-          return Value
+          Value
             .newBuilder()
             .setBinary(
               ValueBinary
@@ -618,13 +631,10 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
         case _ =>
           throw new DASSdkException(s"Cannot convert $rawValue to binary ($colName)")
       }
-    }
+    } else {
+      throw new DASSdkException(s"Cannot convert ${dasType.getTypeCase} ")
 
-    // 5) Fallback to string if none of the above matched
-    return Value
-      .newBuilder()
-      .setString(ValueString.newBuilder().setV(rawValue.toString))
-      .build()
+    }
   }
 
 }

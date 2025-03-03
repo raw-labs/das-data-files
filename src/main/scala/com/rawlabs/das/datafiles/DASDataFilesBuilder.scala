@@ -16,10 +16,10 @@ import com.rawlabs.das.sdk.DASSettings
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 
 /**
- * Builder for the "http" DAS type. The engine calls build() with the user-provided config, returning a new DASHttp
+ * Builder for the "data-files" DAS type. The engine calls build() with the user-provided config, returning a new DASHttp
  * instance.
  */
-class DASDataFileBuilder extends DASSdkBuilder {
+class DASDataFilesBuilder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
   override def dasType: String = "datafiles"

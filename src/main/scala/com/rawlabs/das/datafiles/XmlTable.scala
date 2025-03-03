@@ -1,8 +1,19 @@
+/*
+ * Copyright 2024 RAW Labs S.A.
+ *
+ * Use of this software is governed by the Business Source License
+ * included in the file licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with
+ * the Business Source License, use of this software will be governed
+ * by the Apache License, Version 2.0, included in the file
+ * licenses/APL.txt.
+ */
+
 package com.rawlabs.das.datafiles
 
-import com.rawlabs.das.datafiles.BaseDataFileTable
 import com.rawlabs.das.sdk.scala.DASTable
-import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
+import com.rawlabs.protocol.das.v1.query.Qual
 import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
