@@ -16,8 +16,8 @@ import com.rawlabs.das.sdk.DASSettings
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 
 /**
- * Builder for the "data-files" DAS type. The engine calls build() with the user-provided config, returning a new DASHttp
- * instance.
+ * Builder for the "data-files" DAS type. The engine calls build() with the user-provided config, returning a new
+ * DASHttp instance.
  */
 class DASDataFilesBuilder extends DASSdkBuilder {
 

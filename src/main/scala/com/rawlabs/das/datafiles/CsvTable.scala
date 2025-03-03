@@ -18,8 +18,8 @@ import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
 
-class CsvTable(tableName: String, url: String, options: Map[String, String], sparkSession: SparkSession)
-    extends BaseDataFileTable(tableName) {
+class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
+    extends BaseDataFileTable(config, httpFileCache) {
 
   override def format: String = "csv"
 
@@ -50,8 +50,8 @@ class CsvTable(tableName: String, url: String, options: Map[String, String], spa
    */
   override protected def loadDataFrame(): DataFrame = {
     // Parse CSV-specific options from the `options` map. For example:
-    val hasHeader = options.get("header").forall(_.toBoolean)
-    val delimiter = options.getOrElse("delimiter", ",")
+    val hasHeader = config.options.get("header").forall(_.toBoolean)
+    val delimiter = config.options.getOrElse("delimiter", ",")
 
     sparkSession.read
       .option("header", hasHeader.toString)

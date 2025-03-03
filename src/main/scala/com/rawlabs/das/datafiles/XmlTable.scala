@@ -12,17 +12,17 @@
 
 package com.rawlabs.das.datafiles
 
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
- * Table that reads an XML file.
- * Uses Spark-XML (com.databricks.spark.xml).
+ * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).
  */
 class XmlTable(tableName: String, url: String, options: Map[String, String], spark: SparkSession)
-  extends BaseDataFileTable(tableName) {
+    extends BaseDataFileTable(tableName) {
 
   override def format: String = "xml"
 
@@ -36,9 +36,7 @@ class XmlTable(tableName: String, url: String, options: Map[String, String], spa
       .setDescription(s"XML Table reading from $url")
 
     columns.foreach { case (colName, colType) =>
-      builder.addColumns(
-        ColumnDefinition.newBuilder().setName(colName).setType(colType)
-      )
+      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
     }
 
     builder.build()
@@ -50,8 +48,8 @@ class XmlTable(tableName: String, url: String, options: Map[String, String], spa
   }
 
   /**
-   * Override to read XML using the Databricks Spark XML library.
-   * For example, parse "rowTag", "rootTag", "charset", etc. from `options`.
+   * Override to read XML using the Databricks Spark XML library. For example, parse "rowTag", "rootTag", "charset",
+   * etc. from `options`.
    */
   override protected def loadDataFrame(): DataFrame = {
     // Typically: spark.read.format("xml").option("rowTag", "book").load(...)

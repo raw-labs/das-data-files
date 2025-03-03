@@ -12,17 +12,18 @@
 
 package com.rawlabs.das.datafiles
 
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import com.rawlabs.das.datafiles.BaseDataFileTable
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * Table that reads a Parquet file.
  */
-class ParquetTable(tableName: String, url: String, options: Map[String, String], spark: SparkSession)
-  extends BaseDataFileTable(tableName) {
+class ParquetTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
+    extends BaseDataFileTable(config, httpFileCache) {
 
   override def format: String = "parquet"
 
@@ -37,9 +38,7 @@ class ParquetTable(tableName: String, url: String, options: Map[String, String],
 
     // The 'columns' come from the parent class: we lazily load the DataFrame and infer schema.
     columns.foreach { case (colName, colType) =>
-      builder.addColumns(
-        ColumnDefinition.newBuilder().setName(colName).setType(colType)
-      )
+      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
     }
 
     builder.build()
@@ -52,14 +51,14 @@ class ParquetTable(tableName: String, url: String, options: Map[String, String],
   }
 
   /**
-   * Override to read Parquet with Spark.
-   * Typically, we do not need 'inferSchema' for Parquet because it is stored in the file.
+   * Override to read Parquet with Spark. Typically, we do not need 'inferSchema' for Parquet because it is stored in
+   * the file.
    */
   override protected def loadDataFrame(): DataFrame = {
     // If the user provided additional Spark options for Parquet, parse them here.
     // For example, "mergeSchema", "datetimeRebaseMode", etc.
-    val reader = spark.read.format("parquet")
-    options.foreach { case (key, value) =>
+    val reader = sparkSession.read.format("parquet")
+    config.options.foreach { case (key, value) =>
       reader.option(key, value)
     }
     reader.load(url)

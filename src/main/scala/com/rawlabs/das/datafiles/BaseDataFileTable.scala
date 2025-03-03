@@ -30,7 +30,10 @@ import com.rawlabs.protocol.das.v1.types._
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class BaseDataFileTable(val tableName: String) extends DASTable {
+abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFileCache) extends DASTable {
+
+  val tableName: String = config.name
+  val url: String = config.url
 
   def format: String
 
@@ -121,6 +124,17 @@ abstract class BaseDataFileTable(val tableName: String) extends DASTable {
    * Child class reads the file with Spark, e.g. spark.read.csv(...).
    */
   protected def loadDataFrame(): DataFrame
+
+  protected def resolveUrlWithCache(): String = {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      assert(config.maybeHttpConfig.isDefined)
+      val httpConfig = config.maybeHttpConfig.get
+      val file = httpFileCache.getLocalFileFor(httpConfig.method, url, httpConfig.body, httpConfig.headers)
+      file.getAbsolutePath
+    } else {
+      url
+    }
+  }
 
   // -------------------------------------------------------------------
   // 4) Optionally, common pushdown logic

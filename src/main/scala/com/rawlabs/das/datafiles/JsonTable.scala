@@ -12,13 +12,14 @@
 
 package com.rawlabs.das.datafiles
 
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class JsonTable(tableName: String, url: String, options: Map[String, String], sparkSession: SparkSession)
-  extends BaseDataFileTable(tableName) {
+class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
+    extends BaseDataFileTable(config, httpFileCache) {
 
   override def format: String = "json"
 
@@ -49,7 +50,7 @@ class JsonTable(tableName: String, url: String, options: Map[String, String], sp
    */
   override protected def loadDataFrame(): DataFrame = {
     // For example, we might want multiLine option if reading multi-line JSON:
-    val multiLine = options.get("multiLine").exists(_.toBoolean)
+    val multiLine = config.options.get("multiLine").exists(_.toBoolean)
 
     sparkSession.read
       .option("multiLine", multiLine.toString)

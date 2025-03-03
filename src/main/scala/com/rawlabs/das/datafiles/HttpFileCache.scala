@@ -17,8 +17,11 @@ import java.net.URI
 import java.net.http.HttpRequest.{BodyPublisher, BodyPublishers}
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.UUID
 import java.util.concurrent._
+import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
 
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -40,12 +43,6 @@ class HttpFileCache(
 
   // A concurrency-safe map of cache keys to CacheEntry
   private val cacheIndex = new ConcurrentHashMap[HttpRequestKey, CacheEntry]()
-
-  private val httpClient: HttpClient =
-    HttpClient
-      .newBuilder()
-      .followRedirects(HttpClient.Redirect.NORMAL)
-      .build()
 
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
   initScheduler()
@@ -85,7 +82,8 @@ class HttpFileCache(
       method: String,
       remoteUrl: String,
       requestBody: Option[String],
-      headers: Map[String, String] = Map.empty): File = synchronized {
+      headers: Map[String, String],
+      connectionOptions: HttpConnectionOptions): File = synchronized {
     val now = System.currentTimeMillis()
     val cacheKey = HttpRequestKey(method, remoteUrl, requestBody, headers)
 
@@ -97,7 +95,7 @@ class HttpFileCache(
     }
 
     // 2) Not in cache => fetch
-    val localFile = downloadToCache(method, remoteUrl, requestBody, headers)
+    val localFile = downloadToCache(method, remoteUrl, requestBody, headers, connectionOptions)
     val fileSize = localFile.length()
 
     val entry = CacheEntry(cacheKey, localFile.getAbsolutePath, fileSize, now)
@@ -116,8 +114,15 @@ class HttpFileCache(
       method: String,
       remoteUrl: String,
       requestBody: Option[String],
-      headers: Map[String, String]): File = {
+      headers: Map[String, String],
+      connectionOptions: HttpConnectionOptions): File = {
+
     val uri = URI.create(remoteUrl)
+
+    val httpClient = buildHttpClient(
+      connectionOptions.followRedirects,
+      connectionOptions.connectTimeout,
+      connectionOptions.sslTRustAll)
 
     val reqBuilder = HttpRequest.newBuilder(uri)
     val uppercaseMethod = method.trim.toUpperCase()
@@ -127,6 +132,9 @@ class HttpFileCache(
       case None =>
         BodyPublishers.noBody()
     }
+
+    reqBuilder.timeout(java.time.Duration.ofMillis(connectionOptions.readTimeout))
+
     reqBuilder.method(uppercaseMethod, bodyPublisher)
 
     headers.foreach { case (k, v) => reqBuilder.header(k, v) }
@@ -151,6 +159,40 @@ class HttpFileCache(
     inStream.close()
 
     outFile
+  }
+
+  /**
+   * Helper to build an HttpClient with connect-timeout, SSL trust-all, and redirect handling.
+   */
+  private def buildHttpClient(followRedirect: Boolean, connectTimeoutMillis: Int, sslTrustAll: Boolean): HttpClient = {
+    val builder = HttpClient.newBuilder()
+
+    // Follow redirects if set
+    if (followRedirect) builder.followRedirects(HttpClient.Redirect.ALWAYS)
+    else builder.followRedirects(HttpClient.Redirect.NEVER)
+
+    // Connect timeout
+    builder.connectTimeout(java.time.Duration.ofMillis(connectTimeoutMillis))
+
+    // SSL trust all
+    if (sslTrustAll) {
+      val trustAllCerts = Array[TrustManager](new X509TrustManager {
+        override def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
+        override def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
+        override def getAcceptedIssuers: Array[X509Certificate] = Array.empty
+      })
+
+      val sslContext = SSLContext.getInstance("TLS")
+      sslContext.init(null, trustAllCerts, new SecureRandom())
+      builder.sslContext(sslContext)
+
+      // also disable hostname verification
+      val noVerification = new SSLParameters()
+      noVerification.setEndpointIdentificationAlgorithm(null)
+      builder.sslParameters(noVerification)
+    }
+
+    builder.build()
   }
 
   /**
