@@ -23,25 +23,20 @@ import java.util.concurrent._
 import com.typesafe.config.{Config, ConfigFactory}
 
 /**
- * A class that caches files downloaded from HTTP(S) endpoints with various methods,
- * using Java 11+ java.net.http.HttpClient.
+ * A class that caches files downloaded from HTTP(S) endpoints with various methods, using Java 11+
+ * java.net.http.HttpClient.
  *
  * Requires running on Java 11 or newer.
  */
 class HttpFileCache(
-                     cacheDir: File,
-                     maxCacheBytes: Long,
-                     highWaterMarkFraction: Double, // e.g. 0.75 => 75%
-                     lowWaterMarkFraction: Double   // e.g. 0.50 => 50%
-                   ) {
+    cacheDir: File,
+    maxCacheBytes: Long,
+    highWaterMarkFraction: Double, // e.g. 0.75 => 75%
+    lowWaterMarkFraction: Double // e.g. 0.50 => 50%
+) {
 
   // ... existing fields and methods from your code ...
-  private case class HttpRequestKey(
-                                     method: String,
-                                     url: String,
-                                     body: Option[String],
-                                     headers: Map[String, String]
-                                   )
+  private case class HttpRequestKey(method: String, url: String, body: Option[String], headers: Map[String, String])
 
   // A concurrency-safe map of cache keys to CacheEntry
   private val cacheIndex = new ConcurrentHashMap[HttpRequestKey, CacheEntry]()
@@ -57,14 +52,12 @@ class HttpFileCache(
 
   // Basic structure to hold local file info
   private case class CacheEntry(
-                                 cacheKey: HttpRequestKey,
-                                 localPath: String,
-                                 fileSize: Long,
-                                 @volatile var lastAccess: Long
-                               )
+      cacheKey: HttpRequestKey,
+      localPath: String,
+      fileSize: Long,
+      @volatile var lastAccess: Long)
 
-  require(highWaterMarkFraction > lowWaterMarkFraction,
-    "High water mark must be greater than low water mark")
+  require(highWaterMarkFraction > lowWaterMarkFraction, "High water mark must be greater than low water mark")
 
   if (!cacheDir.exists()) cacheDir.mkdirs()
 
@@ -85,16 +78,15 @@ class HttpFileCache(
   }
 
   /**
-   * Public method: returns a local File that corresponds to (method, url, body, headers).
-   * If it's in cache, re-use it; otherwise fetch from remote.
+   * Public method: returns a local File that corresponds to (method, url, body, headers). If it's in cache, re-use it;
+   * otherwise fetch from remote.
    */
   def getLocalFileFor(
-                       method: String,
-                       remoteUrl: String,
-                       requestBody: Option[String],
-                       headers: Map[String, String] = Map.empty
-                     ): File = synchronized {
-    val now      = System.currentTimeMillis()
+      method: String,
+      remoteUrl: String,
+      requestBody: Option[String],
+      headers: Map[String, String] = Map.empty): File = synchronized {
+    val now = System.currentTimeMillis()
     val cacheKey = HttpRequestKey(method, remoteUrl, requestBody, headers)
 
     // 1) Check if cached
@@ -106,7 +98,7 @@ class HttpFileCache(
 
     // 2) Not in cache => fetch
     val localFile = downloadToCache(method, remoteUrl, requestBody, headers)
-    val fileSize  = localFile.length()
+    val fileSize = localFile.length()
 
     val entry = CacheEntry(cacheKey, localFile.getAbsolutePath, fileSize, now)
     cacheIndex.put(cacheKey, entry)
@@ -121,11 +113,10 @@ class HttpFileCache(
    * Actually perform the HTTP request & save the response to local file
    */
   private def downloadToCache(
-                               method: String,
-                               remoteUrl: String,
-                               requestBody: Option[String],
-                               headers: Map[String, String]
-                             ): File = {
+      method: String,
+      remoteUrl: String,
+      requestBody: Option[String],
+      headers: Map[String, String]): File = {
     val uri = URI.create(remoteUrl)
 
     val reqBuilder = HttpRequest.newBuilder(uri)
@@ -140,24 +131,22 @@ class HttpFileCache(
 
     headers.foreach { case (k, v) => reqBuilder.header(k, v) }
 
-    val request  = reqBuilder.build()
+    val request = reqBuilder.build()
     val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-    val status   = response.statusCode()
+    val status = response.statusCode()
 
     if (status < 200 || status >= 300) {
       response.body().close()
-      throw new RuntimeException(
-        s"HTTP $uppercaseMethod to $remoteUrl returned status code $status"
-      )
+      throw new RuntimeException(s"HTTP $uppercaseMethod to $remoteUrl returned status code $status")
     }
 
     // Save to local file
-    val baseName   = Paths.get(uri.getPath).getFileName.toString
-    val uniqueId   = UUID.randomUUID().toString.take(8)
+    val baseName = Paths.get(uri.getPath).getFileName.toString
+    val uniqueId = UUID.randomUUID().toString.take(8)
     val uniqueName = s"$uniqueId-$baseName"
-    val outFile    = new File(cacheDir, uniqueName)
+    val outFile = new File(cacheDir, uniqueName)
 
-    val inStream   = response.body()
+    val inStream = response.body()
     Files.copy(inStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
     inStream.close()
 
@@ -169,7 +158,7 @@ class HttpFileCache(
    */
   private def evictIfNeeded(): Unit = synchronized {
     val usage = currentCacheSize()
-    val high  = (maxCacheBytes * highWaterMarkFraction).toLong
+    val high = (maxCacheBytes * highWaterMarkFraction).toLong
     if (usage <= high) return
 
     val low = (maxCacheBytes * lowWaterMarkFraction).toLong
@@ -212,8 +201,8 @@ class HttpFileCache(
 /**
  * Companion object for HttpFileCache.
  *
- * - Loads config from Typesafe Config
- * - Exposes a 'global' lazy val if you want a single default instance
+ *   - Loads config from Typesafe Config
+ *   - Exposes a 'global' lazy val if you want a single default instance
  */
 object HttpFileCache {
 
@@ -221,17 +210,17 @@ object HttpFileCache {
   private val config: Config = ConfigFactory.load()
 
   /**
-   * If you want a single global instance for the entire app, define it here.
-   * The user can call HttpFileCache.global.getLocalFileFor(...)
+   * If you want a single global instance for the entire app, define it here. The user can call
+   * HttpFileCache.global.getLocalFileFor(...)
    */
   lazy val global: HttpFileCache = {
     // For example, let's read the config with some fallback defaults
-    val cacheDirStr  = config.getString("raw.das.data-files.cache-dir") // e.g. "/tmp/httpCache"
-    val cacheDir     = new File(cacheDirStr)
+    val cacheDirStr = config.getString("raw.das.data-files.cache-dir") // e.g. "/tmp/httpCache"
+    val cacheDir = new File(cacheDirStr)
 
-    val maxBytes     = config.getBytes("raw.das.data-files.cache-dir") // e.g. "1g"
-    val highFrac     = config.getDouble("raw.das.data-files.high-watermark") // e.g. 0.75
-    val lowFrac      = config.getDouble("raw.das.data-files.low-watermark")  // e.g. 0.50
+    val maxBytes = config.getBytes("raw.das.data-files.cache-dir") // e.g. "1g"
+    val highFrac = config.getDouble("raw.das.data-files.high-watermark") // e.g. 0.75
+    val lowFrac = config.getDouble("raw.das.data-files.low-watermark") // e.g. 0.50
 
     // create the instance
     new HttpFileCache(cacheDir, maxBytes, highFrac, lowFrac)
