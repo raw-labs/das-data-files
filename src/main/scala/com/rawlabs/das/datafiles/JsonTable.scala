@@ -48,13 +48,13 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
   /**
    * Override to read JSON with Spark, parse any relevant options from the `options` map.
    */
-  override protected def loadDataFrame(): DataFrame = {
+  override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     // For example, we might want multiLine option if reading multi-line JSON:
     val multiLine = config.options.get("multiLine").exists(_.toBoolean)
 
     sparkSession.read
       .option("multiLine", multiLine.toString)
       .option("inferSchema", "true")
-      .json(url)
+      .json(resolvedUrl)
   }
 }

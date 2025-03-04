@@ -54,14 +54,14 @@ class ParquetTable(config: DataFileConfig, sparkSession: SparkSession, httpFileC
    * Override to read Parquet with Spark. Typically, we do not need 'inferSchema' for Parquet because it is stored in
    * the file.
    */
-  override protected def loadDataFrame(): DataFrame = {
+  override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     // If the user provided additional Spark options for Parquet, parse them here.
     // For example, "mergeSchema", "datetimeRebaseMode", etc.
     val reader = sparkSession.read.format("parquet")
     config.options.foreach { case (key, value) =>
       reader.option(key, value)
     }
-    reader.load(url)
+    reader.load(resolvedUrl)
   }
 
 }

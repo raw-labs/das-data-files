@@ -48,7 +48,7 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
   /**
    * Override to read CSV with Spark, parse relevant CSV options from `options`.
    */
-  override protected def loadDataFrame(): DataFrame = {
+  override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     // Parse CSV-specific options from the `options` map. For example:
     val hasHeader = config.options.get("header").forall(_.toBoolean)
     val delimiter = config.options.getOrElse("delimiter", ",")
@@ -57,7 +57,7 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
       .option("header", hasHeader.toString)
       .option("inferSchema", "true")
       .option("delimiter", delimiter)
-      .csv(url)
+      .csv(resolvedUrl)
   }
 
 }

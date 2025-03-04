@@ -51,7 +51,7 @@ class XmlTable(config: DataFileConfig, spark: SparkSession, httpFileCache: HttpF
    * Override to read XML using the Databricks Spark XML library. For example, parse "rowTag", "rootTag", "charset",
    * etc. from `options`.
    */
-  override protected def loadDataFrame(): DataFrame = {
+  override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     // Typically: spark.read.format("xml").option("rowTag", "book").load(...)
     val reader = spark.read.format("xml")
 
@@ -65,6 +65,6 @@ class XmlTable(config: DataFileConfig, spark: SparkSession, httpFileCache: HttpF
       reader.option("rowTag", "row")
     }
 
-    reader.load(url)
+    reader.load(resolvedUrl)
   }
 }

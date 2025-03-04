@@ -62,7 +62,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   // -------------------------------------------------------------------
   // 1) Infer the schema and columns once, store them
   // -------------------------------------------------------------------
-  protected lazy val dfSchema: sparkTypes.StructType = loadDataFrame().schema
+  protected lazy val dfSchema: sparkTypes.StructType = loadDataFrame(resolveUrlWithCache()).schema
 
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
@@ -84,7 +84,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
       sortKeys: Seq[SortKey],
       maybeLimit: Option[Long]): DASExecuteResult = {
 
-    val df = loadDataFrame()
+    val df = loadDataFrame(resolveUrlWithCache())
     val filteredDF = applyQuals(df, quals)
 
     val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
@@ -139,12 +139,13 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   /**
    * Child class reads the file with Spark, e.g. spark.read.csv(...).
    */
-  protected def loadDataFrame(): DataFrame
+  protected def loadDataFrame(resolvedUrl: String): DataFrame
 
   protected def resolveUrlWithCache(): String = {
     if (maybeHttpConfig.isDefined) {
       val httpConfig = maybeHttpConfig.get
-      val file = httpFileCache.getLocalFileFor(httpConfig.method, url, httpConfig.body, httpConfig.headers, config.httpOptions)
+      val file =
+        httpFileCache.getLocalFileFor(httpConfig.method, url, httpConfig.body, httpConfig.headers, config.httpOptions)
       file.getAbsolutePath
     } else {
       url
