@@ -65,7 +65,10 @@ lazy val testSettings = Seq(
   Test / javaOptions ++= Seq(
     "-XX:+HeapDumpOnOutOfMemoryError",
     s"-XX:HeapDumpPath=${Paths.get(sys.env.getOrElse("SBT_FORK_OUTPUT_DIR", "target/test-results")).resolve("heap-dumps")}",
-    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"),
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+  ),
   Test / publishArtifact := true)
 
 // -----------------------------------------------------------------------------
@@ -101,6 +104,7 @@ lazy val root = (project in file("."))
         ExclusionRule(organization = "com.fasterxml.jackson.core")),
       "com.raw-labs" %% "protocol-das" % "1.0.0" % "compile->compile;test->test",
       "org.apache.spark" %% "spark-sql" % "3.5.5" % "provided",
+      "com.databricks" %% "spark-xml" % "0.18.0",
       // ScalaTest for unit tests
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",
       "org.scalatestplus" %% "mockito-5-12" % "3.2.19.0" % "test"))

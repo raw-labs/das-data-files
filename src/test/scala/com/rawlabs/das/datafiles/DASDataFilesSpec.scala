@@ -15,6 +15,7 @@ package com.rawlabs.das.datafiles
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
 
 class DASDataFilesSpec extends AnyFlatSpec with Matchers with SparkTestContext {
@@ -27,13 +28,12 @@ class DASDataFilesSpec extends AnyFlatSpec with Matchers with SparkTestContext {
     java.nio.file.Files.write(tempFile.toPath, csvContent.getBytes())
 
     // 2) Build plugin options
-    val pluginOptions: Map[String,String] = Map(
+    val pluginOptions: Map[String, String] = Map(
       "nr_tables" -> "1",
       "table0_url" -> tempFile.getAbsolutePath,
       "table0_format" -> "csv",
       "table0_name" -> "my_csv",
-      "table0_option_header" -> "true"
-    )
+      "table0_option_header" -> "true")
 
     // 3) Instantiate the plugin
     val das = new DASDataFiles(pluginOptions)

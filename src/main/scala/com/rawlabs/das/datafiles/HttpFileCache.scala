@@ -25,6 +25,12 @@ import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+// ... existing fields and methods from your code ...
+case class HttpCachetKey(method: String, url: String, body: Option[String], headers: Map[String, String])
+
+// Basic structure to hold local file info
+case class HttpCacheEntry(cacheKey: HttpCachetKey, localPath: String, fileSize: Long, @volatile var lastAccess: Long)
+
 /**
  * A class that caches files downloaded from HTTP(S) endpoints with various methods, using Java 11+
  * java.net.http.HttpClient.
@@ -38,21 +44,15 @@ class HttpFileCache(
     lowWaterMarkFraction: Double // e.g. 0.50 => 50%
 ) {
 
-  // ... existing fields and methods from your code ...
-  private case class HttpRequestKey(method: String, url: String, body: Option[String], headers: Map[String, String])
+
 
   // A concurrency-safe map of cache keys to CacheEntry
-  private val cacheIndex = new ConcurrentHashMap[HttpRequestKey, CacheEntry]()
+  private val cacheIndex = new ConcurrentHashMap[HttpCachetKey, HttpCacheEntry]()
 
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
   initScheduler()
 
-  // Basic structure to hold local file info
-  private case class CacheEntry(
-      cacheKey: HttpRequestKey,
-      localPath: String,
-      fileSize: Long,
-      @volatile var lastAccess: Long)
+
 
   require(highWaterMarkFraction > lowWaterMarkFraction, "High water mark must be greater than low water mark")
 
@@ -85,7 +85,7 @@ class HttpFileCache(
       headers: Map[String, String],
       connectionOptions: HttpConnectionOptions): File = synchronized {
     val now = System.currentTimeMillis()
-    val cacheKey = HttpRequestKey(method, remoteUrl, requestBody, headers)
+    val cacheKey = HttpCachetKey(method, remoteUrl, requestBody, headers)
 
     // 1) Check if cached
     val existing = cacheIndex.get(cacheKey)
@@ -98,7 +98,7 @@ class HttpFileCache(
     val localFile = downloadToCache(method, remoteUrl, requestBody, headers, connectionOptions)
     val fileSize = localFile.length()
 
-    val entry = CacheEntry(cacheKey, localFile.getAbsolutePath, fileSize, now)
+    val entry = HttpCacheEntry(cacheKey, localFile.getAbsolutePath, fileSize, now)
     cacheIndex.put(cacheKey, entry)
 
     // Evict if needed
@@ -110,7 +110,7 @@ class HttpFileCache(
   /**
    * Actually perform the HTTP request & save the response to local file
    */
-  private def downloadToCache(
+  private[datafiles] def downloadToCache(
       method: String,
       remoteUrl: String,
       requestBody: Option[String],
@@ -198,7 +198,7 @@ class HttpFileCache(
   /**
    * Evict LRU if usage > high water mark until usage < low water mark
    */
-  private def evictIfNeeded(): Unit = synchronized {
+  def evictIfNeeded(): Unit = synchronized {
     val usage = currentCacheSize()
     val high = (maxCacheBytes * highWaterMarkFraction).toLong
     if (usage <= high) return
@@ -207,7 +207,7 @@ class HttpFileCache(
 
     val sortedEntries = cacheIndex
       .values()
-      .toArray(new Array[CacheEntry](0))
+      .toArray(new Array[HttpCacheEntry](0))
       .sortBy(_.lastAccess)
 
     var currentUsage = usage
@@ -234,7 +234,7 @@ class HttpFileCache(
   }
 
   /** Shut down background thread. */
-  def shutdown(): Unit = {
+  def stop(): Unit = {
     scheduler.shutdown()
     // No close needed for HttpClient
   }

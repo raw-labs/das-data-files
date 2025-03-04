@@ -12,7 +12,8 @@
 
 package com.rawlabs.das.datafiles
 
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers._
@@ -21,13 +22,10 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.File
+import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
+import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
 
-class CsvTableSpec
-  extends AnyFlatSpec
-    with Matchers
-    with SparkTestContext
-    with BeforeAndAfterAll {
+class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   // A small CSV file content for testing
   private val csvContent =
@@ -35,6 +33,7 @@ class CsvTableSpec
       |1,Alice
       |2,Bob
       |3,Carol
+      |4,alice
       |""".stripMargin
 
   // We'll create a local temp CSV file that the "HTTP" mock will return
@@ -54,13 +53,11 @@ class CsvTableSpec
     // For any call to getLocalFileFor with the given URL, return our local CSV
     when(
       mockCache.getLocalFileFor(
-        anyString(),             // method
-        ArgumentMatchers.eq("http://mocked.com/test.csv"),  // remoteUrl
+        anyString(), // method
+        ArgumentMatchers.eq("http://mocked.com/test.csv"), // remoteUrl
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]()
-      )
-    ).thenReturn(tempCsvFile)
+        any[HttpConnectionOptions]())).thenReturn(tempCsvFile)
   }
 
   behavior of "CsvTable.execute()"
@@ -68,73 +65,187 @@ class CsvTableSpec
   it should "return rows from CSV when the URL is HTTP" in {
     // 1) Build a DataFileConfig with a URL that looks HTTP
     val config = DataFileConfig(
-      name    = "testCsv",
-      url     = "http://mocked.com/test.csv",
-      format  = Some("csv"),
+      name = "testCsv",
+      url = "http://mocked.com/test.csv",
+      format = Some("csv"),
       options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(
-        followRedirects = true,
-        connectTimeout = 10000,
-        readTimeout    = 10000,
-        sslTRustAll    = false
-      )
-    )
+      httpOptions =
+        HttpConnectionOptions(followRedirects = true, connectTimeout = 10000, readTimeout = 10000, sslTRustAll = false))
 
     // 2) Instantiate the CSV table
     val table = new CsvTable(config, spark, mockCache)
 
     // 3) We call 'execute' with no quals, no columns => return all columns
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
-
     // 4) We'll read rows
-    result.hasNext shouldBe true
-    val row1 = result.next() // Row => we can check the first row's columns
+    val expected =
+      Seq((1, "Alice"), (2, "Bob"), (3, "Carol"), (4, "alice"))
 
-    row1.getColumnsCount shouldBe 2  // "id", "name"
-
-    // for clarity, let's parse them
-    val colId_1   = row1.getColumns(0).getData.getInt.getV
-    val colName_1 = row1.getColumns(1).getData.getString.getV
-    colId_1 shouldBe 1
-    colName_1 shouldBe "Alice"
-
-    result.hasNext shouldBe true
-    val row2 = result.next()
-    val colId_2   = row2.getColumns(0).getData.getInt.getV
-    val colName_2 = row2.getColumns(1).getData.getString.getV
-    colId_2 shouldBe 2
-    colName_2 shouldBe "Bob"
-
-    result.hasNext shouldBe true
-    val row3 = result.next()
-    val colId_3   = row3.getColumns(0).getData.getInt.getV
-    val colName_3 = row3.getColumns(1).getData.getString.getV
-    colId_3 shouldBe 3
-    colName_3 shouldBe "Carol"
+    expected.foreach { case (id, name) =>
+      result.hasNext shouldBe true
+      val row = result.next()
+      row.getColumnsCount shouldBe 2
+      row.getColumns(0).getData.getInt.getV shouldBe id
+      row.getColumns(1).getData.getString.getV shouldBe name
+    }
 
     result.hasNext shouldBe false
   }
 
   it should "allow a limit param" in {
     val config = DataFileConfig(
-      name    = "testCsvLimit",
-      url     = "http://mocked.com/test.csv",
-      format  = Some("csv"),
+      name = "testCsvLimit",
+      url = "http://mocked.com/test.csv",
+      format = Some("csv"),
       options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(true,10000,10000,false)
-    )
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
 
     val table = new CsvTable(config, spark, mockCache)
 
     // ask for a limit=2
     val result = table.execute(Nil, Nil, Nil, Some(2L))
 
+    val expected = Seq((1, "Alice"), (2, "Bob"))
+
+    expected.foreach { case (id, name) =>
+      result.hasNext shouldBe true
+      val row = result.next()
+      row.getColumnsCount shouldBe 2
+      row.getColumns(0).getData.getInt.getV shouldBe id
+      row.getColumns(1).getData.getString.getV shouldBe name
+    }
+  }
+
+  it should "throw on insert/update/delete" in {
+    val config = DataFileConfig(
+      name = "readOnlyTest",
+      url = "http://mocked.com/test.csv",
+      format = Some("csv"),
+      options = Map("header" -> "true"),
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+    val table = new CsvTable(config, spark, mockCache)
+
+    an[com.rawlabs.das.sdk.DASSdkException] should be thrownBy {
+      table.insert(com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
+    }
+    an[com.rawlabs.das.sdk.DASSdkException] should be thrownBy {
+      table.update(
+        com.rawlabs.protocol.das.v1.types.Value
+          .newBuilder()
+          .setInt(com.rawlabs.protocol.das.v1.types.ValueInt.newBuilder().setV(1))
+          .build(),
+        com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
+    }
+    an[com.rawlabs.das.sdk.DASSdkException] should be thrownBy {
+      table.delete(
+        com.rawlabs.protocol.das.v1.types.Value
+          .newBuilder()
+          .setInt(com.rawlabs.protocol.das.v1.types.ValueInt.newBuilder().setV(1))
+          .build())
+    }
+  }
+
+  it should "filter rows with EQUALS operator" in {
+    val config = DataFileConfig(
+      name = "testPushdownCsv",
+      url = "http://mocked.com/test.csv",
+      format = Some("csv"),
+      options = Map("header" -> "true"),
+      httpOptions = HttpConnectionOptions(true, 10000, 10000, false))
+
+    val table = new CsvTable(config, spark, mockCache)
+
+    // Qual => "id = 2"
+    val qual = Qual
+      .newBuilder()
+      .setName("id")
+      .setSimpleQual(
+        SimpleQual
+          .newBuilder()
+          .setOperator(Operator.EQUALS)
+          .setValue(Value.newBuilder().setInt(ValueInt.newBuilder().setV(2))))
+      .build()
+
+    val result = table.execute(Seq(qual), Seq.empty, Seq.empty, None)
     result.hasNext shouldBe true
-    val row1 = result.next()
-    println(s"row1: $row1")
-    result.hasNext shouldBe true
-    val row2 = result.next()
-    println(s"row2: $row2")
+    val row = result.next()
+    val idVal = row.getColumns(0).getData.getInt.getV
+    val nameVal = row.getColumns(1).getData.getString.getV
+
+    idVal shouldBe 2
+    nameVal shouldBe "Bob"
     result.hasNext shouldBe false
   }
+
+  it should "filter rows with ILIKE operator" in {
+    val config = DataFileConfig(
+      name = "testILikeCsv",
+      url = "http://mocked.com/test.csv",
+      format = Some("csv"),
+      options = Map("header" -> "true"),
+      httpOptions = HttpConnectionOptions(true, 10000, 10000, false))
+
+    val table = new CsvTable(config, spark, mockCache)
+
+    // Qual => "name ILIKE 'alice'"
+    // Should match both "Alice" and "alice"
+    val qual = Qual
+      .newBuilder()
+      .setName("name")
+      .setSimpleQual(
+        SimpleQual
+          .newBuilder()
+          .setOperator(Operator.ILIKE)
+          .setValue(Value.newBuilder().setString(ValueString.newBuilder().setV("alice"))))
+      .build()
+
+    val result = table.execute(Seq(qual), Seq.empty, Seq.empty, None)
+
+    // Expect two matches: "Alice" and "alice"
+    result.hasNext shouldBe true
+    val row1 = result.next()
+    row1.getColumns(0).getData.getInt.getV shouldBe 1 // ID=1
+    row1.getColumns(1).getData.getString.getV shouldBe "Alice"
+
+    result.hasNext shouldBe true
+    val row2 = result.next()
+    row2.getColumns(0).getData.getInt.getV shouldBe 4 // ID=4
+    row2.getColumns(1).getData.getString.getV shouldBe "alice"
+
+    result.hasNext shouldBe false
+  }
+
+  it should "apply sorting with sortKeys" in {
+    val config = DataFileConfig(
+      name = "testSortCsv",
+      url = "http://mocked.com/test.csv",
+      format = Some("csv"),
+      options = Map("header" -> "true"),
+      httpOptions = HttpConnectionOptions(true, 10000, 10000, false))
+
+    val table = new CsvTable(config, spark, mockCache)
+
+    // Sort by name descending
+    val sortKey = SortKey
+      .newBuilder()
+      .setName("name")
+      .setIsReversed(true) // DESC
+      .build()
+
+    val result = table.execute(Nil, Nil, Seq(sortKey), None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+
+    // We have name values: "alice", "Alice", "Bob", "Carol"
+    // Desc sort by name => "alice" > "Carol" > "Bob" > "Alice" in pure string ordering?
+    // Actually, in ASCII sorting, uppercase < lowercase. So let's see the order:
+    //   "alice" (ASCII 97)
+    //   "Carol" (ASCII 67 => 'C' is after 'a'? Actually 'C' is 67)
+    //   "Bob"   (ASCII 66 => 'B' is 66)
+    //   "Alice" (ASCII 65 => 'A' is 65)
+    //
+    // Desc => "alice" -> "Carol" -> "Bob" -> "Alice"
+
+    rows.map(r => r.getColumns(1).getData.getString.getV) shouldBe List("alice", "Carol", "Bob", "Alice")
+  }
+
 }
