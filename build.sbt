@@ -66,9 +66,8 @@ lazy val testSettings = Seq(
     "-XX:+HeapDumpOnOutOfMemoryError",
     s"-XX:HeapDumpPath=${Paths.get(sys.env.getOrElse("SBT_FORK_OUTPUT_DIR", "target/test-results")).resolve("heap-dumps")}",
     "--add-opens=java.base/java.io=ALL-UNNAMED",
-    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
     "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
-  ),
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"),
   Test / publishArtifact := true)
 
 // -----------------------------------------------------------------------------

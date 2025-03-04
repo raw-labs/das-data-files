@@ -29,6 +29,12 @@ class XmlTableSpec
     with SparkTestContext
     with BeforeAndAfterAll {
 
+  import java.lang.management.ManagementFactory
+
+  println("=== JVM Input Arguments ===")
+  ManagementFactory.getRuntimeMXBean.getInputArguments.forEach(println)
+  println("===========================")
+
   private val xmlContent =
     """<rows>
       |  <row><id>1</id><name>Alice</name></row>
@@ -70,19 +76,19 @@ class XmlTableSpec
     val table = new XmlTable(config, spark, mockCache)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
 
-    result.hasNext shouldBe true
-    val row1 = result.next()
-    row1.getColumnsCount shouldBe 2
-    row1.getColumns(0).getName shouldBe "id"
-    row1.getColumns(0).getData.getInt.getV shouldBe 1
-    row1.getColumns(1).getName shouldBe "name"
-    row1.getColumns(1).getData.getString.getV shouldBe "Alice"
+    val rows = Iterator
+      .continually(result)
+      .takeWhile(_.hasNext)
+      .map { x =>
+        val row = x.next()
+        row.getColumns(0).getName shouldBe "id"
+        row.getColumns(1).getName shouldBe "name"
+        (row.getColumns(0).getData.getLong.getV, row.getColumns(1).getData.getString.getV)
+      }
+      .toList
 
-    result.hasNext shouldBe true
-    val row2 = result.next()
-    row2.getColumns(0).getData.getInt.getV shouldBe 2
-    row2.getColumns(1).getData.getString.getV shouldBe "Bob"
+    assert(rows == List((1, "Alice"), (2, "Bob")))
 
-    result.hasNext shouldBe false
   }
+
 }

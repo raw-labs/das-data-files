@@ -14,11 +14,22 @@ package com.rawlabs.das.datafiles
 import org.apache.spark.sql.SparkSession
 
 trait SparkTestContext {
+
+  private val extraJvmOptions = Seq(
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED")
+
   lazy val spark: SparkSession = {
-    SparkSession.builder()
+    SparkSession
+      .builder()
       .appName("TestSpark")
       .master("local[*]")
       .config("spark.ui.enabled", "false")
+      .config("spark.driver.extraJavaOptions", extraJvmOptions.mkString(" "))
+      .config("spark.executor.extraJavaOptions", extraJvmOptions.mkString(" "))
       .getOrCreate()
   }
 }
