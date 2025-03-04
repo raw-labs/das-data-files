@@ -64,7 +64,8 @@ lazy val testSettings = Seq(
   },
   Test / javaOptions ++= Seq(
     "-XX:+HeapDumpOnOutOfMemoryError",
-    s"-XX:HeapDumpPath=${Paths.get(sys.env.getOrElse("SBT_FORK_OUTPUT_DIR", "target/test-results")).resolve("heap-dumps")}"),
+    s"-XX:HeapDumpPath=${Paths.get(sys.env.getOrElse("SBT_FORK_OUTPUT_DIR", "target/test-results")).resolve("heap-dumps")}",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"),
   Test / publishArtifact := true)
 
 // -----------------------------------------------------------------------------
@@ -94,11 +95,15 @@ lazy val root = (project in file("."))
     publishSettings,
     libraryDependencies ++= Seq(
       // RAW Labs DAS & Protocol
-      "com.raw-labs" %% "das-server-scala" % "0.3.2" % "compile->compile;test->test",
+      "com.raw-labs" %% "das-server-scala" % "0.3.2" % "compile->compile;test->test" excludeAll (
+        ExclusionRule(organization = "org.slf4j"),
+        ExclusionRule(organization = "com.fasterxml.jackson.databind"),
+        ExclusionRule(organization = "com.fasterxml.jackson.core")),
       "com.raw-labs" %% "protocol-das" % "1.0.0" % "compile->compile;test->test",
-      "org.apache.spark" %% "spark-sql" % "3.5.4" % "provided",
+      "org.apache.spark" %% "spark-sql" % "3.5.5" % "provided",
       // ScalaTest for unit tests
-      "org.scalatest" %% "scalatest" % "3.2.19" % "test"))
+      "org.scalatest" %% "scalatest" % "3.2.19" % "test",
+      "org.scalatestplus" %% "mockito-5-12" % "3.2.19.0" % "test"))
 
 // -----------------------------------------------------------------------------
 // Docker Project: builds a Docker image for the DAS server
