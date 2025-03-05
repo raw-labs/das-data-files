@@ -31,6 +31,8 @@ object DASDataFiles {
     options.s3Credentials.foreach { creds =>
       builder.config("fs.s3a.access.key", creds.accessKey)
       builder.config("fs.s3a.secret.key", creds.secretKey)
+      // disabling s3 metrics
+      builder.config("fs.s3a.metrics.conf", "")
     }
     builder.config(options.extraSparkConfig)
     builder.getOrCreate()

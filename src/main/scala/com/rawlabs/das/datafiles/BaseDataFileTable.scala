@@ -12,6 +12,8 @@
 
 package com.rawlabs.das.datafiles
 
+import java.net.URI
+
 import scala.jdk.CollectionConverters._
 
 import org.apache.spark.sql.functions._
@@ -51,24 +53,26 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
   override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)
 
-  private val maybeHttpConfig: Option[HttpTableConfig] = if (url.startsWith("http://") || url.startsWith("https://")) {
-    val method = config.options.getOrElse("http_method", "GET")
-    val headerPrefix = "http_header_"
-    val headers = config.options.collect {
-      case (k, v) if k.startsWith(headerPrefix) => (k.drop(headerPrefix.length), v)
-    }
+  private val uri = URI.create(config.url)
 
-    val body = config.options.get("http_body")
-    Some(HttpTableConfig(method, headers, body))
-  } else {
-    None
-  }
+  private val maybeHttpConfig: Option[HttpTableConfig] =
+    if (uri.getScheme == "http" || uri.getScheme == "https") {
+      val method = config.options.getOrElse("http_method", "GET")
+      val headerPrefix = "http_header_"
+      val headers = config.options.collect {
+        case (k, v) if k.startsWith(headerPrefix) => (k.drop(headerPrefix.length), v)
+      }
+      val body = config.options.get("http_body")
+      Some(HttpTableConfig(method, headers, body))
+    } else {
+      None
+    }
 
   // -------------------------------------------------------------------
   // 1) Infer the schema and columns once, store them
   // -------------------------------------------------------------------
   protected lazy val dfSchema: sparkTypes.StructType = {
-    val resolved = maybeAquireFile()
+    val resolved = resolveUrl()
     try {
       loadDataFrame(resolved).schema
     } finally {
@@ -96,7 +100,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
       sortKeys: Seq[SortKey],
       maybeLimit: Option[Long]): DASExecuteResult = {
 
-    val resolved = maybeAquireFile()
+    val resolved = resolveUrl()
     try {
       val df = loadDataFrame(resolved)
       val filteredDF = applyQuals(df, quals)
@@ -157,10 +161,20 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
    */
   protected def loadDataFrame(resolvedUrl: String): DataFrame
 
-  private def maybeAquireFile(): String = {
-    maybeHttpConfig
-      .map(http => httpFileCache.acquireFor(http.method, url, http.body, http.headers, config.httpOptions))
-      .getOrElse(url)
+  /**
+   * Downloads the file if needed, and returns the resolved URL. For s3 buckets it will replace s3:// with s3a://
+   * @return
+   */
+  private def resolveUrl(): String = {
+    if (uri.getScheme == "s3") {
+      "s3a://" + url.stripPrefix("s3://")
+    } else if (uri.getScheme == "http" || uri.getScheme == "https") {
+      val http = maybeHttpConfig.get
+      httpFileCache.acquireFor(http.method, url, http.body, http.headers, config.httpOptions)
+    } else {
+      url
+    }
+
   }
 
   private def releaseFile(): Unit = {

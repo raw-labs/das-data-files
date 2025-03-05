@@ -98,12 +98,15 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       // RAW Labs DAS & Protocol
       "com.raw-labs" %% "das-server-scala" % "0.3.2" % "compile->compile;test->test" excludeAll (
-//        ExclusionRule(organization = "org.slf4j"),
+        ExclusionRule(organization = "org.slf4j"),
         ExclusionRule(organization = "com.fasterxml.jackson.databind"),
         ExclusionRule(organization = "com.fasterxml.jackson.core")),
       "com.raw-labs" %% "protocol-das" % "1.0.0" % "compile->compile;test->test",
+      // spark hadoop dependencies
       "org.apache.spark" %% "spark-sql" % "3.5.5",
       "com.databricks" %% "spark-xml" % "0.18.0",
+      "org.apache.hadoop" % "hadoop-aws" % "3.4.1",
+      "org.apache.hadoop" % "hadoop-common" % "3.4.1",
       // ScalaTest for unit tests
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",
       "org.scalatestplus" %% "mockito-5-12" % "3.2.19.0" % "test"))
@@ -153,6 +156,7 @@ lazy val dockerSettings = strictBuildSettings ++ Seq(
       ("--add-opens=java.base/java.io=ALL-UNNAMED " +
         "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED " +
         "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"),
+  dockerEnvVars += "HADOOP_HOME" -> "/usr/local/hadoop",
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / mappings := Seq(),
   updateOptions := updateOptions.value.withLatestSnapshots(true),
@@ -205,4 +209,7 @@ lazy val docker = (project in file("docker"))
   .settings(
     strictBuildSettings,
     dockerSettings,
-    libraryDependencies += "com.raw-labs" %% "das-server-scala" % "0.3.0" % "compile->compile;test->test")
+    libraryDependencies += "com.raw-labs" %% "das-server-scala" % "0.3.0" % "compile->compile;test->test" excludeAll (
+      ExclusionRule(organization = "org.slf4j"),
+      ExclusionRule(organization = "com.fasterxml.jackson.databind"),
+      ExclusionRule(organization = "com.fasterxml.jackson.core")))
