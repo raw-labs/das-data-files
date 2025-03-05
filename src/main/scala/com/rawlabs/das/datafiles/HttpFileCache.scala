@@ -26,6 +26,7 @@ import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
 
 import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.scalalogging.StrictLogging
 
 // The key
 case class HttpCacheKey(method: String, url: String, body: Option[String], headers: Map[String, String])
@@ -41,7 +42,7 @@ class HttpFileCache(
     cacheDir: File,
     idleTimeoutMillis: Long, // e.g. 60_000 for 1 minute
     evictionCheckInterval: Long // how often the background thread checks, e.g. 10_000 ms
-) {
+) extends StrictLogging {
 
   require(idleTimeoutMillis >= 0, "idleTimeoutMillis must be non-negative")
   require(evictionCheckInterval > 0, "evictionCheckInterval must be positive")
@@ -89,9 +90,10 @@ class HttpFileCache(
     val existing = cacheIndex.get(key)
     if (existing != null) {
       existing.usageCount += 1
+      logger.debug(s"Existing file for: $method $url headers-size=${headers.size}, usageCount=${existing.usageCount}")
       return existing.localPath
     }
-
+    logger.debug(s"Downloading file for: $method $url headers-size=${headers.size}")
     // Not in cache => download
     val localFile = downloadToCache(key, options)
     val fileSize = localFile.length()
@@ -112,18 +114,23 @@ class HttpFileCache(
    */
   def releaseFile(method: String, url: String, body: Option[String], headers: Map[String, String]): Unit =
     synchronized {
+
       val key = HttpCacheKey(method, url, body, headers)
       val entry = cacheIndex.get(key)
       if (entry == null) {
+        logger.warn(s"Could not release, entry not found: $method $url headers-size=${headers.size}")
         // not found => might be a bug or repeated release
         return
       }
+
       if (entry.usageCount > 0) {
         entry.usageCount -= 1
-        if (entry.usageCount == 0) {
-          entry.lastReleaseTime = System.currentTimeMillis()
-        }
+        entry.lastReleaseTime = System.currentTimeMillis()
+        logger.debug(s"Released file for: $method $url headers-size=${headers.size}, usageCount=${entry.usageCount}")
+      } else {
+        logger.warn(s"Released file with usageCount=0: $method $url headers-size=${headers.size}")
       }
+
     }
 
   /**
@@ -215,7 +222,7 @@ class HttpFileCache(
     val it = cacheIndex.values().iterator()
     while (it.hasNext) {
       val entry = it.next()
-      if (entry.usageCount == 0 && (now - entry.lastReleaseTime) > idleTimeoutMillis) {
+      if (entry.usageCount <= 0 && (now - entry.lastReleaseTime) > idleTimeoutMillis) {
         // remove from map
         it.remove()
         // delete file

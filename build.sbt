@@ -148,6 +148,11 @@ lazy val dockerSettings = strictBuildSettings ++ Seq(
     Cmd("USER", "raw")),
   dockerEnvVars += "LANG" -> "C.UTF-8",
   dockerEnvVars += "JAVA_HOME" -> "/usr/lib/jvm/java-21-amazon-corretto",
+  dockerEnvVars +=
+    "JDK_JAVA_OPTIONS" ->
+      ("--add-opens=java.base/java.io=ALL-UNNAMED " +
+        "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED " +
+        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"),
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / mappings := Seq(),
   updateOptions := updateOptions.value.withLatestSnapshots(true),

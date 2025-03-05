@@ -51,7 +51,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
   override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)
 
-  private val maybeHttpConfig: Option[HttpTableConfig] = if (url.startsWith("http://") | url.startsWith("https://")) {
+  private val maybeHttpConfig: Option[HttpTableConfig] = if (url.startsWith("http://") || url.startsWith("https://")) {
     val method = config.options.getOrElse("http_method", "GET")
     val headerPrefix = "http_header_"
     val headers = config.options.collect {
