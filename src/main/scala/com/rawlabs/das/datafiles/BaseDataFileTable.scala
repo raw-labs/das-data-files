@@ -14,13 +14,16 @@ package com.rawlabs.das.datafiles
 
 import scala.jdk.CollectionConverters._
 
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, types => sparkTypes}
 
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkException}
+import com.rawlabs.protocol.das.v1.query.Operator
 import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
 import com.rawlabs.protocol.das.v1.tables.{Column => ProtoColumn, Row => ProtoRow, TableDefinition}
 import com.rawlabs.protocol.das.v1.types._
+import com.typesafe.scalalogging.StrictLogging
 
 /**
  * An abstract base class for "Data File" tables. Common logic:
@@ -30,7 +33,9 @@ import com.rawlabs.protocol.das.v1.types._
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFileCache) extends DASTable {
+abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFileCache)
+    extends DASTable
+    with StrictLogging {
 
   private case class HttpTableConfig(method: String, headers: Map[String, String], body: Option[String])
 
@@ -62,7 +67,14 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   // -------------------------------------------------------------------
   // 1) Infer the schema and columns once, store them
   // -------------------------------------------------------------------
-  protected lazy val dfSchema: sparkTypes.StructType = loadDataFrame(resolveUrlWithCache()).schema
+  protected lazy val dfSchema: sparkTypes.StructType = {
+    val resolved = maybeAquireFile()
+    try {
+      loadDataFrame(resolved).schema
+    } finally {
+      releaseFile()
+    }
+  }
 
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
@@ -84,42 +96,46 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
       sortKeys: Seq[SortKey],
       maybeLimit: Option[Long]): DASExecuteResult = {
 
-    val df = loadDataFrame(resolveUrlWithCache())
-    val filteredDF = applyQuals(df, quals)
+    val resolved = maybeAquireFile()
+    try {
+      val df = loadDataFrame(resolved)
+      val filteredDF = applyQuals(df, quals)
 
-    val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
-    val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
+      val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
+      val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
 
-    // applySortKeys *before* limit
-    val dfSorted = applySortKeys(dfSelected, sortKeys)
+      // applySortKeys *before* limit
+      val dfSorted = applySortKeys(dfSelected, sortKeys)
 
-    val dfLimited = maybeLimit match {
-      case Some(l) => dfSorted.limit(l.toInt)
-      case None    => dfSorted
-    }
-
-    val sparkIter = dfLimited.toLocalIterator().asScala
-
-    // For quick lookup of col -> DAS Type
-    val colTypesMap: Map[String, Type] = columns.toMap
-
-    new DASExecuteResult {
-      override def hasNext: Boolean = sparkIter.hasNext
-
-      override def next(): ProtoRow = {
-        val rowBuilder = ProtoRow.newBuilder()
-        val row = sparkIter.next()
-
-        finalCols.foreach { col =>
-          val rawVal = row.getAs[Any](col)
-          val dasType = colTypesMap.getOrElse(col, throw new DASSdkException(s"Column $col not found in schema"))
-          val protoVal = rawToProtoValue(rawVal, dasType, col)
-          rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
-        }
-        rowBuilder.build()
+      val dfLimited = maybeLimit match {
+        case Some(l) => dfSorted.limit(l.toInt)
+        case None    => dfSorted
       }
 
-      override def close(): Unit = {}
+      val sparkIter = dfLimited.toLocalIterator().asScala
+
+      // For quick lookup of col -> DAS Type
+      val colTypesMap: Map[String, Type] = columns.toMap
+
+      new DASExecuteResult {
+        override def hasNext: Boolean = sparkIter.hasNext
+
+        override def next(): ProtoRow = {
+          val rowBuilder = ProtoRow.newBuilder()
+          val row = sparkIter.next()
+
+          finalCols.foreach { col =>
+            val rawVal = row.getAs[Any](col)
+            val dasType = colTypesMap.getOrElse(col, throw new DASSdkException(s"Column $col not found in schema"))
+            val protoVal = rawToProtoValue(rawVal, dasType, col)
+            rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
+          }
+          rowBuilder.build()
+        }
+        override def close(): Unit = {}
+      }
+    } finally {
+      releaseFile()
     }
   }
 
@@ -141,23 +157,20 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
    */
   protected def loadDataFrame(resolvedUrl: String): DataFrame
 
-  protected def resolveUrlWithCache(): String = {
-    if (maybeHttpConfig.isDefined) {
-      val httpConfig = maybeHttpConfig.get
-      val file =
-        httpFileCache.getLocalFileFor(httpConfig.method, url, httpConfig.body, httpConfig.headers, config.httpOptions)
-      file.getAbsolutePath
-    } else {
-      url
-    }
+  private def maybeAquireFile(): String = {
+    maybeHttpConfig
+      .map(http => httpFileCache.acquireFor(http.method, url, http.body, http.headers, config.httpOptions))
+      .getOrElse(url)
+  }
+
+  private def releaseFile(): Unit = {
+    maybeHttpConfig.foreach(http => httpFileCache.releaseFile(http.method, url, http.body, http.headers))
   }
 
   // -------------------------------------------------------------------
   // 4) Optionally, common pushdown logic
   // -------------------------------------------------------------------
   private def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
-    import org.apache.spark.sql.functions._
-    import com.rawlabs.protocol.das.v1.query.Operator
 
     var result = df
 

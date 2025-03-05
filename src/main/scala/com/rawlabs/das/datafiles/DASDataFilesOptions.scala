@@ -38,18 +38,18 @@ class DASDataFilesOptions(options: Map[String, String]) {
   // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
   val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)
 
-  val s3Credentials: Option[awsCredential] = options.get("awsAccessKey").map { accessKey =>
-    val secretKey = options.getOrElse("awsSecretKey", throw new DASSdkException("aswSecretKey not found"))
+  val s3Credentials: Option[awsCredential] = options.get("aws_accessKey").map { accessKey =>
+    val secretKey = options.getOrElse("aws_secretKey", throw new DASSdkException("aswSecretKey not found"))
     awsCredential(accessKey, secretKey)
   }
 
   val extraSparkConfig: Map[String, String] = options.filter(x => x._1.startsWith("extra_config_"))
 
   val httpOptions: HttpConnectionOptions = {
-    val followRedirects = options.getOrElse("http_option_followRedirects", "true").toBoolean
-    val connectTimeout = options.getOrElse("http_option_connectTimeout", "10000").toInt
-    val readTimeout = options.getOrElse("http_option_readTimeout", "10000").toInt
-    val sslTRustAll = options.getOrElse("http_option_sslTrustAll", "false").toBoolean
+    val followRedirects = options.getOrElse("http_follow_redirects", "true").toBoolean
+    val connectTimeout = options.getOrElse("http_connect_timeout", "10000").toInt
+    val readTimeout = options.getOrElse("http_read_timeout", "10000").toInt
+    val sslTRustAll = options.getOrElse("http_ssl_trust_all", "false").toBoolean
     HttpConnectionOptions(followRedirects, connectTimeout, readTimeout, sslTRustAll)
   }
 
@@ -81,17 +81,11 @@ class DASDataFilesOptions(options: Map[String, String]) {
       }
 
       // Gather all prefixed options into a sub-map for this table
-      val option_prefix = s"${prefix}option_"
       val tableOptions = options.collect {
-        case (k, v) if k.startsWith(option_prefix) => (k.drop(option_prefix.length), v)
+        case (k, v) if k.startsWith(prefix) => (k.drop(prefix.length), v)
       }.toMap
 
-      DataFileConfig(
-        name = tableName,
-        url = url,
-        format = format,
-        options = tableOptions,
-        httpOptions = httpOptions)
+      DataFileConfig(name = tableName, url = url, format = format, options = tableOptions, httpOptions = httpOptions)
     }
   }
 

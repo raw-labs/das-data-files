@@ -52,12 +52,12 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
 
     // For any call to getLocalFileFor with the given URL, return our local CSV
     when(
-      mockCache.getLocalFileFor(
+      mockCache.acquireFor(
         anyString(), // method
         ArgumentMatchers.eq("http://mocked.com/test.csv"), // remoteUrl
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempCsvFile)
+        any[HttpConnectionOptions]())).thenReturn(tempCsvFile.getAbsolutePath)
   }
 
   behavior of "CsvTable.execute()"
@@ -151,7 +151,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
       options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(true, 10000, 10000, false))
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
 
     val table = new CsvTable(config, spark, mockCache)
 
@@ -183,7 +183,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
       options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(true, 10000, 10000, false))
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
 
     val table = new CsvTable(config, spark, mockCache)
 
@@ -221,7 +221,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
       options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(true, 10000, 10000, false))
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
 
     val table = new CsvTable(config, spark, mockCache)
 

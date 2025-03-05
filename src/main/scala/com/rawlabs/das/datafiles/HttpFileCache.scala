@@ -12,132 +12,143 @@
 
 package com.rawlabs.das.datafiles
 
+import com.typesafe.config.{Config, ConfigFactory}
+
 import java.io.File
 import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
 import java.net.http.HttpRequest.{BodyPublisher, BodyPublishers}
-import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.net.http.HttpResponse
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.UUID
-import java.util.concurrent._
+import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
 
-import com.typesafe.config.{Config, ConfigFactory}
-
-// ... existing fields and methods from your code ...
-case class HttpCachetKey(method: String, url: String, body: Option[String], headers: Map[String, String])
-
-// Basic structure to hold local file info
-case class HttpCacheEntry(cacheKey: HttpCachetKey, localPath: String, fileSize: Long, @volatile var lastAccess: Long)
+// The key
+case class HttpCacheKey(method: String, url: String, body: Option[String], headers: Map[String, String])
 
 /**
- * A class that caches files downloaded from HTTP(S) endpoints with various methods, using Java 11+
- * java.net.http.HttpClient.
+ * A reference-counted HTTP file cache:
  *
- * Requires running on Java 11 or newer.
+ *   - Acquire a file via 'acquireFileFor', returns a local file, increments usageCount.
+ *   - Release it via 'releaseFile', decrements usageCount.
+ *   - If usageCount == 0, we wait idleTimeoutMillis from the last release before deleting the file.
  */
 class HttpFileCache(
     cacheDir: File,
-    maxCacheBytes: Long,
-    highWaterMarkFraction: Double, // e.g. 0.75 => 75%
-    lowWaterMarkFraction: Double // e.g. 0.50 => 50%
+    idleTimeoutMillis: Long, // e.g. 60_000 for 1 minute
+    evictionCheckInterval: Long // how often the background thread checks, e.g. 10_000 ms
 ) {
 
-
-
-  // A concurrency-safe map of cache keys to CacheEntry
-  private val cacheIndex = new ConcurrentHashMap[HttpCachetKey, HttpCacheEntry]()
-
-  private val scheduler = Executors.newSingleThreadScheduledExecutor()
-  initScheduler()
-
-
-
-  require(highWaterMarkFraction > lowWaterMarkFraction, "High water mark must be greater than low water mark")
+  require(idleTimeoutMillis >= 0, "idleTimeoutMillis must be non-negative")
+  require(evictionCheckInterval > 0, "evictionCheckInterval must be positive")
 
   if (!cacheDir.exists()) cacheDir.mkdirs()
 
-  /**
-   * Periodically run eviction
-   */
+  // The cache entry with reference counting
+  private case class CacheEntry(
+      key: HttpCacheKey,
+      localPath: String, // where the file is stored
+      var usageCount: Int, // how many clients are using it
+      var lastReleaseTime: Long,
+      var fileSize: Long)
+
+  // Internal map from key -> CacheEntry
+  private val cacheIndex = new ConcurrentHashMap[HttpCacheKey, CacheEntry]()
+
+  // Start a background thread to periodically evict unused files
+  private val scheduler = Executors.newSingleThreadScheduledExecutor()
+  initScheduler()
+
   private def initScheduler(): Unit = {
     val task = new Runnable {
       override def run(): Unit = {
-        try evictIfNeeded()
+        try evictUnusedEntries()
         catch {
           case e: Throwable => e.printStackTrace()
         }
       }
     }
-    // check every 60 seconds
-    scheduler.scheduleAtFixedRate(task, 60, 60, TimeUnit.SECONDS)
+    scheduler.scheduleAtFixedRate(task, evictionCheckInterval, evictionCheckInterval, TimeUnit.MILLISECONDS)
   }
 
   /**
-   * Public method: returns a local File that corresponds to (method, url, body, headers). If it's in cache, re-use it;
-   * otherwise fetch from remote.
+   * Acquire a file from cache, increment usageCount. If not present, download it from the remote URL and store it in
+   * the cache.
    */
-  def getLocalFileFor(
+  def acquireFor(
       method: String,
-      remoteUrl: String,
-      requestBody: Option[String],
+      url: String,
+      body: Option[String],
       headers: Map[String, String],
-      connectionOptions: HttpConnectionOptions): File = synchronized {
-    val now = System.currentTimeMillis()
-    val cacheKey = HttpCachetKey(method, remoteUrl, requestBody, headers)
-
-    // 1) Check if cached
-    val existing = cacheIndex.get(cacheKey)
+      options: HttpConnectionOptions): String = synchronized {
+    val key = HttpCacheKey(method, url, body, headers)
+    val existing = cacheIndex.get(key)
     if (existing != null) {
-      existing.lastAccess = now
-      return new File(existing.localPath)
+      existing.usageCount += 1
+      return existing.localPath
     }
 
-    // 2) Not in cache => fetch
-    val localFile = downloadToCache(method, remoteUrl, requestBody, headers, connectionOptions)
+    // Not in cache => download
+    val localFile = downloadToCache(key, options)
     val fileSize = localFile.length()
+    val newEntry = CacheEntry(
+      key = key,
+      localPath = localFile.getAbsolutePath,
+      usageCount = 1, // we are acquiring now
+      lastReleaseTime = 0L, // not relevant yet
+      fileSize = fileSize)
+    cacheIndex.put(key, newEntry)
 
-    val entry = HttpCacheEntry(cacheKey, localFile.getAbsolutePath, fileSize, now)
-    cacheIndex.put(cacheKey, entry)
-
-    // Evict if needed
-    evictIfNeeded()
-
-    localFile
+    newEntry.localPath
   }
 
   /**
-   * Actually perform the HTTP request & save the response to local file
+   * Release a file previously acquired, decrement usageCount. If usageCount goes to zero, we record lastReleaseTime and
+   * the file will be cleaned up after idleTimeoutMillis if not re-acquired.
    */
-  private[datafiles] def downloadToCache(
-      method: String,
-      remoteUrl: String,
-      requestBody: Option[String],
-      headers: Map[String, String],
-      connectionOptions: HttpConnectionOptions): File = {
+  def releaseFile(method: String, url: String, body: Option[String], headers: Map[String, String]): Unit =
+    synchronized {
+      val key = HttpCacheKey(method, url, body, headers)
+      val entry = cacheIndex.get(key)
+      if (entry == null) {
+        // not found => might be a bug or repeated release
+        return
+      }
+      if (entry.usageCount > 0) {
+        entry.usageCount -= 1
+        if (entry.usageCount == 0) {
+          entry.lastReleaseTime = System.currentTimeMillis()
+        }
+      }
+    }
 
-    val uri = URI.create(remoteUrl)
+  /**
+   * A simple placeholder for your actual HTTP download logic. You might have timeouts, SSL ignoring, advanced config,
+   * etc.
+   */
+  private[datafiles] def downloadToCache(key: HttpCacheKey, options: HttpConnectionOptions): File = {
+    val uri = URI.create(key.url)
 
-    val httpClient = buildHttpClient(
-      connectionOptions.followRedirects,
-      connectionOptions.connectTimeout,
-      connectionOptions.sslTRustAll)
+    val httpClient = buildHttpClient(options.followRedirects, options.connectTimeout, options.sslTRustAll)
 
     val reqBuilder = HttpRequest.newBuilder(uri)
-    val uppercaseMethod = method.trim.toUpperCase()
-    val bodyPublisher: BodyPublisher = requestBody match {
+    val method = key.method.trim.toUpperCase()
+    val bodyPublisher: BodyPublisher = key.body match {
       case Some(body) =>
         BodyPublishers.ofString(body)
       case None =>
         BodyPublishers.noBody()
     }
 
-    reqBuilder.timeout(java.time.Duration.ofMillis(connectionOptions.readTimeout))
+    reqBuilder.timeout(java.time.Duration.ofMillis(options.readTimeout))
 
-    reqBuilder.method(uppercaseMethod, bodyPublisher)
+    reqBuilder.method(method, bodyPublisher)
 
-    headers.foreach { case (k, v) => reqBuilder.header(k, v) }
+    key.headers.foreach { case (k, v) => reqBuilder.header(k, v) }
 
     val request = reqBuilder.build()
     val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
@@ -145,7 +156,7 @@ class HttpFileCache(
 
     if (status < 200 || status >= 300) {
       response.body().close()
-      throw new RuntimeException(s"HTTP $uppercaseMethod to $remoteUrl returned status code $status")
+      throw new RuntimeException(s"HTTP $method to ${key.url} returned status code $status: ${response.body()}")
     }
 
     // Save to local file
@@ -196,75 +207,46 @@ class HttpFileCache(
   }
 
   /**
-   * Evict LRU if usage > high water mark until usage < low water mark
+   * The background job that checks for entries with usageCount=0 and (System.currentTimeMillis - lastReleaseTime) >
+   * idleTimeoutMillis, then removes them from the cache and deletes the file.
    */
-  def evictIfNeeded(): Unit = synchronized {
-    val usage = currentCacheSize()
-    val high = (maxCacheBytes * highWaterMarkFraction).toLong
-    if (usage <= high) return
-
-    val low = (maxCacheBytes * lowWaterMarkFraction).toLong
-
-    val sortedEntries = cacheIndex
-      .values()
-      .toArray(new Array[HttpCacheEntry](0))
-      .sortBy(_.lastAccess)
-
-    var currentUsage = usage
-    var idx = 0
-    while (currentUsage > low && idx < sortedEntries.length) {
-      val e = sortedEntries(idx)
-      idx += 1
-
-      cacheIndex.remove(e.cacheKey)
-      val file = new File(e.localPath)
-      if (file.exists()) file.delete()
-      currentUsage -= e.fileSize
-    }
-  }
-
-  /** Sum of file sizes in the cache */
-  private def currentCacheSize(): Long = {
-    var sum = 0L
+  private def evictUnusedEntries(): Unit = synchronized {
+    val now = System.currentTimeMillis()
     val it = cacheIndex.values().iterator()
     while (it.hasNext) {
-      sum += it.next().fileSize
+      val entry = it.next()
+      if (entry.usageCount == 0 && (now - entry.lastReleaseTime) > idleTimeoutMillis) {
+        // remove from map
+        it.remove()
+        // delete file
+        val f = new File(entry.localPath)
+        if (f.exists()) {
+          f.delete()
+        }
+      }
     }
-    sum
   }
-
-  /** Shut down background thread. */
-  def stop(): Unit = {
-    scheduler.shutdown()
-    // No close needed for HttpClient
-  }
-}
-
-/**
- * Companion object for HttpFileCache.
- *
- *   - Loads config from Typesafe Config
- *   - Exposes a 'global' lazy val if you want a single default instance
- */
-object HttpFileCache {
-
-  // We read from a typical "application.conf" or something in the classpath
-  private val config: Config = ConfigFactory.load()
 
   /**
-   * If you want a single global instance for the entire app, define it here. The user can call
-   * HttpFileCache.global.getLocalFileFor(...)
+   * Stop the background eviction thread. Optionally, you might want to evictAll or do a final pass.
    */
-  lazy val global: HttpFileCache = {
-    // For example, let's read the config with some fallback defaults
-    val cacheDirStr = config.getString("raw.das.data-files.cache-dir") // e.g. "/tmp/httpCache"
-    val cacheDir = new File(cacheDirStr)
-
-    val maxBytes = config.getMemorySize("raw.das.data-files.max-cache-size").toBytes // e.g. "1g"
-    val highFrac = config.getDouble("raw.das.data-files.high-watermark") // e.g. 0.75
-    val lowFrac = config.getDouble("raw.das.data-files.low-watermark") // e.g. 0.50
-
-    // create the instance
-    new HttpFileCache(cacheDir, maxBytes, highFrac, lowFrac)
+  def shutdown(): Unit = {
+    scheduler.shutdown()
+    // do a final cleanup if desired
+    evictUnusedEntries()
   }
+
+  /**
+   * For debugging/tests: how many entries are in the cache?
+   */
+  def getEntryCount: Int = cacheIndex.size()
+}
+
+object HttpFileCache {
+  private val config: Config = ConfigFactory.load()
+  private val cacheDirStr = config.getString("raw.das.data-files.cache-dir")
+  private val idleTimeoutMillis = config.getLong("raw.das.data-files.cache-idle-timeout-ms")
+  private val evictionCheckMillis = config.getLong("raw.das.data-files.cache-eviction-check-ms")
+
+  lazy val global: HttpFileCache = new HttpFileCache(new File(cacheDirStr), idleTimeoutMillis, evictionCheckMillis)
 }

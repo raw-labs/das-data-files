@@ -41,12 +41,12 @@ class ParquetTableSpec extends AnyFlatSpec with Matchers with SparkTestContext w
 
     // Stub the cache call
     when(
-      mockCache.getLocalFileFor(
+      mockCache.acquireFor(
         anyString(),
         org.mockito.ArgumentMatchers.eq("http://mocked.com/test.parquet"),
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempDir)
+        any[HttpConnectionOptions]())).thenReturn(tempDir.getAbsolutePath)
   }
 
   "ParquetTable" should "load rows from a Parquet file" in {

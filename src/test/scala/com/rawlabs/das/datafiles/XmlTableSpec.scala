@@ -54,14 +54,14 @@ class XmlTableSpec
   override def beforeAll(): Unit = {
     super.beforeAll()
     when(
-      mockCache.getLocalFileFor(
+      mockCache.acquireFor(
         anyString(),
         ArgumentMatchers.eq("http://mocked.com/test.xml"),
         any[Option[String]](),
         any[Map[String,String]](),
         any[HttpConnectionOptions]()
       )
-    ).thenReturn(tempXmlFile)
+    ).thenReturn(tempXmlFile.getAbsolutePath)
   }
 
   "XmlTable" should "load rows from an XML file" in {
@@ -70,7 +70,7 @@ class XmlTableSpec
       url     = "http://mocked.com/test.xml",
       format  = Some("xml"),
       options = Map("rootTag" -> "rows", "rowTag" -> "row"),
-      httpOptions = HttpConnectionOptions(true,10000,10000,false)
+      httpOptions = HttpConnectionOptions(followRedirects = true,10000,10000,sslTRustAll = false)
     )
 
     val table = new XmlTable(config, spark, mockCache)

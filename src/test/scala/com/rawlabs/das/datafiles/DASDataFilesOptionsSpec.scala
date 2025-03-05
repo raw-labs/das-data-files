@@ -90,10 +90,10 @@ class DASDataFilesOptionsSpec extends AnyFlatSpec with Matchers {
       "nr_tables" -> "1",
       "table0_url" -> "http://somewhere/file.csv",
       "table0_format" -> "csv",
-      "http_option_followRedirects" -> "false",
-      "http_option_connectTimeout"   -> "5000",
-      "http_option_readTimeout"      -> "15000",
-      "http_option_sslTrustAll"      -> "true"
+      "http_follow_redirects" -> "false",
+      "http_connect_timeout"   -> "5000",
+      "http_read_timeout"      -> "15000",
+      "http_ssl_trust_all"      -> "true"
     )
     val parsed = new DASDataFilesOptions(opts)
     parsed.httpOptions.followRedirects shouldBe false

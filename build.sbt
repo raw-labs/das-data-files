@@ -98,11 +98,11 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       // RAW Labs DAS & Protocol
       "com.raw-labs" %% "das-server-scala" % "0.3.2" % "compile->compile;test->test" excludeAll (
-        ExclusionRule(organization = "org.slf4j"),
+//        ExclusionRule(organization = "org.slf4j"),
         ExclusionRule(organization = "com.fasterxml.jackson.databind"),
         ExclusionRule(organization = "com.fasterxml.jackson.core")),
       "com.raw-labs" %% "protocol-das" % "1.0.0" % "compile->compile;test->test",
-      "org.apache.spark" %% "spark-sql" % "3.5.5" % "provided",
+      "org.apache.spark" %% "spark-sql" % "3.5.5",
       "com.databricks" %% "spark-xml" % "0.18.0",
       // ScalaTest for unit tests
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",

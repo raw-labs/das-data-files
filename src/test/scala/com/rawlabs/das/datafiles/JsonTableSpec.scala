@@ -62,24 +62,24 @@ class JsonTableSpec
   override def beforeAll(): Unit = {
     super.beforeAll()
     when(
-      mockCache.getLocalFileFor(
+      mockCache.acquireFor(
         anyString(),
         ArgumentMatchers.eq("http://mocked.com/test.json"),
         any[Option[String]](),
         any[Map[String,String]](),
         any[HttpConnectionOptions]()
       )
-    ).thenReturn(tempJsonFile)
+    ).thenReturn(tempJsonFile.getAbsolutePath)
 
     when(
-      mockCache.getLocalFileFor(
+      mockCache.acquireFor(
         anyString(),
         ArgumentMatchers.eq("http://mocked.com/test-lines.json"),
         any[Option[String]](),
         any[Map[String,String]](),
         any[HttpConnectionOptions]()
       )
-    ).thenReturn(tempJsonLinesFile)
+    ).thenReturn(tempJsonLinesFile.getAbsolutePath)
   }
 
   behavior of "JsonTable"
