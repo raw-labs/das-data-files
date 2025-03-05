@@ -38,8 +38,8 @@ class DASDataFilesOptions(options: Map[String, String]) {
   // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
   val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)
 
-  val s3Credentials: Option[awsCredential] = options.get("aws_accessKey").map { accessKey =>
-    val secretKey = options.getOrElse("aws_secretKey", throw new DASSdkException("aswSecretKey not found"))
+  val s3Credentials: Option[awsCredential] = options.get("aws_access_key").map { accessKey =>
+    val secretKey = options.getOrElse("aws_secret_key", throw new DASSdkException("aws_secret_key not found"))
     awsCredential(accessKey, secretKey)
   }
 
