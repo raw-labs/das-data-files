@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 RAW Labs S.A.
+ * Copyright 2025 RAW Labs S.A.
  *
  * Use of this software is governed by the Business Source License
  * included in the file licenses/BSL.txt.
@@ -12,7 +12,8 @@
 
 package com.rawlabs.das.datafiles
 
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers._
@@ -21,13 +22,9 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.File
+import com.rawlabs.protocol.das.v1.query.Qual
 
-class JsonTableSpec
-  extends AnyFlatSpec
-    with Matchers
-    with SparkTestContext
-    with BeforeAndAfterAll {
+class JsonTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   private val jsonContent =
     """[
@@ -66,32 +63,27 @@ class JsonTableSpec
         anyString(),
         ArgumentMatchers.eq("http://mocked.com/test.json"),
         any[Option[String]](),
-        any[Map[String,String]](),
-        any[HttpConnectionOptions]()
-      )
-    ).thenReturn(tempJsonFile.getAbsolutePath)
+        any[Map[String, String]](),
+        any[HttpConnectionOptions]())).thenReturn(tempJsonFile.getAbsolutePath)
 
     when(
       mockCache.acquireFor(
         anyString(),
         ArgumentMatchers.eq("http://mocked.com/test-lines.json"),
         any[Option[String]](),
-        any[Map[String,String]](),
-        any[HttpConnectionOptions]()
-      )
-    ).thenReturn(tempJsonLinesFile.getAbsolutePath)
+        any[Map[String, String]](),
+        any[HttpConnectionOptions]())).thenReturn(tempJsonLinesFile.getAbsolutePath)
   }
 
   behavior of "JsonTable"
 
   it should "load rows from a JSON file" in {
     val config = DataFileConfig(
-      name    = "testJson",
-      url     = "http://mocked.com/test.json",
-      format  = Some("json"),
+      name = "testJson",
+      url = "http://mocked.com/test.json",
+      format = Some("json"),
       options = Map.empty, // default to read json is multiline=true (normal json and not json lines)
-      httpOptions = HttpConnectionOptions(followRedirects = true,10000,10000,sslTRustAll = false)
-    )
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
 
     val table = new JsonTable(config, spark, mockCache)
 
@@ -120,12 +112,11 @@ class JsonTableSpec
 
   it should "load rows from a JSON Lines file" in {
     val config = DataFileConfig(
-      name    = "testJson",
-      url     = "http://mocked.com/test-lines.json",
-      format  = Some("json"),
-      options = Map(("multiLine" -> "false")), // for json lines file this has to be false
-      httpOptions = HttpConnectionOptions(followRedirects = true,10000,10000,sslTRustAll = false)
-    )
+      name = "testJson",
+      url = "http://mocked.com/test-lines.json",
+      format = Some("json"),
+      options = Map("multiLine" -> "false"), // for json lines file this has to be false
+      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
 
     val table = new JsonTable(config, spark, mockCache)
 

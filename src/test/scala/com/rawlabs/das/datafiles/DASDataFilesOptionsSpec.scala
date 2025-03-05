@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 RAW Labs S.A.
+ * Copyright 2025 RAW Labs S.A.
  *
  * Use of this software is governed by the Business Source License
  * included in the file licenses/BSL.txt.
@@ -30,8 +30,7 @@ class DASDataFilesOptionsSpec extends AnyFlatSpec with Matchers {
       // Table1
       "table1_url" -> "/another/path/data.json",
       "table1_format" -> "json",
-      "table1_name" -> "myJsonTable"
-    )
+      "table1_name" -> "myJsonTable")
 
     val parsed = new DASDataFilesOptions(opts)
     parsed.tableConfigs.size shouldBe 2
@@ -65,22 +64,16 @@ class DASDataFilesOptionsSpec extends AnyFlatSpec with Matchers {
       "table0_url" -> "/path/data1.csv",
       "table0_name" -> "mytable",
       "table0_format" -> "csv",
-
       "table1_url" -> "/path/data2.csv",
       "table1_name" -> "mytable", // the same name
-      "table1_format" -> "csv"
-    )
+      "table1_format" -> "csv")
     val parsed = new DASDataFilesOptions(opts)
     parsed.tableConfigs(0).name shouldBe "mytable"
     parsed.tableConfigs(1).name shouldBe "mytable_2" // appended
   }
 
   it should "derive name from URL if none provided" in {
-    val opts = Map(
-      "nr_tables" -> "1",
-      "table0_url" -> "https://host.com/path/data.csv",
-      "table0_format" -> "csv"
-    )
+    val opts = Map("nr_tables" -> "1", "table0_url" -> "https://host.com/path/data.csv", "table0_format" -> "csv")
     val parsed = new DASDataFilesOptions(opts)
     parsed.tableConfigs.head.name shouldBe "data_csv"
   }
@@ -91,10 +84,9 @@ class DASDataFilesOptionsSpec extends AnyFlatSpec with Matchers {
       "table0_url" -> "http://somewhere/file.csv",
       "table0_format" -> "csv",
       "http_follow_redirects" -> "false",
-      "http_connect_timeout"   -> "5000",
-      "http_read_timeout"      -> "15000",
-      "http_ssl_trust_all"      -> "true"
-    )
+      "http_connect_timeout" -> "5000",
+      "http_read_timeout" -> "15000",
+      "http_ssl_trust_all" -> "true")
     val parsed = new DASDataFilesOptions(opts)
     parsed.httpOptions.followRedirects shouldBe false
     parsed.httpOptions.connectTimeout shouldBe 5000

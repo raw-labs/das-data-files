@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 RAW Labs S.A.
+ * Copyright 2025 RAW Labs S.A.
  *
  * Use of this software is governed by the Business Source License
  * included in the file licenses/BSL.txt.
@@ -11,8 +11,6 @@
  */
 
 package com.rawlabs.das.datafiles
-
-import com.typesafe.config.{Config, ConfigFactory}
 
 import java.io.File
 import java.net.URI
@@ -26,6 +24,8 @@ import java.security.cert.X509Certificate
 import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
+
+import com.typesafe.config.{Config, ConfigFactory}
 
 // The key
 case class HttpCacheKey(method: String, url: String, body: Option[String], headers: Map[String, String])
