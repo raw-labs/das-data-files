@@ -12,23 +12,22 @@
 
 package com.rawlabs.das.datafiles
 
-import scala.collection.mutable
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
-import com.rawlabs.das.sdk.DASSdkException
+import scala.collection.mutable
 
 /**
  * Represents a single table’s configuration
  */
 
-case class HttpConnectionOptions(followRedirects: Boolean, connectTimeout: Int, readTimeout: Int, sslTRustAll: Boolean)
+case class HttpConnectionOptions(followRedirects: Boolean, connectTimeout: Int, sslTrustAll: Boolean)
 case class awsCredential(accessKey: String, secretKey: String)
 
 case class DataFileConfig(
     name: String,
     url: String,
     format: Option[String],
-    options: Map[String, String],
-    httpOptions: HttpConnectionOptions)
+    options: Map[String, String])
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -39,7 +38,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
   val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)
 
   val s3Credentials: Option[awsCredential] = options.get("aws_access_key").map { accessKey =>
-    val secretKey = options.getOrElse("aws_secret_key", throw new DASSdkException("aws_secret_key not found"))
+    val secretKey = options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
     awsCredential(accessKey, secretKey)
   }
 
@@ -48,9 +47,8 @@ class DASDataFilesOptions(options: Map[String, String]) {
   val httpOptions: HttpConnectionOptions = {
     val followRedirects = options.getOrElse("http_follow_redirects", "true").toBoolean
     val connectTimeout = options.getOrElse("http_connect_timeout", "10000").toInt
-    val readTimeout = options.getOrElse("http_read_timeout", "10000").toInt
     val sslTRustAll = options.getOrElse("http_ssl_trust_all", "false").toBoolean
-    HttpConnectionOptions(followRedirects, connectTimeout, readTimeout, sslTRustAll)
+    HttpConnectionOptions(followRedirects, connectTimeout, sslTRustAll)
   }
 
   // Keep track of used names so we ensure uniqueness
@@ -67,7 +65,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
       // Mandatory fields
       val url =
-        options.getOrElse(prefix + "url", throw new DASSdkException(s"Missing '${prefix}url' option for DataFile DAS."))
+        options.getOrElse(prefix + "url", throw new DASSdkInvalidArgumentException(s"Missing '${prefix}url' option for DataFile DAS."))
       val format = options.get(prefix + "format")
 
       // Name is optional: if not provided, derive from URL
@@ -85,7 +83,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
         case (k, v) if k.startsWith(prefix) => (k.drop(prefix.length), v)
       }.toMap
 
-      DataFileConfig(name = tableName, url = url, format = format, options = tableOptions, httpOptions = httpOptions)
+      DataFileConfig(name = tableName, url = url, format = format, options = tableOptions)
     }
   }
 

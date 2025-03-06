@@ -21,7 +21,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 
-class HttpFileCacheSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEach with BeforeAndAfterAll {
+class HttpFileCacheTest extends AnyFlatSpec with Matchers with BeforeAndAfterEach with BeforeAndAfterAll {
 
   private var tempCacheDir: File = _
   private var cache: HttpFileCache = _
@@ -40,14 +40,15 @@ class HttpFileCacheSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEac
 
   override def beforeEach(): Unit = {
     super.beforeEach()
+
     // We'll use a short idle timeout so we can test eviction quickly (e.g. 2 seconds)
     // We'll run eviction checks more frequently, e.g. every 500ms, for demonstration
     cache = spy(
       new HttpFileCache(
-        cacheDir = tempCacheDir,
+        cacheDirStr = tempCacheDir.getAbsolutePath.toString,
         idleTimeoutMillis = 2000, // 2 seconds idle
-        evictionCheckInterval = 500 // check every 0.5s
-      ))
+        evictionCheckInterval = 500, // check every 0.5s
+        HttpConnectionOptions(followRedirects = true, connectTimeout = 10000, sslTrustAll = false)))
   }
 
   override def afterEach(): Unit = {
@@ -67,21 +68,20 @@ class HttpFileCacheSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEac
 
     // We'll mock the 'downloadFile' method so it doesn't do real network calls
     val mockKey = HttpCacheKey("GET", "http://example.com/data.csv", None, Map.empty)
-    val httpOptions =
-      HttpConnectionOptions(followRedirects = true, connectTimeout = 10000, readTimeout = 10000, sslTRustAll = false)
+    val timeout = 10000
 
     doReturn(fakeFile)
       .when(cache)
-      .downloadToCache(mockKey, httpOptions)
+      .downloadToCache(mockKey, timeout)
 
     // Acquire the file the first time => usageCount=1
-    val file1 = new File(cache.acquireFor(mockKey.method, mockKey.url, mockKey.body, mockKey.headers, httpOptions))
+    val file1 = new File(cache.acquireFor(mockKey.method, mockKey.url, mockKey.body, mockKey.headers, timeout))
     file1 should not be null
 
     file1.exists() shouldBe true
 
     // Acquire again => usageCount=2, same local file
-    val file2 = new File(cache.acquireFor(mockKey.method, mockKey.url, mockKey.body, mockKey.headers, httpOptions))
+    val file2 = new File(cache.acquireFor(mockKey.method, mockKey.url, mockKey.body, mockKey.headers, timeout))
     file2 shouldBe file1
     file2.exists() shouldBe true
 
@@ -104,15 +104,13 @@ class HttpFileCacheSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEac
     out.close()
 
     val mockKey = HttpCacheKey("GET", "http://example.com/other.csv", None, Map.empty)
-    val httpOptions =
-      HttpConnectionOptions(followRedirects = true, connectTimeout = 10000, readTimeout = 10000, sslTRustAll = false)
-
+    val timeout = 10000
     doReturn(fakeFile)
       .when(cache)
-      .downloadToCache(mockKey, httpOptions)
+      .downloadToCache(mockKey, timeout)
 
     // Acquire => usageCount=1
-    val local = new File(cache.acquireFor(mockKey.method, mockKey.url, mockKey.body, mockKey.headers, httpOptions))
+    val local = new File(cache.acquireFor(mockKey.method, mockKey.url, mockKey.body, mockKey.headers, timeout))
     local should not be null
     local.exists() shouldBe true
 
@@ -140,21 +138,20 @@ class HttpFileCacheSpec extends AnyFlatSpec with Matchers with BeforeAndAfterEac
     out.close()
 
     val key = HttpCacheKey("GET", "http://example.com/again.csv", None, Map.empty)
-    val httpOptions =
-      HttpConnectionOptions(followRedirects = true, connectTimeout = 10000, readTimeout = 10000, sslTRustAll = false)
+    val timeout = 10000
 
     doReturn(fakeFile)
       .when(cache)
-      .downloadToCache(key, httpOptions)
+      .downloadToCache(key, timeout)
 
     // Acquire => usageCount=1
-    val local = new File(cache.acquireFor(key.method, key.url, key.body, key.headers, httpOptions))
+    val local = new File(cache.acquireFor(key.method, key.url, key.body, key.headers, timeout))
     // Release => usageCount=0
     cache.releaseFile(key.method, key.url, key.body, key.headers)
 
     // Now, if we re-acquire before the idleTimeout, usageCount=1 again
     Thread.sleep(1000) // less than idleTimeout (2s)
-    val local2 = new File(cache.acquireFor(key.method, key.url, key.body, key.headers, httpOptions))
+    val local2 = new File(cache.acquireFor(key.method, key.url, key.body, key.headers, timeout))
     local2 shouldBe local
     local2.exists() shouldBe true
     // usageCount is now 1

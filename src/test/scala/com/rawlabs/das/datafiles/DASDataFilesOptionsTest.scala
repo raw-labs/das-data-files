@@ -15,7 +15,7 @@ package com.rawlabs.das.datafiles
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class DASDataFilesOptionsSpec extends AnyFlatSpec with Matchers {
+class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 
   behavior of "DASDataFilesOptions"
 
@@ -85,12 +85,10 @@ class DASDataFilesOptionsSpec extends AnyFlatSpec with Matchers {
       "table0_format" -> "csv",
       "http_follow_redirects" -> "false",
       "http_connect_timeout" -> "5000",
-      "http_read_timeout" -> "15000",
       "http_ssl_trust_all" -> "true")
     val parsed = new DASDataFilesOptions(opts)
     parsed.httpOptions.followRedirects shouldBe false
     parsed.httpOptions.connectTimeout shouldBe 5000
-    parsed.httpOptions.readTimeout shouldBe 15000
-    parsed.httpOptions.sslTRustAll shouldBe true
+    parsed.httpOptions.sslTrustAll shouldBe true
   }
 }

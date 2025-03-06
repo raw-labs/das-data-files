@@ -24,14 +24,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.protocol.das.v1.query.Qual
 
-class XmlTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
-
-  import java.lang.management.ManagementFactory
-
-  println("=== JVM Input Arguments ===")
-  ManagementFactory.getRuntimeMXBean.getInputArguments.forEach(println)
-  println("===========================")
-
+class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
   private val xmlContent =
     """<rows>
       |  <row><id>1</id><name>Alice</name></row>
@@ -56,7 +49,7 @@ class XmlTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
         ArgumentMatchers.eq("http://mocked.com/test.xml"),
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempXmlFile.getAbsolutePath)
+        anyInt())).thenReturn(tempXmlFile.getAbsolutePath)
   }
 
   "XmlTable" should "load rows from an XML file" in {
@@ -64,8 +57,7 @@ class XmlTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testXml",
       url = "http://mocked.com/test.xml",
       format = Some("xml"),
-      options = Map("rootTag" -> "rows", "rowTag" -> "row"),
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("root_tag" -> "rows", "row_tag" -> "row"))
 
     val table = new XmlTable(config, spark, mockCache)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)

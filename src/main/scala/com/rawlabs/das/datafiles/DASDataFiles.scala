@@ -15,10 +15,11 @@ package com.rawlabs.das.datafiles
 import org.apache.spark.sql.SparkSession
 
 import com.rawlabs.das.datafiles.DASDataFiles.buildSparkSession
-import com.rawlabs.das.sdk.DASSdkException
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
+import com.typesafe.config.{Config, ConfigFactory}
 
 object DASDataFiles {
 
@@ -46,16 +47,23 @@ class DASDataFiles(options: Map[String, String]) extends DASSdk {
   private val dasOptions = new DASDataFilesOptions(options)
 
   private lazy val sparkSession = buildSparkSession("dasDataFilesApp", dasOptions)
+  private val config: Config = ConfigFactory.load()
+  private val cacheDirStr = config.getString("raw.das.data-files.cache-dir")
+  private val idleTimeoutMillis = config.getLong("raw.das.data-files.cache-idle-timeout-ms")
+  private val evictionCheckMillis = config.getLong("raw.das.data-files.cache-eviction-check-ms")
 
+  private val hppFileCache =
+    new HttpFileCache(cacheDirStr, idleTimeoutMillis, evictionCheckMillis, dasOptions.httpOptions)
   // Build a list of our tables
   private val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
-    val format = config.format.getOrElse(throw new DASSdkException(s"format not specified for table ${config.name}"))
+    val format = config.format.getOrElse(
+      throw new DASSdkInvalidArgumentException(s"format not specified for table ${config.name}"))
     format match {
-      case "csv"     => config.name -> new CsvTable(config, sparkSession, HttpFileCache.global)
-      case "json"    => config.name -> new JsonTable(config, sparkSession, HttpFileCache.global)
-      case "parquet" => config.name -> new ParquetTable(config, sparkSession, HttpFileCache.global)
-      case "xml"     => config.name -> new XmlTable(config, sparkSession, HttpFileCache.global)
-      case other     => throw new DASSdkException(s"Unsupported format $other")
+      case "csv"     => config.name -> new CsvTable(config, sparkSession, hppFileCache)
+      case "json"    => config.name -> new JsonTable(config, sparkSession, hppFileCache)
+      case "parquet" => config.name -> new ParquetTable(config, sparkSession, hppFileCache)
+      case "xml"     => config.name -> new XmlTable(config, sparkSession, hppFileCache)
+      case other     => throw new DASSdkInvalidArgumentException(s"Unsupported format $other")
     }
   }.toMap
 
@@ -74,5 +82,10 @@ class DASDataFiles(options: Map[String, String]) extends DASSdk {
    * No custom functions
    */
   override def getFunction(name: String): Option[DASFunction] = None
+
+  override def close(): Unit = {
+    sparkSession.stop()
+    hppFileCache.shutdown()
+  }
 
 }

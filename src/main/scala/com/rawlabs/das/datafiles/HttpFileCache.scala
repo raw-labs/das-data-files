@@ -12,21 +12,18 @@
 
 package com.rawlabs.das.datafiles
 
+import com.typesafe.scalalogging.StrictLogging
+
 import java.io.File
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
 import java.net.http.HttpRequest.{BodyPublisher, BodyPublishers}
-import java.net.http.HttpResponse
+import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
-
-import com.typesafe.config.{Config, ConfigFactory}
-import com.typesafe.scalalogging.StrictLogging
 
 // The key
 case class HttpCacheKey(method: String, url: String, body: Option[String], headers: Map[String, String])
@@ -39,19 +36,23 @@ case class HttpCacheKey(method: String, url: String, body: Option[String], heade
  *   - If usageCount == 0, we wait idleTimeoutMillis from the last release before deleting the file.
  */
 class HttpFileCache(
-    cacheDir: File,
+    cacheDirStr: String,
     idleTimeoutMillis: Long, // e.g. 60_000 for 1 minute
-    evictionCheckInterval: Long // how often the background thread checks, e.g. 10_000 ms
-) extends StrictLogging {
+    evictionCheckInterval: Long, // how often the background thread checks, e.g. 10_000 ms
+    httpOptions: HttpConnectionOptions)
+    extends StrictLogging {
 
   require(idleTimeoutMillis >= 0, "idleTimeoutMillis must be non-negative")
   require(evictionCheckInterval > 0, "evictionCheckInterval must be positive")
+  require(httpOptions.connectTimeout > 0, "httpOptions.connectTimeout must be positive")
+
+  private val uniqueDirName = UUID.randomUUID().toString.take(8)
+  private val cacheDir = Paths.get(cacheDirStr, uniqueDirName).toFile
 
   if (!cacheDir.exists()) cacheDir.mkdirs()
 
   // The cache entry with reference counting
   private case class CacheEntry(
-      key: HttpCacheKey,
       localPath: String, // where the file is stored
       var usageCount: Int, // how many clients are using it
       var lastReleaseTime: Long,
@@ -63,6 +64,37 @@ class HttpFileCache(
   // Start a background thread to periodically evict unused files
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
   initScheduler()
+
+  private val httpClient = {
+    val builder = HttpClient.newBuilder()
+
+    // Follow redirects if set
+    if (httpOptions.followRedirects) builder.followRedirects(HttpClient.Redirect.ALWAYS)
+    else builder.followRedirects(HttpClient.Redirect.NEVER)
+
+    // Connect timeout
+    builder.connectTimeout(java.time.Duration.ofMillis(httpOptions.connectTimeout))
+
+    // SSL trust all
+    if (httpOptions.sslTrustAll) {
+      val trustAllCerts = Array[TrustManager](new X509TrustManager {
+        override def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
+        override def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
+        override def getAcceptedIssuers: Array[X509Certificate] = Array.empty
+      })
+
+      val sslContext = SSLContext.getInstance("TLS")
+      sslContext.init(null, trustAllCerts, new SecureRandom())
+      builder.sslContext(sslContext)
+
+      // also disable hostname verification
+      val noVerification = new SSLParameters()
+      noVerification.setEndpointIdentificationAlgorithm(null)
+      builder.sslParameters(noVerification)
+    }
+
+    builder.build()
+  }
 
   private def initScheduler(): Unit = {
     val task = new Runnable {
@@ -85,7 +117,7 @@ class HttpFileCache(
       url: String,
       body: Option[String],
       headers: Map[String, String],
-      options: HttpConnectionOptions): String = synchronized {
+      readTimeout: Int): String = synchronized {
     val key = HttpCacheKey(method, url, body, headers)
     val existing = cacheIndex.get(key)
     if (existing != null) {
@@ -95,10 +127,9 @@ class HttpFileCache(
     }
     logger.debug(s"Downloading file for: $method $url headers-size=${headers.size}")
     // Not in cache => download
-    val localFile = downloadToCache(key, options)
+    val localFile = downloadToCache(key, readTimeout)
     val fileSize = localFile.length()
     val newEntry = CacheEntry(
-      key = key,
       localPath = localFile.getAbsolutePath,
       usageCount = 1, // we are acquiring now
       lastReleaseTime = 0L, // not relevant yet
@@ -137,10 +168,8 @@ class HttpFileCache(
    * A simple placeholder for your actual HTTP download logic. You might have timeouts, SSL ignoring, advanced config,
    * etc.
    */
-  private[datafiles] def downloadToCache(key: HttpCacheKey, options: HttpConnectionOptions): File = {
+  private[datafiles] def downloadToCache(key: HttpCacheKey, readTimeout: Int): File = {
     val uri = URI.create(key.url)
-
-    val httpClient = buildHttpClient(options.followRedirects, options.connectTimeout, options.sslTRustAll)
 
     val reqBuilder = HttpRequest.newBuilder(uri)
     val method = key.method.trim.toUpperCase()
@@ -151,7 +180,7 @@ class HttpFileCache(
         BodyPublishers.noBody()
     }
 
-    reqBuilder.timeout(java.time.Duration.ofMillis(options.readTimeout))
+    reqBuilder.timeout(java.time.Duration.ofMillis(readTimeout))
 
     reqBuilder.method(method, bodyPublisher)
 
@@ -180,40 +209,6 @@ class HttpFileCache(
   }
 
   /**
-   * Helper to build an HttpClient with connect-timeout, SSL trust-all, and redirect handling.
-   */
-  private def buildHttpClient(followRedirect: Boolean, connectTimeoutMillis: Int, sslTrustAll: Boolean): HttpClient = {
-    val builder = HttpClient.newBuilder()
-
-    // Follow redirects if set
-    if (followRedirect) builder.followRedirects(HttpClient.Redirect.ALWAYS)
-    else builder.followRedirects(HttpClient.Redirect.NEVER)
-
-    // Connect timeout
-    builder.connectTimeout(java.time.Duration.ofMillis(connectTimeoutMillis))
-
-    // SSL trust all
-    if (sslTrustAll) {
-      val trustAllCerts = Array[TrustManager](new X509TrustManager {
-        override def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
-        override def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
-        override def getAcceptedIssuers: Array[X509Certificate] = Array.empty
-      })
-
-      val sslContext = SSLContext.getInstance("TLS")
-      sslContext.init(null, trustAllCerts, new SecureRandom())
-      builder.sslContext(sslContext)
-
-      // also disable hostname verification
-      val noVerification = new SSLParameters()
-      noVerification.setEndpointIdentificationAlgorithm(null)
-      builder.sslParameters(noVerification)
-    }
-
-    builder.build()
-  }
-
-  /**
    * The background job that checks for entries with usageCount=0 and (System.currentTimeMillis - lastReleaseTime) >
    * idleTimeoutMillis, then removes them from the cache and deletes the file.
    */
@@ -239,21 +234,26 @@ class HttpFileCache(
    */
   def shutdown(): Unit = {
     scheduler.shutdown()
-    // do a final cleanup if desired
-    evictUnusedEntries()
+    httpClient.close()
+
+    // delete all files
+    val it = cacheIndex.keys().asIterator()
+    while (it.hasNext) {
+      val key = it.next()
+      val entry= cacheIndex.get(key)
+      if (entry.usageCount > 0) {
+        logger.warn(s"File ${entry.localPath} for url ${key.url} still in use on shutdown")
+      }
+      val f = new File(entry.localPath)
+      if (f.exists()) {
+        f.delete()
+      }
+    }
+    cacheDir.delete()
   }
 
   /**
    * For debugging/tests: how many entries are in the cache?
    */
   def getEntryCount: Int = cacheIndex.size()
-}
-
-object HttpFileCache {
-  private val config: Config = ConfigFactory.load()
-  private val cacheDirStr = config.getString("raw.das.data-files.cache-dir")
-  private val idleTimeoutMillis = config.getLong("raw.das.data-files.cache-idle-timeout-ms")
-  private val evictionCheckMillis = config.getLong("raw.das.data-files.cache-eviction-check-ms")
-
-  lazy val global: HttpFileCache = new HttpFileCache(new File(cacheDirStr), idleTimeoutMillis, evictionCheckMillis)
 }

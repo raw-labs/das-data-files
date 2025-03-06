@@ -90,6 +90,12 @@ lazy val strictBuildSettings =
 // -----------------------------------------------------------------------------
 // Main Project: "das-data-files"
 // -----------------------------------------------------------------------------
+val dasServerDependency =
+  "com.raw-labs" %% "das-server-scala" % "0.5.0" % "compile->compile;test->test" excludeAll (
+    ExclusionRule(organization = "org.slf4j"),
+    ExclusionRule(organization = "com.fasterxml.jackson.databind"),
+    ExclusionRule(organization = "com.fasterxml.jackson.core"))
+
 lazy val root = (project in file("."))
   .settings(
     name := "das-data-files",
@@ -97,10 +103,7 @@ lazy val root = (project in file("."))
     publishSettings,
     libraryDependencies ++= Seq(
       // RAW Labs DAS & Protocol
-      "com.raw-labs" %% "das-server-scala" % "0.3.2" % "compile->compile;test->test" excludeAll (
-        ExclusionRule(organization = "org.slf4j"),
-        ExclusionRule(organization = "com.fasterxml.jackson.databind"),
-        ExclusionRule(organization = "com.fasterxml.jackson.core")),
+      dasServerDependency,
       "com.raw-labs" %% "protocol-das" % "1.0.0" % "compile->compile;test->test",
       // spark hadoop dependencies
       "org.apache.spark" %% "spark-sql" % "3.5.5",
@@ -206,10 +209,4 @@ lazy val dockerSettings = strictBuildSettings ++ Seq(
 lazy val docker = (project in file("docker"))
   .dependsOn(root % "compile->compile;test->test")
   .enablePlugins(JavaAppPackaging, DockerPlugin)
-  .settings(
-    strictBuildSettings,
-    dockerSettings,
-    libraryDependencies += "com.raw-labs" %% "das-server-scala" % "0.3.0" % "compile->compile;test->test" excludeAll (
-      ExclusionRule(organization = "org.slf4j"),
-      ExclusionRule(organization = "com.fasterxml.jackson.databind"),
-      ExclusionRule(organization = "com.fasterxml.jackson.core")))
+  .settings(strictBuildSettings, dockerSettings, libraryDependencies += dasServerDependency)

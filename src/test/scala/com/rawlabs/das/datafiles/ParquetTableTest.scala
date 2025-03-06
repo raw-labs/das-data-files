@@ -23,7 +23,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.protocol.das.v1.query.Qual
 
-class ParquetTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
+class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   private var tempDir: File = _
   private val mockCache = org.mockito.Mockito.mock(classOf[HttpFileCache])
@@ -46,7 +46,7 @@ class ParquetTableSpec extends AnyFlatSpec with Matchers with SparkTestContext w
         org.mockito.ArgumentMatchers.eq("http://mocked.com/test.parquet"),
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempDir.getAbsolutePath)
+        any[Int]())).thenReturn(tempDir.getAbsolutePath)
   }
 
   "ParquetTable" should "load rows from a Parquet file" in {
@@ -54,8 +54,7 @@ class ParquetTableSpec extends AnyFlatSpec with Matchers with SparkTestContext w
       name = "testParquet",
       url = "http://mocked.com/test.parquet",
       format = Some("parquet"),
-      options = Map.empty,
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map.empty)
 
     val table = new ParquetTable(config, spark, mockCache)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)

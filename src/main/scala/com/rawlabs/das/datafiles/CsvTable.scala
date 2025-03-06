@@ -23,10 +23,12 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
 
   override def format: String = "csv"
 
+  // Default header to true, as most CSV files have a header row.
+  private val header = config.options.getOrElse("header", "true").toBoolean
+
   // Map our custom configuration keys to the corresponding Spark CSV options.
   // Each entry checks if a key exists in our config and, if so, maps it to the Spark option name.
   private val options: Map[String, String] = Map(
-    "header" -> "header", // Whether the first line is a header row.
     "delimiter" -> "delimiter", // The character used to separate fields (default: comma).
     "quote" -> "quote", // The character used for quoting strings (default: double quote).
     "escape" -> "escape", // The character used to escape quotes inside quoted fields.
@@ -65,6 +67,7 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
   override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     sparkSession.read
       .option("inferSchema", "true")
+      .option("header", header)
       .options(options)
       .csv(resolvedUrl)
   }

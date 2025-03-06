@@ -20,7 +20,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, types => sparkTypes}
 
 import com.rawlabs.das.sdk.scala.DASTable
-import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkException}
+import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.Operator
 import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
 import com.rawlabs.protocol.das.v1.tables.{Column => ProtoColumn, Row => ProtoRow, TableDefinition}
@@ -39,7 +39,11 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
     extends DASTable
     with StrictLogging {
 
-  private case class HttpTableConfig(method: String, headers: Map[String, String], body: Option[String])
+  private case class HttpTableConfig(
+      method: String,
+      headers: Map[String, String],
+      body: Option[String],
+      readTimeout: Int)
 
   val tableName: String = config.name
 
@@ -63,7 +67,8 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case (k, v) if k.startsWith(headerPrefix) => (k.drop(headerPrefix.length), v)
       }
       val body = config.options.get("http_body")
-      Some(HttpTableConfig(method, headers, body))
+      val readTimeout = config.options.getOrElse("http_read_timeout", "30000").toInt
+      Some(HttpTableConfig(method, headers, body, readTimeout))
     } else {
       None
     }
@@ -130,7 +135,9 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
           finalCols.foreach { col =>
             val rawVal = row.getAs[Any](col)
-            val dasType = colTypesMap.getOrElse(col, throw new DASSdkException(s"Column $col not found in schema"))
+            val dasType = colTypesMap.getOrElse(
+              col,
+              throw new RuntimeException(s"table $tableName Column $col not found in schema"))
             val protoVal = rawToProtoValue(rawVal, dasType, col)
             rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
           }
@@ -145,13 +152,13 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
   // Mark read-only
   override def insert(row: ProtoRow): ProtoRow =
-    throw new DASSdkException(s"DataFile table '$tableName' is read-only.")
+    throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
   override def update(rowId: Value, newRow: ProtoRow): ProtoRow =
-    throw new DASSdkException(s"DataFile table '$tableName' is read-only.")
+    throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
   override def delete(rowId: Value): Unit =
-    throw new DASSdkException(s"DataFile table '$tableName' is read-only.")
+    throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
   // -------------------------------------------------------------------
   // 3) Abstract method(s) children must implement
@@ -170,7 +177,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
       "s3a://" + url.stripPrefix("s3://")
     } else if (uri.getScheme == "http" || uri.getScheme == "https") {
       val http = maybeHttpConfig.get
-      httpFileCache.acquireFor(http.method, url, http.body, http.headers, config.httpOptions)
+      httpFileCache.acquireFor(http.method, url, http.body, http.headers, http.readTimeout)
     } else {
       url
     }
@@ -202,7 +209,8 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
           if (valProto.hasNull) {
             // For example, Spark handles col IS NULL / col IS NOT NULL differently,
             // so "x = null" won't match anything. You might throw or skip.
-            throw new DASSdkException(s"Filtering on NULL is not fully supported in base class (col=$colName).")
+            throw new DASSdkInvalidArgumentException(
+              s"Filtering on NULL is not fully supported in base class (col=$colName).")
           } else if (valProto.hasString) {
             valProto.getString.getV
           } else if (valProto.hasInt) {
@@ -216,7 +224,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
           } else if (valProto.hasFloat) {
             valProto.getFloat.getV
           } else {
-            throw new DASSdkException(s"Unsupported filter type on col=$colName in base class.")
+            throw new DASSdkInvalidArgumentException(s"Unsupported filter type on col=$colName in base class.")
           }
         }
 
@@ -230,30 +238,30 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
           case Operator.GREATER_THAN_OR_EQUAL => filterCol >= typedValue
           case Operator.LIKE =>
             if (!valProto.hasString) {
-              throw new DASSdkException("LIKE operator requires a string value")
+              throw new DASSdkInvalidArgumentException("LIKE operator requires a string value")
             }
             filterCol.like(typedValue.toString)
 
           case Operator.NOT_LIKE =>
             if (!valProto.hasString) {
-              throw new DASSdkException("NOT LIKE operator requires a string value")
+              throw new DASSdkInvalidArgumentException("NOT LIKE operator requires a string value")
             }
             not(filterCol.like(typedValue.toString))
 
           case Operator.ILIKE =>
             if (!valProto.hasString) {
-              throw new DASSdkException("ILIKE operator requires a string value")
+              throw new DASSdkInvalidArgumentException("ILIKE operator requires a string value")
             }
             lower(filterCol).like(typedValue.toString.toLowerCase)
 
           case Operator.NOT_ILIKE =>
             if (!valProto.hasString) {
-              throw new DASSdkException("NOT ILIKE operator requires a string value")
+              throw new DASSdkInvalidArgumentException("NOT ILIKE operator requires a string value")
             }
             not(lower(filterCol).like(typedValue.toString.toLowerCase))
 
           case other =>
-            throw new DASSdkException(s"Operator $other not supported in base class.")
+            throw new DASSdkInvalidArgumentException(s"Operator $other not supported in base class.")
         }
 
         result = result.filter(condition)
@@ -495,7 +503,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
       // 10) Fallback => String
       // -----------------------------------------
       case other =>
-        throw new DASSdkException(s"Unsupported Spark type: ${other.typeName}")
+        throw new DASSdkInvalidArgumentException(s"Unsupported Spark type: ${other.typeName}")
     }
   }
 
@@ -530,7 +538,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case l: Long   => l.toInt
         case s: String => s.toInt
         case _ =>
-          throw new DASSdkException(s"Cannot convert $rawValue to int ($colName)")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to int ($colName)")
       }
       Value
         .newBuilder()
@@ -542,7 +550,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case i: Int    => i.toLong
         case s: String => s.toLong
         case _ =>
-          throw new DASSdkException(s"Cannot convert $rawValue to long ($colName)")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to long ($colName)")
       }
       Value
         .newBuilder()
@@ -553,7 +561,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case b: Boolean => b
         case s: String  => s.toBoolean
         case _ =>
-          throw new DASSdkException(s"Cannot convert $rawValue to bool ($colName)")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to bool ($colName)")
       }
       Value
         .newBuilder()
@@ -565,7 +573,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case f: Float  => f.toDouble
         case s: String => s.toDouble
         case _ =>
-          throw new DASSdkException(s"Cannot convert $rawValue to double ($colName)")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to double ($colName)")
       }
       Value
         .newBuilder()
@@ -577,7 +585,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case d: Double => d.toFloat
         case s: String => s.toFloat
         case _ =>
-          throw new DASSdkException(s"Cannot convert $rawValue to float ($colName)")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to float ($colName)")
       }
       Value
         .newBuilder()
@@ -594,7 +602,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         case iter: Iterable[_] => iter.toSeq
         // Spark often uses WrappedArray for arrays
         case other =>
-          throw new DASSdkException(s"Cannot convert $other to list type for col=$colName")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $other to list type for col=$colName")
       }
 
       val listBuilder = ValueList.newBuilder()
@@ -639,7 +647,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
               map.asInstanceOf[Map[String, _]]
             } catch {
               case _: ClassCastException =>
-                throw new DASSdkException(s"Cannot convert $map to map[String, _] for col=$colName")
+                throw new DASSdkInvalidArgumentException(s"Cannot convert $map to map[String, _] for col=$colName")
             }
           val recordBuilder = ValueRecord.newBuilder()
           val structInfo = dasType.getRecord
@@ -663,7 +671,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
           Value.newBuilder().setRecord(recordBuilder.build()).build()
 
         case other =>
-          throw new DASSdkException(s"Cannot convert $other to record type for col=$colName")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $other to record type for col=$colName")
       }
     }
 
@@ -686,10 +694,10 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
                 .setV(com.google.protobuf.ByteString.copyFrom(bytes)))
             .build()
         case _ =>
-          throw new DASSdkException(s"Cannot convert $rawValue to binary ($colName)")
+          throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to binary ($colName)")
       }
     } else {
-      throw new DASSdkException(s"Cannot convert ${dasType.getTypeCase} ")
+      throw new DASSdkInvalidArgumentException(s"Cannot convert ${dasType.getTypeCase} ")
 
     }
   }

@@ -25,7 +25,7 @@ import org.scalatest.matchers.should.Matchers
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
 import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
 
-class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
+class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   // A small CSV file content for testing
   private val csvContent =
@@ -57,7 +57,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
         ArgumentMatchers.eq("http://mocked.com/test.csv"), // remoteUrl
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempCsvFile.getAbsolutePath)
+        any[Int]())).thenReturn(tempCsvFile.getAbsolutePath)
   }
 
   behavior of "CsvTable.execute()"
@@ -68,9 +68,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
-      options = Map("header" -> "true"),
-      httpOptions =
-        HttpConnectionOptions(followRedirects = true, connectTimeout = 10000, readTimeout = 10000, sslTRustAll = false))
+      options = Map("header" -> "true"))
 
     // 2) Instantiate the CSV table
     val table = new CsvTable(config, spark, mockCache)
@@ -97,8 +95,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testCsvLimit",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
-      options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("header" -> "true"))
 
     val table = new CsvTable(config, spark, mockCache)
 
@@ -121,14 +118,13 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "readOnlyTest",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
-      options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("header" -> "true"))
     val table = new CsvTable(config, spark, mockCache)
 
-    an[com.rawlabs.das.sdk.DASSdkException] should be thrownBy {
+    an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
       table.insert(com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
     }
-    an[com.rawlabs.das.sdk.DASSdkException] should be thrownBy {
+    an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
       table.update(
         com.rawlabs.protocol.das.v1.types.Value
           .newBuilder()
@@ -136,7 +132,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
           .build(),
         com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
     }
-    an[com.rawlabs.das.sdk.DASSdkException] should be thrownBy {
+    an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
       table.delete(
         com.rawlabs.protocol.das.v1.types.Value
           .newBuilder()
@@ -150,8 +146,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testPushdownCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
-      options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("header" -> "true"))
 
     val table = new CsvTable(config, spark, mockCache)
 
@@ -182,8 +177,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testILikeCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
-      options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("header" -> "true"))
 
     val table = new CsvTable(config, spark, mockCache)
 
@@ -220,8 +214,7 @@ class CsvTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testSortCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
-      options = Map("header" -> "true"),
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("header" -> "true"))
 
     val table = new CsvTable(config, spark, mockCache)
 

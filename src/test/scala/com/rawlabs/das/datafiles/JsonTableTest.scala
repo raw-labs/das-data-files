@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.protocol.das.v1.query.Qual
 
-class JsonTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
+class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   private val jsonContent =
     """[
@@ -64,7 +64,7 @@ class JsonTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with
         ArgumentMatchers.eq("http://mocked.com/test.json"),
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempJsonFile.getAbsolutePath)
+        any[Int]())).thenReturn(tempJsonFile.getAbsolutePath)
 
     when(
       mockCache.acquireFor(
@@ -72,7 +72,7 @@ class JsonTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with
         ArgumentMatchers.eq("http://mocked.com/test-lines.json"),
         any[Option[String]](),
         any[Map[String, String]](),
-        any[HttpConnectionOptions]())).thenReturn(tempJsonLinesFile.getAbsolutePath)
+        any[Int]())).thenReturn(tempJsonLinesFile.getAbsolutePath)
   }
 
   behavior of "JsonTable"
@@ -82,8 +82,8 @@ class JsonTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJson",
       url = "http://mocked.com/test.json",
       format = Some("json"),
-      options = Map.empty, // default to read json is multiline=true (normal json and not json lines)
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map.empty // default to read json is multiline=true (normal json and not json lines)
+    )
 
     val table = new JsonTable(config, spark, mockCache)
 
@@ -115,8 +115,8 @@ class JsonTableSpec extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJson",
       url = "http://mocked.com/test-lines.json",
       format = Some("json"),
-      options = Map("multiLine" -> "false"), // for json lines file this has to be false
-      httpOptions = HttpConnectionOptions(followRedirects = true, 10000, 10000, sslTRustAll = false))
+      options = Map("multiLine" -> "false") // for json lines file this has to be false
+    )
 
     val table = new JsonTable(config, spark, mockCache)
 

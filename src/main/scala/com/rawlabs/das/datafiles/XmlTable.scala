@@ -26,9 +26,10 @@ class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
 
   override def format: String = "xml"
 
+  // default row tag is "row"
+  private val rowTag = config.options.getOrElse("row_tag", "row")
   // Map our custom configuration keys to the corresponding Spark XML options.
   private val options: Map[String, String] = Map(
-    "row_tag" -> "rowTag", // The tag that defines a single record (row) in the XML.
     "root_tag" -> "rootTag", // The tag for the root element in the XML document.
     "attribute_prefix" -> "attributePrefix", // Prefix to add to XML attribute names.
     "values_tag" -> "valueTag", // Tag used to represent the element's text value when it has attributes.
@@ -73,6 +74,7 @@ class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
 
     sparkSession.read
       .option("inferSchema", "true")
+      .option("rowTag", rowTag)
       .format("xml")
       .options(options)
       .load(resolvedUrl)

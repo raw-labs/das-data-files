@@ -18,7 +18,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
 
-class DASDataFilesSpec extends AnyFlatSpec with Matchers with SparkTestContext {
+class DASDataFilesTest extends AnyFlatSpec with Matchers with SparkTestContext {
 
   "DASDataFiles" should "create tables from config and read definitions" in {
     // 1) create a local CSV for testing
@@ -49,7 +49,6 @@ class DASDataFilesSpec extends AnyFlatSpec with Matchers with SparkTestContext {
 
     val table = tableOpt.get
 
-    // Optionally, call .execute(...) if you want to verify data
     val result = table.execute(Nil, Nil, Nil, None)
     result.hasNext shouldBe true
     val row1 = result.next()
