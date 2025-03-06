@@ -23,6 +23,20 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
 
   override def format: String = "csv"
 
+  // Map our custom configuration keys to the corresponding Spark CSV options.
+  // Each entry checks if a key exists in our config and, if so, maps it to the Spark option name.
+  private val options: Map[String, String] = Map(
+    "header" -> "header", // Whether the first line is a header row.
+    "delimiter" -> "delimiter", // The character used to separate fields (default: comma).
+    "quote" -> "quote", // The character used for quoting strings (default: double quote).
+    "escape" -> "escape", // The character used to escape quotes inside quoted fields.
+    "multiLine" -> "multiLine", // Whether a single record can span multiple lines.
+    "date_format" -> "dateFormat", // Custom date format to parse date columns.
+    "timestamp_format" -> "timestampFormat" // Custom timestamp format to parse timestamp columns.
+  ).flatMap { case (key, option) =>
+    config.options.get(key).map(value => option -> value)
+  }
+
   /**
    * Build the table definition for the CSV.
    */
@@ -49,14 +63,9 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
    * Override to read CSV with Spark, parse relevant CSV options from `options`.
    */
   override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
-    // Parse CSV-specific options from the `options` map. For example:
-    val hasHeader = config.options.get("header").forall(_.toBoolean)
-    val delimiter = config.options.getOrElse("delimiter", ",")
-
     sparkSession.read
-      .option("header", hasHeader.toString)
       .option("inferSchema", "true")
-      .option("delimiter", delimiter)
+      .options(options)
       .csv(resolvedUrl)
   }
 

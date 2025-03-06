@@ -21,10 +21,27 @@ import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, Ta
 /**
  * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).
  */
-class XmlTable(config: DataFileConfig, spark: SparkSession, httpFileCache: HttpFileCache)
+class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
     extends BaseDataFileTable(config, httpFileCache) {
 
   override def format: String = "xml"
+
+  // Map our custom configuration keys to the corresponding Spark XML options.
+  private val options: Map[String, String] = Map(
+    "row_tag" -> "rowTag", // The tag that defines a single record (row) in the XML.
+    "root_tag" -> "rootTag", // The tag for the root element in the XML document.
+    "attribute_prefix" -> "attributePrefix", // Prefix to add to XML attribute names.
+    "values_tag" -> "valueTag", // Tag used to represent the element's text value when it has attributes.
+    "ignore_surrounding_spaces" -> "ignoreSurroundingSpaces", // Whether to trim white space around element values.
+    "charset" -> "charset", // Character encoding of the XML file (default: UTF-8).
+    "treat_empty_values_as_nulls" -> "treatEmptyValuesAsNulls", // Whether to treat empty string values as null.
+    "sampling_ratio" -> "samplingRatio", // Ratio of rows to use for schema inference (between 0 and 1).
+    "mode" -> "mode", // Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.
+    "date_format" -> "dateFormat", // Custom date format for parsing date fields.
+    "timestamp_format" -> "timestampFormat" // Custom timestamp format for parsing timestamp fields.
+  ).flatMap { case (key, option) =>
+    config.options.get(key).map(value => option -> value)
+  }
 
   /**
    * Build the table definition for the XML file.
@@ -53,18 +70,11 @@ class XmlTable(config: DataFileConfig, spark: SparkSession, httpFileCache: HttpF
    */
   override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     // Typically: spark.read.format("xml").option("rowTag", "book").load(...)
-    val reader = spark.read.format("xml")
 
-    // Pass all prefixed 'option_' keys or just pass them all.
-    config.options.foreach { case (key, value) =>
-      reader.option(key, value)
-    }
-
-    // If user didn't specify rowTag, you might default to something:
-    if (!config.options.contains("rowTag")) {
-      reader.option("rowTag", "row")
-    }
-
-    reader.load(resolvedUrl)
+    sparkSession.read
+      .option("inferSchema", "true")
+      .format("xml")
+      .options(options)
+      .load(resolvedUrl)
   }
 }

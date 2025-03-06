@@ -23,6 +23,21 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
 
   override def format: String = "json"
 
+  // Default multiLine to true for standard JSON (pretty printed or array of objects)
+  private val multiLine = config.options.getOrElse("multiLine", "true").toBoolean
+
+  // Map our custom configuration keys to the corresponding Spark JSON options.
+  private val options: Map[String, String] = Map(
+    "mode" -> "mode", // How to handle corrupt records: PERMISSIVE, DROPMALFORMED, or FAILFAST.
+    "date_format" -> "dateFormat", // Custom date format for parsing date values.
+    "timestamp_format" -> "timestampFormat", // Custom timestamp format for parsing timestamps.
+    "allow_comments" -> "allowComments", // Whether to allow comments in the JSON file.
+    "drop_field_if_all_null" -> "dropFieldIfAllNull", // Whether to drop fields that are always null.
+    "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
+  ).flatMap { case (key, option) =>
+    config.options.get(key).map(value => option -> value)
+  }
+
   /**
    * Build the table definition for the JSON file.
    */
@@ -49,12 +64,10 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
    * Override to read JSON with Spark, parse any relevant options from the `options` map.
    */
   override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
-    // Default multiLine to true (normal json instead of json lines)
-    val multiLine = config.options.getOrElse("multiLine", "true").toBoolean
-
     sparkSession.read
-      .option("multiLine", multiLine)
       .option("inferSchema", "true")
+      .option("multiLine", multiLine)
+      .options(options)
       .json(resolvedUrl)
   }
 }
