@@ -12,8 +12,6 @@
 
 package com.rawlabs.das.datafiles
 
-import com.typesafe.scalalogging.StrictLogging
-
 import java.io.File
 import java.net.URI
 import java.net.http.HttpRequest.{BodyPublisher, BodyPublishers}
@@ -24,6 +22,8 @@ import java.security.cert.X509Certificate
 import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
+
+import com.typesafe.scalalogging.StrictLogging
 
 // The key
 case class HttpCacheKey(method: String, url: String, body: Option[String], headers: Map[String, String])
@@ -240,7 +240,7 @@ class HttpFileCache(
     val it = cacheIndex.keys().asIterator()
     while (it.hasNext) {
       val key = it.next()
-      val entry= cacheIndex.get(key)
+      val entry = cacheIndex.get(key)
       if (entry.usageCount > 0) {
         logger.warn(s"File ${entry.localPath} for url ${key.url} still in use on shutdown")
       }

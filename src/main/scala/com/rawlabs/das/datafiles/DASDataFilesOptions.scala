@@ -12,9 +12,9 @@
 
 package com.rawlabs.das.datafiles
 
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
-
 import scala.collection.mutable
+
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
 /**
  * Represents a single table’s configuration
@@ -23,11 +23,7 @@ import scala.collection.mutable
 case class HttpConnectionOptions(followRedirects: Boolean, connectTimeout: Int, sslTrustAll: Boolean)
 case class awsCredential(accessKey: String, secretKey: String)
 
-case class DataFileConfig(
-    name: String,
-    url: String,
-    format: Option[String],
-    options: Map[String, String])
+case class DataFileConfig(name: String, url: String, format: Option[String], options: Map[String, String])
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -38,7 +34,8 @@ class DASDataFilesOptions(options: Map[String, String]) {
   val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)
 
   val s3Credentials: Option[awsCredential] = options.get("aws_access_key").map { accessKey =>
-    val secretKey = options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
+    val secretKey =
+      options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
     awsCredential(accessKey, secretKey)
   }
 
@@ -65,7 +62,9 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
       // Mandatory fields
       val url =
-        options.getOrElse(prefix + "url", throw new DASSdkInvalidArgumentException(s"Missing '${prefix}url' option for DataFile DAS."))
+        options.getOrElse(
+          prefix + "url",
+          throw new DASSdkInvalidArgumentException(s"Missing '${prefix}url' option for DataFile DAS."))
       val format = options.get(prefix + "format")
 
       // Name is optional: if not provided, derive from URL
