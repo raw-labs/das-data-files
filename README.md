@@ -14,9 +14,6 @@ This DAS plugin defines multiple tables, each based on a user-provided configura
 * CSV tables from S3
 * json tables from HTTP
 * A mix of CSV, JSON, XML, and Parquet files from S3 and HTTP
-  Each table is configured with tableX_url, tableX_format, optional tableX_name, and other parameters (
-  tableX_option_header, tableX_option_delimiter, etc.). The plugin uses Spark under the hood to load data and push down
-  filters (e.g. WHERE col = 123) and sorting.
 
 A typical usage might look like:
 
