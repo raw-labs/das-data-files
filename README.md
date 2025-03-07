@@ -9,11 +9,12 @@ automatic schema inference (or metadata for Parquet).
 
 ## Overview
 
-This DAS plugin defines multiple tables, each based on a user-provided configuration. For example, you might have:
-
-* CSV tables from S3
-* json tables from HTTP
-* A mix of CSV, JSON, XML, and Parquet files from S3 and HTTP
+This DAS plugin defines multiple tables based on files from HTTP/HTTPS URLs or S3.:
+The plugin supports the following file types:
+* CSV
+* JSON
+* XML
+* Parquet
 
 A typical usage might look like:
 
