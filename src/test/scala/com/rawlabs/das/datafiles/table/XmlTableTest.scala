@@ -10,7 +10,7 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.table
 
 import java.io.File
 
@@ -22,6 +22,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache, SparkTestContext}
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {

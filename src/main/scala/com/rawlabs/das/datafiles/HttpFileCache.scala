@@ -23,6 +23,7 @@ import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
 
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 
 /**
@@ -242,4 +243,15 @@ class HttpFileCache(
    * @return The number of cache entries.
    */
   def getEntryCount: Int = cacheIndex.size()
+}
+
+object HttpFileCache {
+  private val config: Config = ConfigFactory.load()
+  private val cacheDirStr = config.getString("raw.das.data-files.cache-dir")
+  private val idleTimeoutMillis = config.getLong("raw.das.data-files.cache-idle-timeout-ms")
+  private val evictionCheckMillis = config.getLong("raw.das.data-files.cache-eviction-check-ms")
+
+  def build(httpOptions: HttpConnectionOptions): HttpFileCache = {
+    new HttpFileCache(cacheDirStr, idleTimeoutMillis, evictionCheckMillis, httpOptions)
+  }
 }

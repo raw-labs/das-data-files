@@ -10,10 +10,11 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.table
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
+import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
