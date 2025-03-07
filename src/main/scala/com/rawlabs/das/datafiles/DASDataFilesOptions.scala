@@ -39,11 +39,11 @@ class DASDataFilesOptions(options: Map[String, String]) {
     awsCredential(accessKey, secretKey)
   }
 
-  val extraSparkConfig: Map[String, String] = options.filter(x => x._1.startsWith("extra_config_"))
+  val extraSparkConfig: Map[String, String] = options.filter(x => x._1.startsWith("option_"))
 
   val httpOptions: HttpConnectionOptions = {
     val followRedirects = options.getOrElse("http_follow_redirects", "true").toBoolean
-    val connectTimeout = options.getOrElse("http_connect_timeout", "10000").toInt
+    val connectTimeout = options.getOrElse("http_connect_timeout", "5000").toInt
     val sslTRustAll = options.getOrElse("http_ssl_trust_all", "false").toBoolean
     HttpConnectionOptions(followRedirects, connectTimeout, sslTRustAll)
   }

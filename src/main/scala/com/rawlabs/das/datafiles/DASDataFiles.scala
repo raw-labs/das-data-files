@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles
 
+import scala.jdk.CollectionConverters.CollectionHasAsScala
+
 import org.apache.spark.sql.SparkSession
 
-import com.rawlabs.das.datafiles.DASDataFiles.buildSparkSession
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
@@ -22,35 +23,21 @@ import com.rawlabs.protocol.das.v1.tables.TableDefinition
 import com.typesafe.config.{Config, ConfigFactory}
 
 object DASDataFiles {
+  private val config: Config = ConfigFactory.load()
+  private val cacheDirStr = config.getString("raw.das.data-files.cache-dir")
+  private val idleTimeoutMillis = config.getLong("raw.das.data-files.cache-idle-timeout-ms")
+  private val evictionCheckMillis = config.getLong("raw.das.data-files.cache-eviction-check-ms")
 
-  def buildSparkSession(appName: String, options: DASDataFilesOptions): SparkSession = {
-    val builder = SparkSession
-      .builder()
-      .appName(appName)
-      .master("local[*]") // or read from some config
-
-    options.s3Credentials.foreach { creds =>
-      builder.config("fs.s3a.access.key", creds.accessKey)
-      builder.config("fs.s3a.secret.key", creds.secretKey)
-      // disabling s3 metrics
-      builder.config("fs.s3a.metrics.conf", "")
-    }
-    builder.config(options.extraSparkConfig)
-    builder.getOrCreate()
-  }
 }
 
 /**
  * The main plugin class that registers one table per file.
  */
 class DASDataFiles(options: Map[String, String]) extends DASSdk {
+  import DASDataFiles._
   private val dasOptions = new DASDataFilesOptions(options)
 
-  private lazy val sparkSession = buildSparkSession("dasDataFilesApp", dasOptions)
-  private val config: Config = ConfigFactory.load()
-  private val cacheDirStr = config.getString("raw.das.data-files.cache-dir")
-  private val idleTimeoutMillis = config.getLong("raw.das.data-files.cache-idle-timeout-ms")
-  private val evictionCheckMillis = config.getLong("raw.das.data-files.cache-eviction-check-ms")
+  private lazy val sparkSession = SParkSessionBuilder.build("dasDataFilesApp", dasOptions)
 
   private val hppFileCache =
     new HttpFileCache(cacheDirStr, idleTimeoutMillis, evictionCheckMillis, dasOptions.httpOptions)

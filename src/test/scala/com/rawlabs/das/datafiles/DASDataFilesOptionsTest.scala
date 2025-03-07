@@ -91,4 +91,18 @@ class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
     parsed.httpOptions.connectTimeout shouldBe 5000
     parsed.httpOptions.sslTrustAll shouldBe true
   }
+
+  it should "handle partial collisions in table names" in {
+    val opts = Map(
+      "nr_tables" -> "2",
+      "table0_url" -> "/some/path1.csv",
+      "table0_format" -> "csv",
+      "table0_name" -> "duplicate",
+      "table1_url" -> "/some/path2.csv",
+      "table1_format" -> "csv",
+      "table1_name" -> "duplicate" // intentionally the same
+    )
+    val parsed = new DASDataFilesOptions(opts)
+    parsed.tableConfigs.map(_.name) shouldBe Seq("duplicate", "duplicate_2")
+  }
 }

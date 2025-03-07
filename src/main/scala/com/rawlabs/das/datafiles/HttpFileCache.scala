@@ -14,7 +14,7 @@ package com.rawlabs.das.datafiles
 
 import java.io.File
 import java.net.URI
-import java.net.http.HttpRequest.{BodyPublisher, BodyPublishers}
+import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.security.SecureRandom
@@ -25,69 +25,70 @@ import javax.net.ssl.{SSLContext, SSLParameters, TrustManager, X509TrustManager}
 
 import com.typesafe.scalalogging.StrictLogging
 
-// The key
+/**
+ * Uniquely identifies an HTTP request by method, URL, optional body, and headers.
+ */
 case class HttpCacheKey(method: String, url: String, body: Option[String], headers: Map[String, String])
 
 /**
- * A reference-counted HTTP file cache:
+ * A reference-counted HTTP file cache.
  *
- *   - Acquire a file via 'acquireFileFor', returns a local file, increments usageCount.
- *   - Release it via 'releaseFile', decrements usageCount.
- *   - If usageCount == 0, we wait idleTimeoutMillis from the last release before deleting the file.
+ * Acquire a file via `acquireFor`, incrementing usage. Release it via `releaseFile`. Files idle longer than
+ * `idleTimeoutMillis` are removed.
+ *
+ * @param cacheDirStr Directory path for storing downloaded files.
+ * @param idleTimeoutMillis Idle time in ms before unused files are removed.
+ * @param evictionCheckInterval Interval in ms to run the eviction checks.
+ * @param httpOptions Basic HTTP settings (redirects, timeouts, SSL trust).
  */
 class HttpFileCache(
     cacheDirStr: String,
-    idleTimeoutMillis: Long, // e.g. 60_000 for 1 minute
-    evictionCheckInterval: Long, // how often the background thread checks, e.g. 10_000 ms
+    idleTimeoutMillis: Long,
+    evictionCheckInterval: Long,
     httpOptions: HttpConnectionOptions)
     extends StrictLogging {
 
-  require(idleTimeoutMillis >= 0, "idleTimeoutMillis must be non-negative")
-  require(evictionCheckInterval > 0, "evictionCheckInterval must be positive")
-  require(httpOptions.connectTimeout > 0, "httpOptions.connectTimeout must be positive")
+  // Validate input arguments.
+  require(idleTimeoutMillis >= 0, "idleTimeoutMillis must be positive")
+  require(evictionCheckInterval > 0, "evictionCheckInterval must be greater than zero")
+  require(httpOptions.connectTimeout > 0, "httpOptions.connectTimeout must be greater than zero")
 
+  /**
+   * Subdirectory used to store cached files, ensuring uniqueness within the main cacheDirStr.
+   */
   private val uniqueDirName = UUID.randomUUID().toString.take(8)
   private val cacheDir = Paths.get(cacheDirStr, uniqueDirName).toFile
-
   if (!cacheDir.exists()) cacheDir.mkdirs()
 
-  // The cache entry with reference counting
-  private case class CacheEntry(
-      localPath: String, // where the file is stored
-      var usageCount: Int, // how many clients are using it
-      var lastReleaseTime: Long,
-      var fileSize: Long)
+  /**
+   * Tracks usage count and release time for each cached file.
+   */
+  private case class CacheEntry(localPath: String, var usageCount: Int, var lastReleaseTime: Long, var fileSize: Long)
 
-  // Internal map from key -> CacheEntry
+  // Primary map from HttpCacheKey to CacheEntry
   private val cacheIndex = new ConcurrentHashMap[HttpCacheKey, CacheEntry]()
 
-  // Start a background thread to periodically evict unused files
+  // Single-thread scheduler for eviction tasks
   private val scheduler = Executors.newSingleThreadScheduledExecutor()
   initScheduler()
 
+  // Build the HttpClient with optional SSL trust-all, timeouts, etc.
   private val httpClient = {
     val builder = HttpClient.newBuilder()
-
-    // Follow redirects if set
     if (httpOptions.followRedirects) builder.followRedirects(HttpClient.Redirect.ALWAYS)
     else builder.followRedirects(HttpClient.Redirect.NEVER)
-
-    // Connect timeout
     builder.connectTimeout(java.time.Duration.ofMillis(httpOptions.connectTimeout))
 
-    // SSL trust all
     if (httpOptions.sslTrustAll) {
       val trustAllCerts = Array[TrustManager](new X509TrustManager {
-        override def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
-        override def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = {}
+        override def checkClientTrusted(chain: Array[X509Certificate], authType: String): Unit = ()
+        override def checkServerTrusted(chain: Array[X509Certificate], authType: String): Unit = ()
         override def getAcceptedIssuers: Array[X509Certificate] = Array.empty
       })
-
       val sslContext = SSLContext.getInstance("TLS")
       sslContext.init(null, trustAllCerts, new SecureRandom())
       builder.sslContext(sslContext)
 
-      // also disable hostname verification
       val noVerification = new SSLParameters()
       noVerification.setEndpointIdentificationAlgorithm(null)
       builder.sslParameters(noVerification)
@@ -96,21 +97,29 @@ class HttpFileCache(
     builder.build()
   }
 
+  /**
+   * Creates a recurring task to evict unused files.
+   */
   private def initScheduler(): Unit = {
-    val task = new Runnable {
-      override def run(): Unit = {
-        try evictUnusedEntries()
-        catch {
-          case e: Throwable => e.printStackTrace()
-        }
-      }
-    }
-    scheduler.scheduleAtFixedRate(task, evictionCheckInterval, evictionCheckInterval, TimeUnit.MILLISECONDS)
+    scheduler.scheduleAtFixedRate(
+      new Runnable {
+        override def run(): Unit = try evictUnusedEntries()
+        catch { case e: Throwable => e.printStackTrace() }
+      },
+      evictionCheckInterval,
+      evictionCheckInterval,
+      TimeUnit.MILLISECONDS)
   }
 
   /**
-   * Acquire a file from cache, increment usageCount. If not present, download it from the remote URL and store it in
-   * the cache.
+   * Downloads or retrieves a file from the cache, returning its local path.
+   *
+   * @param method HTTP method (e.g., "GET").
+   * @param url Remote URL to download from.
+   * @param body Optional request body (e.g. for POST).
+   * @param headers HTTP request headers.
+   * @param readTimeout Per-request read timeout in milliseconds.
+   * @return Local file path of the cached file.
    */
   def acquireFor(
       method: String,
@@ -126,34 +135,31 @@ class HttpFileCache(
       return existing.localPath
     }
     logger.debug(s"Downloading file for: $method $url headers-size=${headers.size}")
-    // Not in cache => download
     val localFile = downloadToCache(key, readTimeout)
     val fileSize = localFile.length()
-    val newEntry = CacheEntry(
-      localPath = localFile.getAbsolutePath,
-      usageCount = 1, // we are acquiring now
-      lastReleaseTime = 0L, // not relevant yet
-      fileSize = fileSize)
+    val newEntry =
+      CacheEntry(localPath = localFile.getAbsolutePath, usageCount = 1, lastReleaseTime = 0L, fileSize = fileSize)
     cacheIndex.put(key, newEntry)
-
     newEntry.localPath
   }
 
   /**
-   * Release a file previously acquired, decrement usageCount. If usageCount goes to zero, we record lastReleaseTime and
-   * the file will be cleaned up after idleTimeoutMillis if not re-acquired.
+   * Decrements the usage count for a cached file. If count hits zero, it will be eligible for eviction after
+   * idleTimeoutMillis.
+   *
+   * @param method HTTP method used in the request.
+   * @param url Remote URL originally fetched.
+   * @param body Optional body used in the request.
+   * @param headers Headers that were used.
    */
   def releaseFile(method: String, url: String, body: Option[String], headers: Map[String, String]): Unit =
     synchronized {
-
       val key = HttpCacheKey(method, url, body, headers)
       val entry = cacheIndex.get(key)
       if (entry == null) {
         logger.warn(s"Could not release, entry not found: $method $url headers-size=${headers.size}")
-        // not found => might be a bug or repeated release
         return
       }
-
       if (entry.usageCount > 0) {
         entry.usageCount -= 1
         entry.lastReleaseTime = System.currentTimeMillis()
@@ -161,44 +167,27 @@ class HttpFileCache(
       } else {
         logger.warn(s"Released file with usageCount=0: $method $url headers-size=${headers.size}")
       }
-
     }
 
   /**
-   * A simple placeholder for your actual HTTP download logic. You might have timeouts, SSL ignoring, advanced config,
-   * etc.
+   * Retrieves content from the remote source. Throws an exception if the HTTP status is not 2xx.
    */
   private[datafiles] def downloadToCache(key: HttpCacheKey, readTimeout: Int): File = {
     val uri = URI.create(key.url)
-
-    val reqBuilder = HttpRequest.newBuilder(uri)
-    val method = key.method.trim.toUpperCase()
-    val bodyPublisher: BodyPublisher = key.body match {
-      case Some(body) =>
-        BodyPublishers.ofString(body)
-      case None =>
-        BodyPublishers.noBody()
-    }
-
-    reqBuilder.timeout(java.time.Duration.ofMillis(readTimeout))
-
-    reqBuilder.method(method, bodyPublisher)
-
+    val reqBuilder = HttpRequest
+      .newBuilder(uri)
+      .timeout(java.time.Duration.ofMillis(readTimeout))
+      .method(key.method.trim.toUpperCase, key.body.map(BodyPublishers.ofString).getOrElse(BodyPublishers.noBody()))
     key.headers.foreach { case (k, v) => reqBuilder.header(k, v) }
 
-    val request = reqBuilder.build()
-    val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-    val status = response.statusCode()
-
-    if (status < 200 || status >= 300) {
+    val response = httpClient.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofInputStream())
+    if (response.statusCode() < 200 || response.statusCode() >= 300) {
       response.body().close()
-      throw new RuntimeException(s"HTTP $method to ${key.url} returned status code $status: ${response.body()}")
+      throw new RuntimeException(s"HTTP ${key.method} to ${key.url} returned status code ${response.statusCode()}")
     }
 
-    // Save to local file
     val baseName = Paths.get(uri.getPath).getFileName.toString
-    val uniqueId = UUID.randomUUID().toString.take(8)
-    val uniqueName = s"$uniqueId-$baseName"
+    val uniqueName = s"${UUID.randomUUID().toString.take(8)}-$baseName"
     val outFile = new File(cacheDir, uniqueName)
 
     val inStream = response.body()
@@ -209,34 +198,29 @@ class HttpFileCache(
   }
 
   /**
-   * The background job that checks for entries with usageCount=0 and (System.currentTimeMillis - lastReleaseTime) >
-   * idleTimeoutMillis, then removes them from the cache and deletes the file.
+   * Periodically removes entries that have usageCount=0 and passed idleTimeoutMillis since last release.
    */
   private def evictUnusedEntries(): Unit = synchronized {
     val now = System.currentTimeMillis()
     val it = cacheIndex.values().iterator()
     while (it.hasNext) {
       val entry = it.next()
-      if (entry.usageCount <= 0 && (now - entry.lastReleaseTime) > idleTimeoutMillis) {
-        // remove from map
+      val idleTime = now - entry.lastReleaseTime
+      if (entry.usageCount <= 0 && idleTime > idleTimeoutMillis) {
         it.remove()
-        // delete file
         val f = new File(entry.localPath)
-        if (f.exists()) {
-          f.delete()
-        }
+        if (f.exists()) f.delete()
       }
     }
   }
 
   /**
-   * Stop the background eviction thread. Optionally, you might want to evictAll or do a final pass.
+   * Shuts down the cache, cleaning up files and stopping the eviction thread. Any in-use files will also be removed
+   * from disk if still present.
    */
   def shutdown(): Unit = {
     scheduler.shutdown()
     httpClient.close()
-
-    // delete all files
     val it = cacheIndex.keys().asIterator()
     while (it.hasNext) {
       val key = it.next()
@@ -253,7 +237,9 @@ class HttpFileCache(
   }
 
   /**
-   * For debugging/tests: how many entries are in the cache?
+   * Returns how many entries currently exist in the cache.
+   *
+   * @return The number of cache entries.
    */
   def getEntryCount: Int = cacheIndex.size()
 }

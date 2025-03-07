@@ -28,16 +28,16 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
 
   // Map our custom configuration keys to the corresponding Spark CSV options.
   // Each entry checks if a key exists in our config and, if so, maps it to the Spark option name.
-  private val options: Map[String, String] = Map(
-    "delimiter" -> "delimiter", // The character used to separate fields (default: comma).
-    "quote" -> "quote", // The character used for quoting strings (default: double quote).
-    "escape" -> "escape", // The character used to escape quotes inside quoted fields.
-    "multiLine" -> "multiLine", // Whether a single record can span multiple lines.
-    "date_format" -> "dateFormat", // Custom date format to parse date columns.
-    "timestamp_format" -> "timestampFormat" // Custom timestamp format to parse timestamp columns.
-  ).flatMap { case (key, option) =>
-    config.options.get(key).map(value => option -> value)
-  }
+  private val sparkOptions: Map[String, String] = remapOptions(
+    Map(
+      "delimiter" -> "delimiter", // The character used to separate fields (default: comma).
+      "quote" -> "quote", // The character used for quoting strings (default: double quote).
+      "escape" -> "escape", // The character used to escape quotes inside quoted fields.
+      "multiline" -> "multiLine", // Whether a single record can span multiple lines.
+      "mode" -> "mode", // How to handle corrupt lines: PERMISSIVE, DROPMALFORMED, or FAILFAST.
+      "date_format" -> "dateFormat", // Custom date format to parse date columns.
+      "timestamp_format" -> "timestampFormat" // Custom timestamp format to parse timestamp columns.
+    ))
 
   /**
    * Build the table definition for the CSV.
@@ -68,7 +68,7 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
     sparkSession.read
       .option("inferSchema", "true")
       .option("header", header)
-      .options(options)
+      .options(sparkOptions)
       .csv(resolvedUrl)
   }
 

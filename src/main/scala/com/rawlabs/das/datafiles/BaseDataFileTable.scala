@@ -53,6 +53,12 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
   def tableDefinition: TableDefinition
 
+  protected def remapOptions(options: Map[String, String]): Map[String, String] = {
+    options.flatMap { case (key, option) =>
+      config.options.get(key).map(value => option -> value)
+    }
+  }
+
   override def getTablePathKeys: Seq[com.rawlabs.protocol.das.v1.query.PathKey] = Seq.empty
 
   override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)

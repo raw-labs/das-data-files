@@ -28,13 +28,12 @@ class ParquetTable(config: DataFileConfig, sparkSession: SparkSession, httpFileC
   override def format: String = "parquet"
 
   // Map our custom configuration keys to the corresponding Spark Parquet options.
-  private val options: Map[String, String] = Map(
-    "merge_schema" -> "mergeSchema", // Whether to merge schemas from different files when reading from a directory.
-    "recursive_file_lookup" -> "recursiveFileLookup", // Whether to recursively search subdirectories for Parquet files.
-    "path_glob_filter" -> "pathGlobFilter" // Glob pattern to filter which files to read.
-  ).flatMap { case (key, option) =>
-    config.options.get(key).map(value => option -> value)
-  }
+  private val sparkOptions: Map[String, String] = remapOptions(
+    Map(
+      "merge_schema" -> "mergeSchema", // Whether to merge schemas from different files when reading from a directory.
+      "recursive_file_lookup" -> "recursiveFileLookup", // Whether to recursively search subdirectories for Parquet files.
+      "path_glob_filter" -> "pathGlobFilter" // Glob pattern to filter which files to read.
+    ))
 
   /**
    * Build the table definition for the Parquet file.
@@ -65,7 +64,7 @@ class ParquetTable(config: DataFileConfig, sparkSession: SparkSession, httpFileC
    */
   override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     sparkSession.read
-      .options(options)
+      .options(sparkOptions)
       .parquet(resolvedUrl)
 
   }

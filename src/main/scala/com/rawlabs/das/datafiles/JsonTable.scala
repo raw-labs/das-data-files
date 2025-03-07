@@ -27,16 +27,15 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
   private val multiLine = config.options.getOrElse("multiLine", "true").toBoolean
 
   // Map our custom configuration keys to the corresponding Spark JSON options.
-  private val options: Map[String, String] = Map(
-    "mode" -> "mode", // How to handle corrupt records: PERMISSIVE, DROPMALFORMED, or FAILFAST.
-    "date_format" -> "dateFormat", // Custom date format for parsing date values.
-    "timestamp_format" -> "timestampFormat", // Custom timestamp format for parsing timestamps.
-    "allow_comments" -> "allowComments", // Whether to allow comments in the JSON file.
-    "drop_field_if_all_null" -> "dropFieldIfAllNull", // Whether to drop fields that are always null.
-    "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
-  ).flatMap { case (key, option) =>
-    config.options.get(key).map(value => option -> value)
-  }
+  private val sparkOptions: Map[String, String] = remapOptions(
+    Map(
+      "mode" -> "mode", // How to handle corrupt records: PERMISSIVE, DROPMALFORMED, or FAILFAST.
+      "date_format" -> "dateFormat", // Custom date format for parsing date values.
+      "timestamp_format" -> "timestampFormat", // Custom timestamp format for parsing timestamps.
+      "allow_comments" -> "allowComments", // Whether to allow comments in the JSON file.
+      "drop_field_if_all_null" -> "dropFieldIfAllNull", // Whether to drop fields that are always null.
+      "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
+    ))
 
   /**
    * Build the table definition for the JSON file.
@@ -67,7 +66,7 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
     sparkSession.read
       .option("inferSchema", "true")
       .option("multiLine", multiLine)
-      .options(options)
+      .options(sparkOptions)
       .json(resolvedUrl)
   }
 }

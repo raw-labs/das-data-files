@@ -29,20 +29,19 @@ class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
   // default row tag is "row"
   private val rowTag = config.options.getOrElse("row_tag", "row")
   // Map our custom configuration keys to the corresponding Spark XML options.
-  private val options: Map[String, String] = Map(
-    "root_tag" -> "rootTag", // The tag for the root element in the XML document.
-    "attribute_prefix" -> "attributePrefix", // Prefix to add to XML attribute names.
-    "values_tag" -> "valueTag", // Tag used to represent the element's text value when it has attributes.
-    "ignore_surrounding_spaces" -> "ignoreSurroundingSpaces", // Whether to trim white space around element values.
-    "charset" -> "charset", // Character encoding of the XML file (default: UTF-8).
-    "treat_empty_values_as_nulls" -> "treatEmptyValuesAsNulls", // Whether to treat empty string values as null.
-    "sampling_ratio" -> "samplingRatio", // Ratio of rows to use for schema inference (between 0 and 1).
-    "mode" -> "mode", // Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.
-    "date_format" -> "dateFormat", // Custom date format for parsing date fields.
-    "timestamp_format" -> "timestampFormat" // Custom timestamp format for parsing timestamp fields.
-  ).flatMap { case (key, option) =>
-    config.options.get(key).map(value => option -> value)
-  }
+  private val sparkOptions: Map[String, String] = remapOptions(
+    Map(
+      "root_tag" -> "rootTag", // The tag for the root element in the XML document.
+      "attribute_prefix" -> "attributePrefix", // Prefix to add to XML attribute names.
+      "values_tag" -> "valueTag", // Tag used to represent the element's text value when it has attributes.
+      "ignore_surrounding_spaces" -> "ignoreSurroundingSpaces", // Whether to trim white space around element values.
+      "charset" -> "charset", // Character encoding of the XML file (default: UTF-8).
+      "treat_empty_values_as_nulls" -> "treatEmptyValuesAsNulls", // Whether to treat empty string values as null.
+      "sampling_ratio" -> "samplingRatio", // Ratio of rows to use for schema inference (between 0 and 1).
+      "mode" -> "mode", // Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.
+      "date_format" -> "dateFormat", // Custom date format for parsing date fields.
+      "timestamp_format" -> "timestampFormat" // Custom timestamp format for parsing timestamp fields.
+    ))
 
   /**
    * Build the table definition for the XML file.
@@ -71,12 +70,11 @@ class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
    */
   override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
     // Typically: spark.read.format("xml").option("rowTag", "book").load(...)
-
     sparkSession.read
       .option("inferSchema", "true")
       .option("rowTag", rowTag)
       .format("xml")
-      .options(options)
+      .options(sparkOptions)
       .load(resolvedUrl)
   }
 }
