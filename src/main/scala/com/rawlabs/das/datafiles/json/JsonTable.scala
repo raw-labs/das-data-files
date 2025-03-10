@@ -10,12 +10,13 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.table
+package com.rawlabs.das.datafiles.json
 
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
+import com.rawlabs.das.datafiles.{BaseDataFileTable, DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
     extends BaseDataFileTable(config, httpFileCache) {
@@ -35,7 +36,6 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
       "drop_field_if_all_null" -> "dropFieldIfAllNull", // Whether to drop fields that are always null.
       "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
     ))
-
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // We can't easily know row counts without reading the file.

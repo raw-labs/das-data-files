@@ -39,8 +39,6 @@ class DASDataFilesOptions(options: Map[String, String]) {
     awsCredential(accessKey, secretKey)
   }
 
-  val extraSparkConfig: Map[String, String] = options.filter(x => x._1.startsWith("option_"))
-
   val httpOptions: HttpConnectionOptions = {
     val followRedirects = options.getOrElse("http_follow_redirects", "true").toBoolean
     val connectTimeout = options.getOrElse("http_connect_timeout", "5000").toInt

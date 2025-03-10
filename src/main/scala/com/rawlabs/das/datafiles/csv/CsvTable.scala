@@ -10,12 +10,13 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.table
+package com.rawlabs.das.datafiles.csv
 
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
+import com.rawlabs.das.datafiles.{BaseDataFileTable, DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
     extends BaseDataFileTable(config, httpFileCache) {

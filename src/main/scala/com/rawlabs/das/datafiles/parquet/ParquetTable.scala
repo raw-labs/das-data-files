@@ -10,12 +10,13 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.table
+package com.rawlabs.das.datafiles.parquet
 
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
+import com.rawlabs.das.datafiles.{BaseDataFileTable, DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * Table that reads a Parquet file.
@@ -32,7 +33,6 @@ class ParquetTable(config: DataFileConfig, sparkSession: SparkSession, httpFileC
       "recursive_file_lookup" -> "recursiveFileLookup", // Whether to recursively search subdirectories for Parquet files.
       "path_glob_filter" -> "pathGlobFilter" // Glob pattern to filter which files to read.
     ))
-
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // Parquet has metadata that might let you guess row count or compression ratio,

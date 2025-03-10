@@ -12,10 +12,11 @@
 
 package com.rawlabs.das.datafiles
 
-import com.typesafe.config.ConfigFactory
+import scala.jdk.CollectionConverters.CollectionHasAsScala
+
 import org.apache.spark.sql.SparkSession
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import com.typesafe.config.ConfigFactory
 
 object SParkSessionBuilder {
 
@@ -23,13 +24,6 @@ object SParkSessionBuilder {
     val builder = SparkSession
       .builder()
       .appName(appName)
-
-    // Load the Spark configuration from the config file
-    val sparkConfig = ConfigFactory.load().getConfig("raw.das.data-files.spark")
-    sparkConfig.entrySet().asScala.foreach { entry =>
-      val key = entry.getKey
-      builder.config("spark." + key, sparkConfig.getString(key))
-    }
 
     // Set the S3 credentials if provided or use anonymous credentials
     options.s3Credentials match {
@@ -40,9 +34,13 @@ object SParkSessionBuilder {
         builder.config("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
     }
 
-    // Add any extra Spark configuration from the user
-    builder
-      .config(options.extraSparkConfig)
+    // Load the Spark configuration from the config file
+    val sparkConfig = ConfigFactory.load().getConfig("raw.das.data-files.spark-config")
+    sparkConfig.entrySet().asScala.foreach { entry =>
+      val key = entry.getKey
+      builder.config(key, sparkConfig.getString(key))
+    }
+
     builder.getOrCreate()
   }
 }

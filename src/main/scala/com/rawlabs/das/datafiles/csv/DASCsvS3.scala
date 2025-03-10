@@ -10,16 +10,16 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.csv
 
-import com.rawlabs.das.datafiles.table._
+import com.rawlabs.das.datafiles.{BaseDASDataFiles, BaseDataFileTable}
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 /**
  * The main plugin class that registers one table per file.
  */
-class DASS3Csv(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASCsvS3(options: Map[String, String]) extends BaseDASDataFiles(options) {
 
   // Build a list of our tables
   val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
@@ -35,12 +35,12 @@ class DASS3Csv(options: Map[String, String]) extends BaseDASDataFiles(options) {
  * Builder for the "s3-csv" DAS type. The engine calls build() with user-provided config, returning a new DasS3Csv
  * instance.
  */
-class DASS3CsvBuilder extends DASSdkBuilder {
+class DASCsvS3Builder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
   override def dasType: String = "s3-csv"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
-    new DASS3Csv(options)
+    new DASCsvS3(options)
   }
 }

@@ -10,7 +10,7 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.table
+package com.rawlabs.das.datafiles.csv
 
 import java.io.File
 

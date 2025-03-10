@@ -12,11 +12,11 @@
 
 package com.rawlabs.das.datafiles
 
-import com.rawlabs.das.datafiles.table._
+import org.apache.spark.sql.SparkSession
+
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
-import org.apache.spark.sql.SparkSession
 
 /**
  * The main plugin class that registers one table per file.

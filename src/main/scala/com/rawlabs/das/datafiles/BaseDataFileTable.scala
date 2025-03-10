@@ -10,7 +10,7 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.table
+package com.rawlabs.das.datafiles
 
 import java.net.URI
 
@@ -19,7 +19,6 @@ import scala.jdk.CollectionConverters._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, types => sparkTypes}
 
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}

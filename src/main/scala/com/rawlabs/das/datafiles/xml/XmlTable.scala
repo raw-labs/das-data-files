@@ -10,12 +10,13 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.table
+package com.rawlabs.das.datafiles.xml
 
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
+import com.rawlabs.das.datafiles.{BaseDataFileTable, DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).
