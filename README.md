@@ -373,7 +373,7 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-csv',
+  das_type 'http-csv',
   
   nr_tables '2',
   
@@ -396,7 +396,7 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-json',
+  das_type 'http-json',
   
   nr_tables '2',
   
@@ -410,7 +410,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS http xml "s3-xml"
+### DAS http xml "http-xml"
 
 Accepts json files from S3.
 See [HTTP settings](#http-settings) and [XML table settings](#xml-table-settings) for more information.
@@ -420,7 +420,7 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-xml',
+  das_type 'http-xml',
   
   nr_tables '2',
   
@@ -433,7 +433,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS http Parquet "s3-parquet"
+### DAS http Parquet "http-parquet"
 
 Accepts parquet files from S3.
 See [HTTP settings](#http-settings) and [Parquet table settings](#parquet-table-settings) for more information.
@@ -443,7 +443,7 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-parquet',
+  das_type 'http-parquet',
   
   -- HTTP connection settings (optional)
   http_follow_redirects 'true',
