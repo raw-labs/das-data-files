@@ -1,9 +1,9 @@
 com.rawlabs.das.datafiles.DASDataFilesBuilder
 com.rawlabs.das.datafiles.DASHttpCsvBuilder
-com.rawlabs.das.datafiles.DASHttpJsonBuilder
-com.rawlabs.das.datafiles.DASHttpParquetBuilder
-com.rawlabs.das.datafiles.DASHttpParquetBuilder
 com.rawlabs.das.datafiles.DASS3CsvBuilder
+com.rawlabs.das.datafiles.DASHttpJsonBuilder
 com.rawlabs.das.datafiles.DASS3JsonBuilder
+com.rawlabs.das.datafiles.DASHttpParquetBuilder
 com.rawlabs.das.datafiles.DASS3ParquetBuilder
+com.rawlabs.das.datafiles.DASHttpXmlBuilder
 com.rawlabs.das.datafiles.DASS3XmlBuilder
