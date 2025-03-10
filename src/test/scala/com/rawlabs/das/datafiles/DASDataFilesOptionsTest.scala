@@ -21,7 +21,7 @@ class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 
   it should "parse multiple tables" in {
     val opts = Map(
-      "nr_tables" -> "2",
+      "tables" -> "2",
 
       // Table0
       "table0_url" -> "/path/to/data.csv",
@@ -60,7 +60,7 @@ class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 
   it should "ensure unique names if they conflict" in {
     val opts = Map(
-      "nr_tables" -> "2",
+      "tables" -> "2",
       "table0_url" -> "/path/data1.csv",
       "table0_name" -> "mytable",
       "table0_format" -> "csv",
@@ -94,7 +94,7 @@ class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 
   it should "handle partial collisions in table names" in {
     val opts = Map(
-      "nr_tables" -> "2",
+      "tables" -> "2",
       "table0_url" -> "/some/path1.csv",
       "table0_format" -> "csv",
       "table0_name" -> "duplicate",

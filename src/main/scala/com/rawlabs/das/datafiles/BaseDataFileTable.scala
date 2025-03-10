@@ -103,10 +103,20 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   private val maybeHttpConfig: Option[HttpTableConfig] =
     if (uri.getScheme == "http" || uri.getScheme == "https") {
       val method = config.options.getOrElse("http_method", "GET")
-      val headerPrefix = "http_header_"
-      val headers = config.options.collect {
-        case (k, v) if k.startsWith(headerPrefix) => (k.drop(headerPrefix.length), v)
-      }
+      val nrHeaders: Int = config.options.get("headers").map(_.toInt).getOrElse(0)
+
+      val headers = (0 until nrHeaders).map { i =>
+        val key = config.options.getOrElse(
+          s"header${i}_key",
+          throw new DASSdkInvalidArgumentException(s"Missing header${i}_key"))
+
+        val value = config.options.getOrElse(
+          s"header${i}_value",
+          throw new DASSdkInvalidArgumentException(s"Missing header${i}_value"))
+
+        key -> value
+      }.toMap
+
       val body = config.options.get("http_body")
       val readTimeout = config.options.getOrElse("http_read_timeout", "30000").toInt
       Some(HttpTableConfig(method, headers, body, readTimeout))

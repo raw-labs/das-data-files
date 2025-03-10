@@ -31,7 +31,7 @@ case class DataFileConfig(name: String, url: String, format: Option[String], opt
 class DASDataFilesOptions(options: Map[String, String]) {
 
   // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
-  val nrTables: Int = options.get("nr_tables").map(_.toInt).getOrElse(1)
+  val nrTables: Int = options.get("tables").map(_.toInt).getOrElse(1)
 
   val s3Credentials: Option[awsCredential] = options.get("aws_access_key").map { accessKey =>
     val secretKey =
