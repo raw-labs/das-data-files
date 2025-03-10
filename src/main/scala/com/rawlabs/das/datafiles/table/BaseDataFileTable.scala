@@ -23,7 +23,13 @@ import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
-import com.rawlabs.protocol.das.v1.tables.{Column => ProtoColumn, Row => ProtoRow, TableDefinition}
+import com.rawlabs.protocol.das.v1.tables.{
+  Column => ProtoColumn,
+  ColumnDefinition,
+  Row => ProtoRow,
+  TableDefinition,
+  TableId
+}
 import com.rawlabs.protocol.das.v1.types._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -51,7 +57,37 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
   def format: String
 
-  def tableDefinition: TableDefinition
+  /**
+   * Convert the Spark schema to a list of (colName -> DAS Type)
+   */
+  protected lazy val columns: Seq[(String, Type)] = {
+    // resolveUrl url might download the file if needed
+    val resolved = resolveUrl()
+    try {
+      val dfSchema = loadDataFrame(resolved).schema
+      dfSchema.fields.toIndexedSeq.map { field =>
+        val dasType = sparkTypeToDAS(field.dataType, field.nullable)
+        (field.name, dasType)
+      }
+    } finally {
+      // Release the file if it was downloaded
+      releaseFile()
+    }
+  }
+
+  // Build the TableDefinition from the columns that we got from the dataframe schema
+  lazy val tableDefinition: TableDefinition = {
+    val builder = TableDefinition
+      .newBuilder()
+      .setTableId(TableId.newBuilder().setName(tableName))
+      .setDescription(s"Table for $format data from $url")
+
+    columns.foreach { case (colName, colType) =>
+      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
+    }
+
+    builder.build()
+  }
 
   protected def remapOptions(options: Map[String, String]): Map[String, String] = {
     options.flatMap { case (key, option) =>
@@ -78,28 +114,6 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
     } else {
       None
     }
-
-  // -------------------------------------------------------------------
-  // 1) Infer the schema and columns once, store them
-  // -------------------------------------------------------------------
-  protected lazy val dfSchema: sparkTypes.StructType = {
-    val resolved = resolveUrl()
-    try {
-      loadDataFrame(resolved).schema
-    } finally {
-      releaseFile()
-    }
-  }
-
-  /**
-   * Convert the Spark schema to a list of (colName -> DAS Type)
-   */
-  protected lazy val columns: Seq[(String, Type)] = {
-    dfSchema.fields.toIndexedSeq.map { field =>
-      val dasType = sparkTypeToDAS(field.dataType, field.nullable)
-      (field.name, dasType)
-    }
-  }
 
   /**
    * The main data read flow: 1) loadDataFrame() [abstract method implemented by child classes] 2) applyQuals (pushdown

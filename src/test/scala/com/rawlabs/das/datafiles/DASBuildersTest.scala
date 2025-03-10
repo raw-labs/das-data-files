@@ -12,17 +12,22 @@
 
 package com.rawlabs.das.datafiles
 
+import org.mockito.ArgumentMatchers.{any, anyInt, anyString}
+import org.mockito.Mockito.{mock, when}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import com.rawlabs.das.datafiles.table._
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
-import com.rawlabs.das.sdk.DASSettings
+import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 class DASBuildersTest extends AnyFlatSpec with Matchers {
 
   // Provide a minimal implicit DASSettings for the build() calls
   implicit val settings: DASSettings = new DASSettings {}
+
+  private val mockCache = mock(classOf[HttpFileCache])
+
+  when(mockCache.acquireFor(anyString, anyString, any[Option[String]], any[Map[String, String]], anyInt))
+    .thenReturn("/tmp/mockfile")
 
   behavior of "DASHttpCsvBuilder"
 

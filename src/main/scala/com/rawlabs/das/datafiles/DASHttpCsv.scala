@@ -19,7 +19,7 @@ import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 class DASHttpCsv(options: Map[String, String]) extends BaseDASDataFiles(options) {
 
   val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
-    if (!config.url.startsWith("http:") || !config.url.startsWith("https:")) {
+    if (!config.url.startsWith("http:") && !config.url.startsWith("https:")) {
       throw new DASSdkInvalidArgumentException(s"Unsupported URL ${config.url}")
     }
     config.name -> new CsvTable(config, sparkSession, hppFileCache)

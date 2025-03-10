@@ -12,12 +12,10 @@
 
 package com.rawlabs.das.datafiles.table
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
-
 import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
     extends BaseDataFileTable(config, httpFileCache) {
@@ -38,21 +36,6 @@ class JsonTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCach
       "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
     ))
 
-  /**
-   * Build the table definition for the JSON file.
-   */
-  override val tableDefinition: TableDefinition = {
-    val builder = TableDefinition
-      .newBuilder()
-      .setTableId(TableId.newBuilder().setName(tableName))
-      .setDescription(s"JSON Table reading from $url")
-
-    columns.foreach { case (colName, colType) =>
-      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
-    }
-
-    builder.build()
-  }
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // We can't easily know row counts without reading the file.

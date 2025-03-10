@@ -12,13 +12,11 @@
 
 package com.rawlabs.das.datafiles
 
-import org.apache.spark.sql.SparkSession
-
 import com.rawlabs.das.datafiles.table._
-import com.rawlabs.das.sdk.DASSettings
-import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASSdkBuilder, DASTable}
+import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
+import org.apache.spark.sql.SparkSession
 
 /**
  * The main plugin class that registers one table per file.
@@ -54,18 +52,4 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
     hppFileCache.shutdown()
   }
 
-}
-
-/**
- * Builder for the "data-files" DAS type. The engine calls build() with the user-provided config, returning a new
- * DASHttp instance.
- */
-class DASDataFilesBuilder extends DASSdkBuilder {
-
-  // This must match your "type" field in the config for the plugin
-  override def dasType: String = "datafiles"
-
-  override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
-    new DASDataFiles(options)
-  }
 }

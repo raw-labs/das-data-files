@@ -12,11 +12,10 @@
 
 package com.rawlabs.das.datafiles
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
-
+import com.typesafe.config.ConfigFactory
 import org.apache.spark.sql.SparkSession
 
-import com.typesafe.config.{Config, ConfigFactory}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 object SParkSessionBuilder {
 

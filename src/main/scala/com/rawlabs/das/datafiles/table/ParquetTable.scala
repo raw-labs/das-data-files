@@ -12,12 +12,10 @@
 
 package com.rawlabs.das.datafiles.table
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
-
 import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * Table that reads a Parquet file.
@@ -35,22 +33,6 @@ class ParquetTable(config: DataFileConfig, sparkSession: SparkSession, httpFileC
       "path_glob_filter" -> "pathGlobFilter" // Glob pattern to filter which files to read.
     ))
 
-  /**
-   * Build the table definition for the Parquet file.
-   */
-  override val tableDefinition: TableDefinition = {
-    val builder = TableDefinition
-      .newBuilder()
-      .setTableId(TableId.newBuilder().setName(tableName))
-      .setDescription(s"Parquet Table reading from $url")
-
-    // The 'columns' come from the parent class: we lazily load the DataFrame and infer schema.
-    columns.foreach { case (colName, colType) =>
-      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
-    }
-
-    builder.build()
-  }
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // Parquet has metadata that might let you guess row count or compression ratio,

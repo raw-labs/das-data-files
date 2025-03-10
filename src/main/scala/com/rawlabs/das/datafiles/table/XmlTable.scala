@@ -12,12 +12,10 @@
 
 package com.rawlabs.das.datafiles.table
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
-
 import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).
@@ -43,22 +41,6 @@ class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
       "date_format" -> "dateFormat", // Custom date format for parsing date fields.
       "timestamp_format" -> "timestampFormat" // Custom timestamp format for parsing timestamp fields.
     ))
-
-  /**
-   * Build the table definition for the XML file.
-   */
-  override val tableDefinition: TableDefinition = {
-    val builder = TableDefinition
-      .newBuilder()
-      .setTableId(TableId.newBuilder().setName(tableName))
-      .setDescription(s"XML Table reading from $url")
-
-    columns.foreach { case (colName, colType) =>
-      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
-    }
-
-    builder.build()
-  }
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // Again, we can't easily know row counts, so we guess or read once:

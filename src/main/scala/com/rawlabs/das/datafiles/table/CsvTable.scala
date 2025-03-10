@@ -12,12 +12,10 @@
 
 package com.rawlabs.das.datafiles.table
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
-
 import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
     extends BaseDataFileTable(config, httpFileCache) {
@@ -39,22 +37,6 @@ class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache
       "date_format" -> "dateFormat", // Custom date format to parse date columns.
       "timestamp_format" -> "timestampFormat" // Custom timestamp format to parse timestamp columns.
     ))
-
-  /**
-   * Build the table definition for the CSV.
-   */
-  override val tableDefinition: TableDefinition = {
-    val builder = TableDefinition
-      .newBuilder()
-      .setTableId(TableId.newBuilder().setName(tableName))
-      .setDescription(s"CSV Table reading from $url")
-
-    columns.foreach { case (colName, colType) =>
-      builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
-    }
-
-    builder.build()
-  }
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // We can't easily know row counts without reading the file, so just guess.
