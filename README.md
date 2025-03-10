@@ -106,10 +106,10 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 
 ## S3 Settings
 
-| Config Key     | Description                                                  | Example                    |
-|----------------|--------------------------------------------------------------|----------------------------|
-| aws_access_key | Access key for S3. (if not defined anonymous access is used) | aws_access_key 'my key'    |
-| aws_secret_key | Secret key for S3.                                           | aws_secret_key 'my secret' |
+| Config Key     | Description                                                  |
+|----------------|--------------------------------------------------------------|
+| aws_access_key | Access key for S3. (if not defined anonymous access is used) |
+| aws_secret_key | Secret key for S3.                                           | 
 
 For example:
 ```sql
