@@ -24,7 +24,7 @@ import com.rawlabs.protocol.das.v1.tables.TableDefinition
 abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
   protected val dasOptions = new DASDataFilesOptions(options)
 
-  protected lazy val sparkSession: SparkSession = SParkSessionBuilder.build("dasDataFilesApp", dasOptions)
+  protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", dasOptions)
 
   protected val hppFileCache: HttpFileCache = HttpFileCache.build(dasOptions.httpOptions)
 

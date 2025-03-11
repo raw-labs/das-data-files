@@ -21,7 +21,7 @@ import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
  */
 
 case class HttpConnectionOptions(followRedirects: Boolean, connectTimeout: Int, sslTrustAll: Boolean)
-case class awsCredential(accessKey: String, secretKey: String)
+case class AwsCredential(accessKey: String, secretKey: String)
 
 case class DataFileConfig(name: String, url: String, format: Option[String], options: Map[String, String])
 
@@ -33,10 +33,10 @@ class DASDataFilesOptions(options: Map[String, String]) {
   // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
   val nrTables: Int = options.get("tables").map(_.toInt).getOrElse(1)
 
-  val s3Credentials: Option[awsCredential] = options.get("aws_access_key").map { accessKey =>
+  val s3Credentials: Option[AwsCredential] = options.get("aws_access_key").map { accessKey =>
     val secretKey =
       options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
-    awsCredential(accessKey, secretKey)
+    AwsCredential(accessKey, secretKey)
   }
 
   val httpOptions: HttpConnectionOptions = {

@@ -13,9 +13,9 @@
 // DASDataFilesSpec.scala
 package com.rawlabs.das.datafiles
 
+import com.rawlabs.das.datafiles.generic.DASDataFiles
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
 
 class DASDataFilesTest extends AnyFlatSpec with Matchers with SparkTestContext {

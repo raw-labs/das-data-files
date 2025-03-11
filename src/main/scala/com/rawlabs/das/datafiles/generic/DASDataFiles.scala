@@ -10,12 +10,13 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.generic
 
 import com.rawlabs.das.datafiles.csv.CsvTable
 import com.rawlabs.das.datafiles.json.JsonTable
 import com.rawlabs.das.datafiles.parquet.ParquetTable
 import com.rawlabs.das.datafiles.xml.XmlTable
+import com.rawlabs.das.datafiles.{BaseDASDataFiles, BaseDataFileTable}
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 

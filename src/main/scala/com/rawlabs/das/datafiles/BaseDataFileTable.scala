@@ -190,7 +190,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
     throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
   // -------------------------------------------------------------------
-  // 3) Abstract method(s) children must implement
+  //Abstract method(s) children must implement
   // -------------------------------------------------------------------
   /**
    * Child class reads the file with Spark, e.g. spark.read.csv(...).
@@ -218,7 +218,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   }
 
   // -------------------------------------------------------------------
-  // 4) Optionally, common pushdown logic
+  // Optionally, common pushdown logic
   // -------------------------------------------------------------------
   private def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
 
@@ -236,10 +236,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
         // Convert the proto Value into a native Scala type
         val typedValue: Any = {
           if (valProto.hasNull) {
-            // For example, Spark handles col IS NULL / col IS NOT NULL differently,
-            // so "x = null" won't match anything. You might throw or skip.
-            throw new DASSdkInvalidArgumentException(
-              s"Filtering on NULL is not fully supported in base class (col=$colName).")
+            null
           } else if (valProto.hasString) {
             valProto.getString.getV
           } else if (valProto.hasInt) {
@@ -259,36 +256,34 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
 
         // Build the Spark filter expression based on the operator
         val condition = op match {
-          case Operator.EQUALS                => filterCol === typedValue
-          case Operator.NOT_EQUALS            => filterCol =!= typedValue
-          case Operator.LESS_THAN             => filterCol < typedValue
-          case Operator.LESS_THAN_OR_EQUAL    => filterCol <= typedValue
-          case Operator.GREATER_THAN          => filterCol > typedValue
-          case Operator.GREATER_THAN_OR_EQUAL => filterCol >= typedValue
+          case Operator.EQUALS if valProto.hasNull     => filterCol.isNull
+          case Operator.NOT_EQUALS if valProto.hasNull => filterCol.isNotNull
+          case Operator.EQUALS                         => filterCol === typedValue
+          case Operator.NOT_EQUALS                     => filterCol =!= typedValue
+          case Operator.LESS_THAN                      => filterCol < typedValue
+          case Operator.LESS_THAN_OR_EQUAL             => filterCol <= typedValue
+          case Operator.GREATER_THAN                   => filterCol > typedValue
+          case Operator.GREATER_THAN_OR_EQUAL          => filterCol >= typedValue
           case Operator.LIKE =>
             if (!valProto.hasString) {
               throw new DASSdkInvalidArgumentException("LIKE operator requires a string value")
             }
             filterCol.like(typedValue.toString)
-
           case Operator.NOT_LIKE =>
             if (!valProto.hasString) {
               throw new DASSdkInvalidArgumentException("NOT LIKE operator requires a string value")
             }
             not(filterCol.like(typedValue.toString))
-
           case Operator.ILIKE =>
             if (!valProto.hasString) {
               throw new DASSdkInvalidArgumentException("ILIKE operator requires a string value")
             }
             lower(filterCol).like(typedValue.toString.toLowerCase)
-
           case Operator.NOT_ILIKE =>
             if (!valProto.hasString) {
               throw new DASSdkInvalidArgumentException("NOT ILIKE operator requires a string value")
             }
             not(lower(filterCol).like(typedValue.toString.toLowerCase))
-
           case other =>
             throw new DASSdkInvalidArgumentException(s"Operator $other not supported in base class.")
         }
@@ -301,7 +296,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   }
 
   // -------------------------------------------------------------------
-  // 4b) NEW: apply sort keys
+  // apply sort keys
   // -------------------------------------------------------------------
   /**
    * For each SortKey, build a Spark Column with ascending or descending order, plus optional nulls first/last if you
@@ -331,7 +326,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
   }
 
   // -------------------------------------------------------------------
-  // 5) Utilities for schema mapping, building proto Values, etc.
+  //  Utilities for schema mapping, building proto Values, etc.
   // -------------------------------------------------------------------
   /**
    * Convert a Spark DataType to a DAS Type, handling:
@@ -529,7 +524,7 @@ abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFile
           .build()
 
       // -----------------------------------------
-      // 10) Fallback => String
+      // Unknown type
       // -----------------------------------------
       case other =>
         throw new DASSdkInvalidArgumentException(s"Unsupported Spark type: ${other.typeName}")

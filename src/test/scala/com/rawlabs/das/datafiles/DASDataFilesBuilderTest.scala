@@ -14,8 +14,8 @@ package com.rawlabs.das.datafiles
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import com.rawlabs.das.datafiles.csv.CsvTable
+import com.rawlabs.das.datafiles.generic.{DASDataFiles, DASDataFilesBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 class DASDataFilesBuilderTest extends AnyFlatSpec with Matchers {

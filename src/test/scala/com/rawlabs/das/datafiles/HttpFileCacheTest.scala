@@ -121,8 +121,11 @@ class HttpFileCacheTest extends AnyFlatSpec with Matchers with BeforeAndAfterEac
     local.exists() shouldBe true
     cache.getEntryCount shouldBe 1
 
-    // Wait longer than idleTimeout (2s). We'll sleep ~3s to be safe
-    Thread.sleep(3000)
+    // Wait longer than idleTimeout (2s). We'll sleep ~5s to be safe
+    val startTime = System.currentTimeMillis()
+    while (cache.getEntryCount > 0 && System.currentTimeMillis() - startTime < 5000) {
+      Thread.sleep(100)
+    }
 
     // The background eviction thread should have removed it
     // meaning the map is empty and file is physically deleted
@@ -160,8 +163,11 @@ class HttpFileCacheTest extends AnyFlatSpec with Matchers with BeforeAndAfterEac
     cache.releaseFile(key.method, key.url, key.body, key.headers)
     // usageCount=0
 
-    // Sleep 3s, file should be gone
-    Thread.sleep(3000)
+    // Sleep 5s, file should be gone
+    val startTime = System.currentTimeMillis()
+    while (cache.getEntryCount > 0 && System.currentTimeMillis() - startTime < 5000) {
+      Thread.sleep(100)
+    }
     local2.exists() shouldBe false
     cache.getEntryCount shouldBe 0
   }
