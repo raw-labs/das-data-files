@@ -34,7 +34,9 @@ class DASDataFilesOptions(options: Map[String, String]) {
       val accessKey = options("aws_access_key")
       val secretKey =
         options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
-      Some(AwsSecretCredential(accessKey, secretKey))
+
+      val region = options.getOrElse("aws_region", throw new DASSdkInvalidArgumentException("aws_region not found"))
+      Some(AwsSecretCredential(region, accessKey, secretKey))
 
     } else if (options.contains("github_api_token")) {
       val apiToken = options("github_api_token")
@@ -72,6 +74,5 @@ class DASDataFilesOptions(options: Map[String, String]) {
       PathConfig(maybeName = maybeName, url = url, format = format, options = pathOptions)
     }
   }
-
 
 }

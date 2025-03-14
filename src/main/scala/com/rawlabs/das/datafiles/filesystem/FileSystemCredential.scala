@@ -14,5 +14,5 @@ package com.rawlabs.das.datafiles.filesystem
 
 sealed trait FileSystemCredential
 
-case class AwsSecretCredential(accessKey: String, secretKey: String) extends FileSystemCredential
+case class AwsSecretCredential(region: String, accessKey: String, secretKey: String) extends FileSystemCredential
 case class GithubApiTokenCredential(token: String) extends FileSystemCredential

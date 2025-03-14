@@ -13,10 +13,8 @@
 package com.rawlabs.das.datafiles.api
 
 import scala.collection.mutable
-
 import org.apache.spark.sql.SparkSession
-
-import com.rawlabs.das.datafiles.filesystem.{DataFilesCache, FileSystemApi, GithubApiTokenCredential, AwsSecretCredential}
+import com.rawlabs.das.datafiles.filesystem.{AwsSecretCredential, DataFilesCache, FileSystemApi, GitHubFileSystem, GithubApiTokenCredential}
 import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SParkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
@@ -34,7 +32,7 @@ abstract class DASDataFilesApi(options: Map[String, String]) extends DASSdk {
 
   private val fileSystem: FileSystemApi = dasOptions.fileSystemCredential match {
     case Some(AwsSecretCredential(accessKey, secretKey)) => ???
-    case Some(GithubApiTokenCredential(token))    => ???
+    case Some(GithubApiTokenCredential(token))    => new GitHubFileSystem(Some(token))
     case None                                     => ???
   }
 

@@ -17,11 +17,11 @@ import java.io.InputStream
 
 trait FileSystemApi {
 
-  def list(path: String): List[String]
+  def list(url: String): List[String]
 
-  def open(path: String): InputStream
+  def open(url: String): InputStream
 
-  def resolveWildcard(path: String): List[String]
+  def resolveWildcard(url: String): List[String]
 
   def stop(): Unit
 }

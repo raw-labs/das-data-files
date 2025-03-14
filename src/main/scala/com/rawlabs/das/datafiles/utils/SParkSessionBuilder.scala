@@ -28,9 +28,10 @@ object SParkSessionBuilder {
 
     // Set the S3 credentials if provided or use anonymous credentials
     options.fileSystemCredential match {
-      case Some(AwsSecretCredential(accessKey, secretKey)) =>
+      case Some(AwsSecretCredential(region, accessKey, secretKey)) =>
         builder.config("fs.s3a.access.key", accessKey)
         builder.config("fs.s3a.secret.key", secretKey)
+        builder.config("fs.s3a.endpoint", s"s3.$region.amazonaws.com")
       case _ =>
         builder.config("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
     }
