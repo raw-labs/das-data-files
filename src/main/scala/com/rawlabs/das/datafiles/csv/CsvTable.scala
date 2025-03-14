@@ -12,14 +12,14 @@
 
 package com.rawlabs.das.datafiles.csv
 
-import com.rawlabs.das.datafiles.api.DataFileTableApi
-import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import com.rawlabs.das.datafiles.api.{DataFileTableApi, DataFilesTableConfig}
+import com.rawlabs.das.datafiles.filesystem.DataFilesCache
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class CsvTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
-    extends DataFileTableApi(config, httpFileCache) {
+class CsvTable(config: DataFilesTableConfig, sparkSession: SparkSession, fileCache: DataFilesCache)
+    extends DataFileTableApi(config, fileCache) {
 
   override def format: String = "csv"
 

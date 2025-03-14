@@ -51,9 +51,9 @@ class DasParquetBuilderTest extends AnyFlatSpec with Matchers {
     val options = Map("nr_tables" -> "1", "table0_url" -> "s3://some-bucket/data.parquet", "table0_format" -> "parquet")
 
     val sdk = new DASParquetS3Builder().build(options)
-    sdk shouldBe a[DASParquetS3]
+    sdk shouldBe a[DASParquet]
 
-    val s3Parquet = sdk.asInstanceOf[DASParquetS3]
+    val s3Parquet = sdk.asInstanceOf[DASParquet]
     s3Parquet.tables.size shouldBe 1
     val (_, table) = s3Parquet.tables.head
     table shouldBe a[ParquetTable]

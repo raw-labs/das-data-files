@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 RAW Labs S.A.
+ * Copyright 2025 RAW Labs S.A.
  *
  * Use of this software is governed by the Business Source License
  * included in the file licenses/BSL.txt.
@@ -13,26 +13,27 @@
 package com.rawlabs.das.datafiles.parquet
 
 import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
+import com.rawlabs.das.sdk.DASSettings
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
-import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
-class DASParquetHttp(options: Map[String, String]) extends DASDataFilesApi(options) {
+/**
+ * The main plugin class that registers one table per file.
+ */
+class DASParquet(options: Map[String, String]) extends DASDataFilesApi(options) {
 
-  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
-    if (!config.url.startsWith("http:") && !config.url.startsWith("https:")) {
-      throw new DASSdkInvalidArgumentException(s"Unsupported URL ${config.url}")
-    }
-    config.name -> new ParquetTable(config, sparkSession, hppFileCache)
+  // Build a list of our tables
+  val tables: Map[String, DataFileTableApi] = tableConfig.map { config =>
+    config.name -> new ParquetTable(config, sparkSession, fileCache)
   }.toMap
 
 }
 
-class DASParquetHttpBuilder extends DASSdkBuilder {
+class DASParquetS3Builder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
-  override def dasType: String = "http-parquet"
+  override def dasType: String = "parquet"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
-    new DASParquetHttp(options)
+    new DASParquet(options)
   }
 }

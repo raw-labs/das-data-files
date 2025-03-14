@@ -12,11 +12,17 @@
 
 package com.rawlabs.das.datafiles.api
 
-import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, HttpFileCache, SParkSessionBuilder}
+import scala.collection.mutable
+
+import org.apache.spark.sql.SparkSession
+
+import com.rawlabs.das.datafiles.filesystem.{DataFilesCache, FileSystemApi, GithubApiTokenCredential, AwsSecretCredential}
+import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SParkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
-import org.apache.spark.sql.SparkSession
+
+case class DataFilesTableConfig(url: String, name: String, format: Option[String], options: Map[String, String])
 
 /**
  * The main plugin class that registers one table per file.
@@ -26,7 +32,36 @@ abstract class DASDataFilesApi(options: Map[String, String]) extends DASSdk {
 
   protected lazy val sparkSession: SparkSession = SParkSessionBuilder.build("dasDataFilesApp", dasOptions)
 
-  protected val hppFileCache: HttpFileCache = HttpFileCache.build(dasOptions.httpOptions)
+  private val fileSystem: FileSystemApi = dasOptions.fileSystemCredential match {
+    case Some(AwsSecretCredential(accessKey, secretKey)) => ???
+    case Some(GithubApiTokenCredential(token))    => ???
+    case None                                     => ???
+  }
+
+  protected val fileCache: DataFilesCache = DataFilesCache(fileSystem)
+
+  // Resolve all URLs and build a list of tables
+  protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
+    val urls = fileSystem.resolveWildcard(config.url)
+
+    urls.map { url =>
+      val name = if (urls.length == 1 && config.maybeName.isDefined) {
+        // name is provided and there is only one URL
+        config.maybeName.get
+      } else if (urls.length > 1 && config.maybeName.isDefined) {
+        // name is provided and there are multiple URLs
+        val prefix = config.maybeName.get
+        val suffix = deriveNameFromUrl(url)
+        s"${prefix}_$suffix"
+      } else {
+        // name is not provided
+        deriveNameFromUrl(url)
+      }
+
+      val unique = ensureUniqueName(name)
+      DataFilesTableConfig(url, unique, config.format, config.options)
+    }
+  }
 
   // Build a list of our tables
   def tables: Map[String, DataFileTableApi]
@@ -49,7 +84,32 @@ abstract class DASDataFilesApi(options: Map[String, String]) extends DASSdk {
 
   override def close(): Unit = {
     sparkSession.stop()
-    hppFileCache.shutdown()
+  }
+  // Keep track of used names so we ensure uniqueness
+  private val usedNames = mutable.Set[String]()
+
+  /**
+   * Given a URL, derive the table name from the filename. E.g. "https://host/path/data.csv" => "data_csv"
+   */
+  private def deriveNameFromUrl(url: String): String = {
+    // Extract last path segment
+    val filePart = url.split("/").lastOption.getOrElse(url)
+    // Replace '.' with '_'
+    filePart.replace('.', '_')
+  }
+
+  /**
+   * Ensure the proposed name is unique by appending _2, _3, etc. as needed.
+   */
+  private def ensureUniqueName(base: String): String = {
+    var finalName = base
+    var n = 2
+    while (usedNames.contains(finalName)) {
+      finalName = s"${base}_$n"
+      n += 1
+    }
+    usedNames += finalName
+    finalName
   }
 
 }

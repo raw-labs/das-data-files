@@ -12,7 +12,7 @@
 
 package com.rawlabs.das.datafiles.api
 
-import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.filesystem.DataFilesCache
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
@@ -33,15 +33,7 @@ import scala.jdk.CollectionConverters._
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileCache)
-    extends DASTable
-    with StrictLogging {
-
-  private case class HttpTableConfig(
-      method: String,
-      headers: Map[String, String],
-      body: Option[String],
-      readTimeout: Int)
+abstract class DataFileTableApi(config: DataFilesTableConfig, fileCache: DataFilesCache) extends DASTable with StrictLogging {
 
   val tableName: String = config.name
 
@@ -49,12 +41,14 @@ abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileC
 
   def format: String
 
+  private val uri = URI.create(config.url)
+
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
    */
   protected lazy val columns: Seq[(String, Type)] = {
     // resolveUrl url might download the file if needed
-    val resolved = resolveUrl()
+    val resolved = fileCache.acquire(uri)
     try {
       val dfSchema = loadDataFrame(resolved).schema
       dfSchema.fields.toIndexedSeq.map { field =>
@@ -63,7 +57,7 @@ abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileC
       }
     } finally {
       // Release the file if it was downloaded
-      releaseFile()
+      fileCache.release(uri)
     }
   }
 
@@ -91,32 +85,6 @@ abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileC
 
   override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)
 
-  private val uri = URI.create(config.url)
-
-  private val maybeHttpConfig: Option[HttpTableConfig] =
-    if (uri.getScheme == "http" || uri.getScheme == "https") {
-      val method = config.options.getOrElse("http_method", "GET")
-      val nrHeaders: Int = config.options.get("headers").map(_.toInt).getOrElse(0)
-
-      val headers = (0 until nrHeaders).map { i =>
-        val key = config.options.getOrElse(
-          s"header${i}_key",
-          throw new DASSdkInvalidArgumentException(s"Missing header${i}_key"))
-
-        val value = config.options.getOrElse(
-          s"header${i}_value",
-          throw new DASSdkInvalidArgumentException(s"Missing header${i}_value"))
-
-        key -> value
-      }.toMap
-
-      val body = config.options.get("http_body")
-      val readTimeout = config.options.getOrElse("http_read_timeout", "30000").toInt
-      Some(HttpTableConfig(method, headers, body, readTimeout))
-    } else {
-      None
-    }
-
   /**
    * The main data read flow: 1) loadDataFrame() [abstract method implemented by child classes] 2) applyQuals (pushdown
    * filtering) 3) select requested columns 4) applySortKeys 5) limit 6) convert to DAS rows
@@ -127,7 +95,8 @@ abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileC
       sortKeys: Seq[SortKey],
       maybeLimit: Option[Long]): DASExecuteResult = {
 
-    val resolved = resolveUrl()
+    val resolved = fileCache.acquire(uri)
+
     try {
       val df = loadDataFrame(resolved)
       val filteredDF = applyQuals(df, quals)
@@ -168,7 +137,7 @@ abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileC
         override def close(): Unit = {}
       }
     } finally {
-      releaseFile()
+      fileCache.release(uri)
     }
   }
 
@@ -189,26 +158,6 @@ abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileC
    * Child class reads the file with Spark, e.g. spark.read.csv(...).
    */
   protected def loadDataFrame(resolvedUrl: String): DataFrame
-
-  /**
-   * Downloads the file if needed, and returns the resolved URL. For s3 buckets it will replace s3:// with s3a://
-   * @return
-   */
-  private def resolveUrl(): String = {
-    if (uri.getScheme == "s3") {
-      "s3a://" + url.stripPrefix("s3://")
-    } else if (uri.getScheme == "http" || uri.getScheme == "https") {
-      val http = maybeHttpConfig.get
-      httpFileCache.acquireFor(http.method, url, http.body, http.headers, http.readTimeout)
-    } else {
-      url
-    }
-
-  }
-
-  private def releaseFile(): Unit = {
-    maybeHttpConfig.foreach(http => httpFileCache.releaseFile(http.method, url, http.body, http.headers))
-  }
 
   // -------------------------------------------------------------------
   // 4) Optionally, common pushdown logic

@@ -50,9 +50,9 @@ class DasJsonBuilderTest extends AnyFlatSpec with Matchers {
     val options = Map("nr_tables" -> "1", "table0_url" -> "s3://some-bucket/data.json", "table0_format" -> "json")
 
     val sdk = new DASJsonS3Builder().build(options)
-    sdk shouldBe a[DASJsonS3]
+    sdk shouldBe a[DASJson]
 
-    val s3Json = sdk.asInstanceOf[DASJsonS3]
+    val s3Json = sdk.asInstanceOf[DASJson]
     s3Json.tables.size shouldBe 1
     val (_, table) = s3Json.tables.head
     table shouldBe a[JsonTable]

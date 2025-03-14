@@ -12,7 +12,7 @@
 
 package com.rawlabs.das.datafiles.parquet
 
-import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
 import java.io.File
 
 import org.apache.spark.sql.SaveMode
@@ -52,7 +52,7 @@ class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext w
   }
 
   "ParquetTable" should "load rows from a Parquet file" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testParquet",
       url = "http://mocked.com/test.parquet",
       format = Some("parquet"),

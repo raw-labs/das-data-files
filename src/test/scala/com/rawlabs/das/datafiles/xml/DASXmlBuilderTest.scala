@@ -50,9 +50,9 @@ class DASXmlBuilderTest extends AnyFlatSpec with Matchers {
     val options = Map("nr_tables" -> "1", "table0_url" -> "s3://some-bucket/data.xml", "table0_format" -> "xml")
 
     val sdk = new DASXmlS3Builder().build(options)
-    sdk shouldBe a[DASXmlS3]
+    sdk shouldBe a[DASXml]
 
-    val s3Xml = sdk.asInstanceOf[DASXmlS3]
+    val s3Xml = sdk.asInstanceOf[DASXml]
     s3Xml.tables.size shouldBe 1
     val (_, table) = s3Xml.tables.head
     table shouldBe a[XmlTable]

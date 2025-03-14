@@ -12,7 +12,7 @@
 
 package com.rawlabs.das.datafiles.xml
 
-import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
 import java.io.File
 
 import org.apache.commons.io.FileUtils
@@ -23,7 +23,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.{SparkTestContext}
+import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
@@ -55,7 +55,7 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   "XmlTable" should "load rows from an XML file" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testXml",
       url = "http://mocked.com/test.xml",
       format = Some("xml"),

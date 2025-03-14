@@ -12,51 +12,47 @@
 
 package com.rawlabs.das.datafiles.utils
 
+import com.rawlabs.das.datafiles.filesystem.{AwsSecretCredential, FileSystemCredential, GithubApiTokenCredential}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
-import scala.collection.mutable
-
 /**
- * Represents a single table’s configuration
+ * Represents a single path’s configuration
  */
 
-case class HttpConnectionOptions(followRedirects: Boolean, connectTimeout: Int, sslTrustAll: Boolean)
-case class awsCredential(accessKey: String, secretKey: String)
-
-case class DataFileConfig(name: String, url: String, format: Option[String], options: Map[String, String])
+case class PathConfig(url: String, maybeName: Option[String], format: Option[String], options: Map[String, String])
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
  */
 class DASDataFilesOptions(options: Map[String, String]) {
 
-  // Number of tables to load, e.g. nr_tables=3 => table0_..., table1_..., table2_...
-  val nrTables: Int = options.get("tables").map(_.toInt).getOrElse(1)
+  // Number of paths to load, e.g. paths=3 => path0_..., path1_..., path2_...
+  val nrPaths: Int = options.get("paths").map(_.toInt).getOrElse(1)
 
-  val s3Credentials: Option[awsCredential] = options.get("aws_access_key").map { accessKey =>
-    val secretKey =
-      options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
-    awsCredential(accessKey, secretKey)
+  val fileSystemCredential: Option[FileSystemCredential] = {
+    if (options.contains("aws_access_key")) {
+      val accessKey = options("aws_access_key")
+      val secretKey =
+        options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
+      Some(AwsSecretCredential(accessKey, secretKey))
+
+    } else if (options.contains("github_api_token")) {
+      val apiToken = options("github_api_token")
+      Some(GithubApiTokenCredential(apiToken))
+    } else {
+      None
+    }
+
   }
-
-  val httpOptions: HttpConnectionOptions = {
-    val followRedirects = options.getOrElse("http_follow_redirects", "true").toBoolean
-    val connectTimeout = options.getOrElse("http_connect_timeout", "5000").toInt
-    val sslTRustAll = options.getOrElse("http_ssl_trust_all", "false").toBoolean
-    HttpConnectionOptions(followRedirects, connectTimeout, sslTRustAll)
-  }
-
-  // Keep track of used names so we ensure uniqueness
-  private val usedNames = mutable.Set[String]()
 
   /**
    * Build a list of DataFileConfig from user’s config keys.
-   *   - table0_url, table0_format, table0_name (optional), ...
-   *   - table1_url, table1_format, table1_name (optional), ...
+   *   - path0_url, path0_format, path0_name (optional), ...
+   *   - path1_url, path1_format, path1_name (optional), ...
    */
-  val tableConfigs: Seq[DataFileConfig] = {
-    (0 until nrTables).map { i =>
-      val prefix = s"table${i}_"
+  val pathConfig: Seq[PathConfig] = {
+    (0 until nrPaths).map { i =>
+      val prefix = s"path${i}_"
 
       // Mandatory fields
       val url =
@@ -67,45 +63,15 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
       // Name is optional: if not provided, derive from URL
       val maybeName = options.get(prefix + "name")
-      val tableName = maybeName match {
-        case Some(n) => ensureUniqueName(n)
-        case None    =>
-          // Derive from file name in URL if not explicitly defined
-          val derived = deriveNameFromUrl(url)
-          ensureUniqueName(derived)
+
+      // Gather all prefixed options into a sub-map for this path
+      val pathOptions = options.collect {
+        case (k, v) if k.startsWith(prefix) => (k.drop(prefix.length), v)
       }
 
-      // Gather all prefixed options into a sub-map for this table
-      val tableOptions = options.collect {
-        case (k, v) if k.startsWith(prefix) => (k.drop(prefix.length), v)
-      }.toMap
-
-      DataFileConfig(name = tableName, url = url, format = format, options = tableOptions)
+      PathConfig(maybeName = maybeName, url = url, format = format, options = pathOptions)
     }
   }
 
-  /**
-   * Given a URL, derive the table name from the filename. E.g. "https://host/path/data.csv" => "data_csv"
-   */
-  private def deriveNameFromUrl(url: String): String = {
-    // Extract last path segment
-    val filePart = url.split("/").lastOption.getOrElse(url)
-    // Replace '.' with '_'
-    filePart.replace('.', '_')
-  }
-
-  /**
-   * Ensure the proposed name is unique by appending _2, _3, etc. as needed.
-   */
-  private def ensureUniqueName(base: String): String = {
-    var finalName = base
-    var n = 2
-    while (usedNames.contains(finalName)) {
-      finalName = s"${base}_$n"
-      n += 1
-    }
-    usedNames += finalName
-    finalName
-  }
 
 }

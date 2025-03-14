@@ -10,7 +10,7 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.multiformat
 
 import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
 import com.rawlabs.das.datafiles.csv.CsvTable
@@ -26,14 +26,14 @@ import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 class DASDataFiles(options: Map[String, String]) extends DASDataFilesApi(options) {
 
   // Build a list of our tables
-  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
+  val tables: Map[String, DataFileTableApi] = tableConfig.map { config =>
     val format = config.format.getOrElse(
       throw new DASSdkInvalidArgumentException(s"format not specified for table ${config.name}"))
     format match {
-      case "csv"     => config.name -> new CsvTable(config, sparkSession, hppFileCache)
-      case "json"    => config.name -> new JsonTable(config, sparkSession, hppFileCache)
-      case "parquet" => config.name -> new ParquetTable(config, sparkSession, hppFileCache)
-      case "xml"     => config.name -> new XmlTable(config, sparkSession, hppFileCache)
+      case "csv"     => config.name -> new CsvTable(config, sparkSession, fileCache)
+      case "json"    => config.name -> new JsonTable(config, sparkSession, fileCache)
+      case "parquet" => config.name -> new ParquetTable(config, sparkSession, fileCache)
+      case "xml"     => config.name -> new XmlTable(config, sparkSession, fileCache)
       case other     => throw new DASSdkInvalidArgumentException(s"Unsupported format $other")
     }
   }.toMap

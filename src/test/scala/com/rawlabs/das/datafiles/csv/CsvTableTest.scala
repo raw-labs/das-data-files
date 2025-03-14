@@ -24,7 +24,7 @@ import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
 import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
 
 import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
 
 class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
@@ -65,7 +65,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
 
   it should "return rows from CSV when the URL is HTTP" in {
     // 1) Build a DataFileConfig with a URL that looks HTTP
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
@@ -92,7 +92,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "allow a limit param" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testCsvLimit",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
@@ -115,7 +115,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "throw on insert/update/delete" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "readOnlyTest",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
@@ -143,7 +143,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "filter rows with EQUALS operator" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testPushdownCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
@@ -174,7 +174,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "filter rows with ILIKE operator" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testILikeCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),
@@ -211,7 +211,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "apply sorting with sortKeys" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testSortCsv",
       url = "http://mocked.com/test.csv",
       format = Some("csv"),

@@ -13,34 +13,27 @@
 package com.rawlabs.das.datafiles.xml
 
 import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
+import com.rawlabs.das.sdk.DASSettings
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
-import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 /**
  * The main plugin class that registers one table per file.
  */
-class DASXmlS3(options: Map[String, String]) extends DASDataFilesApi(options) {
+class DASXml(options: Map[String, String]) extends DASDataFilesApi(options) {
 
   // Build a list of our tables
-  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
-    if (!config.url.startsWith("s3://")) {
-      throw new DASSdkInvalidArgumentException(s"Unsupported URL ${config.url}")
-    }
-    config.name -> new XmlTable(config, sparkSession, hppFileCache)
+  val tables: Map[String, DataFileTableApi] = tableConfig.map { config =>
+    config.name -> new XmlTable(config, sparkSession, fileCache)
   }.toMap
 
 }
 
-/**
- * Builder for the "s3-csv" DAS type. The engine calls build() with user-provided config, returning a new DasS3Csv
- * instance.
- */
 class DASXmlS3Builder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
-  override def dasType: String = "s3-xml"
+  override def dasType: String = "xml"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
-    new DASXmlS3(options)
+    new DASXml(options)
   }
 }

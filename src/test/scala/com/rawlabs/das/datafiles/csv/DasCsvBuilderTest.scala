@@ -55,9 +55,9 @@ class DasCsvBuilderTest extends AnyFlatSpec with Matchers {
     val options = Map("nr_tables" -> "1", "table0_url" -> "s3://mybucket/data.csv", "table0_format" -> "csv")
 
     val sdk = new DASCsvS3Builder().build(options)
-    sdk shouldBe a[DASCsvS3]
+    sdk shouldBe a[DASCsv]
 
-    val s3Csv = sdk.asInstanceOf[DASCsvS3]
+    val s3Csv = sdk.asInstanceOf[DASCsv]
     s3Csv.tables.size shouldBe 1
     val (_, table) = s3Csv.tables.head
     table shouldBe a[CsvTable]

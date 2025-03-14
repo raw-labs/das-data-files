@@ -12,10 +12,12 @@
 
 package com.rawlabs.das.datafiles.utils
 
-import com.typesafe.config.ConfigFactory
+import scala.jdk.CollectionConverters.CollectionHasAsScala
+
 import org.apache.spark.sql.SparkSession
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import com.rawlabs.das.datafiles.filesystem.AwsSecretCredential
+import com.typesafe.config.ConfigFactory
 
 object SParkSessionBuilder {
 
@@ -25,11 +27,11 @@ object SParkSessionBuilder {
       .appName(appName)
 
     // Set the S3 credentials if provided or use anonymous credentials
-    options.s3Credentials match {
-      case Some(creds) =>
-        builder.config("fs.s3a.access.key", creds.accessKey)
-        builder.config("fs.s3a.secret.key", creds.secretKey)
-      case None =>
+    options.fileSystemCredential match {
+      case Some(AwsSecretCredential(accessKey, secretKey)) =>
+        builder.config("fs.s3a.access.key", accessKey)
+        builder.config("fs.s3a.secret.key", secretKey)
+      case _ =>
         builder.config("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
     }
 

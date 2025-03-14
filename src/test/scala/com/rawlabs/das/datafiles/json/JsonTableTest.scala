@@ -12,7 +12,7 @@
 
 package com.rawlabs.das.datafiles.json
 
-import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
 import java.io.File
 
 import org.apache.commons.io.FileUtils
@@ -23,7 +23,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.{SparkTestContext}
+import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
@@ -80,7 +80,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
   behavior of "JsonTable"
 
   it should "load rows from a JSON file" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testJson",
       url = "http://mocked.com/test.json",
       format = Some("json"),
@@ -113,7 +113,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
   }
 
   it should "load rows from a JSON Lines file" in {
-    val config = DataFileConfig(
+    val config = PathConfig(
       name = "testJson",
       url = "http://mocked.com/test-lines.json",
       format = Some("json"),

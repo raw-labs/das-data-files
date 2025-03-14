@@ -20,90 +20,30 @@ class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 
   behavior of "DASDataFilesOptions"
 
-  it should "parse multiple tables" in {
+  it should "parse multiple paths" in {
     val opts = Map(
-      "tables" -> "2",
+      "paths" -> "2",
 
       // Table0
-      "table0_url" -> "/path/to/data.csv",
-      "table0_format" -> "csv",
+      "path0_url" -> "/path/to/data.csv",
+      "path0_format" -> "csv",
 
-      // Table1
-      "table1_url" -> "/another/path/data.json",
-      "table1_format" -> "json",
-      "table1_name" -> "myJsonTable")
+      // path1
+      "path1_url" -> "/another/path/data.json",
+      "path1_format" -> "json",
+      "path1_name" -> "myJsonTable")
 
     val parsed = new DASDataFilesOptions(opts)
-    parsed.tableConfigs.size shouldBe 2
+    parsed.pathConfig.size shouldBe 2
 
-    val table0 = parsed.tableConfigs.head
-    table0.name should not be empty
-    table0.url shouldBe "/path/to/data.csv"
-    table0.format shouldBe Some("csv")
+    val path0 = parsed.pathConfig.head
+    path0.url shouldBe "/path/to/data.csv"
+    path0.format shouldBe Some("csv")
 
-    val table1 = parsed.tableConfigs(1)
-    table1.name shouldBe "myJsonTable"
-    table1.url shouldBe "/another/path/data.json"
-    table1.format shouldBe Some("json")
+    val path1 = parsed.pathConfig(1)
+    path1.maybeName shouldBe Some("myJsonpath")
+    path1.url shouldBe "/another/path/data.json"
+    path1.format shouldBe Some("json")
   }
 
-  it should "throw an exception if format is missing" in {
-    val opts = Map(
-      "nr_tables" -> "1",
-      "table0_url" -> "/path/to/data.csv"
-      // "table0_format" is missing
-    )
-    val parsed = new DASDataFilesOptions(opts)
-    // We won't notice the missing format until the plugin tries to create tables in DASDataFiles itself.
-    // So here we can just check that tableConfigs has a format= None, or do that check in the plugin constructor test.
-    parsed.tableConfigs.head.format shouldBe None
-  }
-
-  it should "ensure unique names if they conflict" in {
-    val opts = Map(
-      "tables" -> "2",
-      "table0_url" -> "/path/data1.csv",
-      "table0_name" -> "mytable",
-      "table0_format" -> "csv",
-      "table1_url" -> "/path/data2.csv",
-      "table1_name" -> "mytable", // the same name
-      "table1_format" -> "csv")
-    val parsed = new DASDataFilesOptions(opts)
-    parsed.tableConfigs(0).name shouldBe "mytable"
-    parsed.tableConfigs(1).name shouldBe "mytable_2" // appended
-  }
-
-  it should "derive name from URL if none provided" in {
-    val opts = Map("nr_tables" -> "1", "table0_url" -> "https://host.com/path/data.csv", "table0_format" -> "csv")
-    val parsed = new DASDataFilesOptions(opts)
-    parsed.tableConfigs.head.name shouldBe "data_csv"
-  }
-
-  it should "read the httpOptions" in {
-    val opts = Map(
-      "nr_tables" -> "1",
-      "table0_url" -> "http://somewhere/file.csv",
-      "table0_format" -> "csv",
-      "http_follow_redirects" -> "false",
-      "http_connect_timeout" -> "5000",
-      "http_ssl_trust_all" -> "true")
-    val parsed = new DASDataFilesOptions(opts)
-    parsed.httpOptions.followRedirects shouldBe false
-    parsed.httpOptions.connectTimeout shouldBe 5000
-    parsed.httpOptions.sslTrustAll shouldBe true
-  }
-
-  it should "handle partial collisions in table names" in {
-    val opts = Map(
-      "tables" -> "2",
-      "table0_url" -> "/some/path1.csv",
-      "table0_format" -> "csv",
-      "table0_name" -> "duplicate",
-      "table1_url" -> "/some/path2.csv",
-      "table1_format" -> "csv",
-      "table1_name" -> "duplicate" // intentionally the same
-    )
-    val parsed = new DASDataFilesOptions(opts)
-    parsed.tableConfigs.map(_.name) shouldBe Seq("duplicate", "duplicate_2")
-  }
 }
