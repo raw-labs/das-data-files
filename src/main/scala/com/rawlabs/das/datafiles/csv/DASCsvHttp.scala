@@ -12,13 +12,13 @@
 
 package com.rawlabs.das.datafiles.csv
 
-import com.rawlabs.das.datafiles.{BaseDASDataFiles, BaseDataFileTable}
+import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
-class DASCsvHttp(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASCsvHttp(options: Map[String, String]) extends DASDataFilesApi(options) {
 
-  val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
+  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
     if (!config.url.startsWith("http:") && !config.url.startsWith("https:")) {
       throw new DASSdkInvalidArgumentException(s"Unsupported URL ${config.url}")
     }

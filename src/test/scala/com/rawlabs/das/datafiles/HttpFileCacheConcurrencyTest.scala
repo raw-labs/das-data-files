@@ -12,13 +12,13 @@
 
 package com.rawlabs.das.datafiles
 
+import com.rawlabs.das.datafiles.utils.{HttpCacheKey, HttpConnectionOptions, HttpFileCache}
+
 import java.io.{File, FileOutputStream}
 import java.nio.charset.StandardCharsets
-
 import org.mockito.Mockito.{doReturn, spy}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
 import com.typesafe.scalalogging.StrictLogging
 
 class HttpFileCacheConcurrencyTest extends AnyFlatSpec with Matchers with StrictLogging {

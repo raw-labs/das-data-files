@@ -10,27 +10,20 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.api
 
-import java.net.URI
-
-import scala.jdk.CollectionConverters._
-
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, types => sparkTypes}
-
+import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
-import com.rawlabs.protocol.das.v1.tables.{
-  Column => ProtoColumn,
-  ColumnDefinition,
-  Row => ProtoRow,
-  TableDefinition,
-  TableId
-}
+import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId, Column => ProtoColumn, Row => ProtoRow}
 import com.rawlabs.protocol.das.v1.types._
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Row, Column => SparkColumn, types => sparkTypes}
+
+import java.net.URI
+import scala.jdk.CollectionConverters._
 
 /**
  * An abstract base class for "Data File" tables. Common logic:
@@ -40,7 +33,7 @@ import com.typesafe.scalalogging.StrictLogging
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class BaseDataFileTable(config: DataFileConfig, httpFileCache: HttpFileCache)
+abstract class DataFileTableApi(config: DataFileConfig, httpFileCache: HttpFileCache)
     extends DASTable
     with StrictLogging {
 

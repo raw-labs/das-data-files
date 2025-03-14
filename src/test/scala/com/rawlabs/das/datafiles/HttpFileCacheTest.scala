@@ -12,10 +12,11 @@
 
 package com.rawlabs.das.datafiles
 
+import com.rawlabs.das.datafiles.utils.{HttpCacheKey, HttpConnectionOptions, HttpFileCache}
+
 import java.io.{File, FileOutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.UUID
-
 import org.mockito.Mockito.{doReturn, spy}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

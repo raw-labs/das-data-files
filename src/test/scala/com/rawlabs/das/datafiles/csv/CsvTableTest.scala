@@ -13,7 +13,6 @@
 package com.rawlabs.das.datafiles.csv
 
 import java.io.File
-
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers._
@@ -21,10 +20,11 @@ import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache, SparkTestContext}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
 import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
+
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
 
 class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 

@@ -12,6 +12,7 @@
 
 package com.rawlabs.das.datafiles
 
+import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
 import com.rawlabs.das.datafiles.csv.CsvTable
 import com.rawlabs.das.datafiles.json.JsonTable
 import com.rawlabs.das.datafiles.parquet.ParquetTable
@@ -22,10 +23,10 @@ import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 /**
  * The main plugin class that registers one table per file.
  */
-class DASDataFiles(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASDataFiles(options: Map[String, String]) extends DASDataFilesApi(options) {
 
   // Build a list of our tables
-  val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
+  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
     val format = config.format.getOrElse(
       throw new DASSdkInvalidArgumentException(s"format not specified for table ${config.name}"))
     format match {

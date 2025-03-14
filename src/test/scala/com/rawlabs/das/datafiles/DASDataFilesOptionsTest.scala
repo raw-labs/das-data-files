@@ -12,6 +12,7 @@
 
 package com.rawlabs.das.datafiles
 
+import com.rawlabs.das.datafiles.utils.DASDataFilesOptions
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

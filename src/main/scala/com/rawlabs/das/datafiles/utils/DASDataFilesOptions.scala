@@ -10,11 +10,11 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
-
-import scala.collection.mutable
+package com.rawlabs.das.datafiles.utils
 
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+
+import scala.collection.mutable
 
 /**
  * Represents a single table’s configuration

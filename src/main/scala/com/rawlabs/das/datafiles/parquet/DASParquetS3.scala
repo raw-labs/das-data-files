@@ -12,17 +12,17 @@
 
 package com.rawlabs.das.datafiles.parquet
 
-import com.rawlabs.das.datafiles.{BaseDASDataFiles, BaseDataFileTable}
+import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 /**
  * The main plugin class that registers one table per file.
  */
-class DASParquetS3(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASParquetS3(options: Map[String, String]) extends DASDataFilesApi(options) {
 
   // Build a list of our tables
-  val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
+  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
     if (!config.url.startsWith("s3://")) {
       throw new DASSdkInvalidArgumentException(s"Unsupported URL ${config.url}")
     }

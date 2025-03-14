@@ -10,13 +10,12 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
-
-import scala.jdk.CollectionConverters.CollectionHasAsScala
-
-import org.apache.spark.sql.SparkSession
+package com.rawlabs.das.datafiles.utils
 
 import com.typesafe.config.ConfigFactory
+import org.apache.spark.sql.SparkSession
+
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 object SParkSessionBuilder {
 

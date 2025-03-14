@@ -12,6 +12,7 @@
 
 package com.rawlabs.das.datafiles.parquet
 
+import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
 import java.io.File
 
 import org.apache.spark.sql.SaveMode
@@ -21,7 +22,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.{DataFileConfig, HttpFileCache, SparkTestContext}
+import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {

@@ -12,13 +12,13 @@
 
 package com.rawlabs.das.datafiles.xml
 
-import com.rawlabs.das.datafiles.{BaseDASDataFiles, BaseDataFileTable}
+import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
-class DASXmlHttp(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASXmlHttp(options: Map[String, String]) extends DASDataFilesApi(options) {
 
-  val tables: Map[String, BaseDataFileTable] = dasOptions.tableConfigs.map { config =>
+  val tables: Map[String, DataFileTableApi] = dasOptions.tableConfigs.map { config =>
     if (!config.url.startsWith("http:") && !config.url.startsWith("https:")) {
       throw new DASSdkInvalidArgumentException(s"Unsupported URL ${config.url}")
     }
@@ -34,7 +34,7 @@ class DASXmlHttp(options: Map[String, String]) extends BaseDASDataFiles(options)
 class DASXmlHttpBuilder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
-  override def dasType: String = "s3-csv"
+  override def dasType: String = "http-xml"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
     new DASXmlHttp(options)

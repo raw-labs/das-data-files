@@ -10,18 +10,18 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.api
 
-import org.apache.spark.sql.SparkSession
-
+import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, HttpFileCache, SParkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
+import org.apache.spark.sql.SparkSession
 
 /**
  * The main plugin class that registers one table per file.
  */
-abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
+abstract class DASDataFilesApi(options: Map[String, String]) extends DASSdk {
   protected val dasOptions = new DASDataFilesOptions(options)
 
   protected lazy val sparkSession: SparkSession = SParkSessionBuilder.build("dasDataFilesApp", dasOptions)
@@ -29,7 +29,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
   protected val hppFileCache: HttpFileCache = HttpFileCache.build(dasOptions.httpOptions)
 
   // Build a list of our tables
-  def tables: Map[String, BaseDataFileTable]
+  def tables: Map[String, DataFileTableApi]
 
   // Return the definitions to the engine
   override def tableDefinitions: Seq[TableDefinition] = tables.values.map(_.tableDefinition).toSeq

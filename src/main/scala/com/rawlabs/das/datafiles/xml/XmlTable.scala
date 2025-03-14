@@ -12,9 +12,9 @@
 
 package com.rawlabs.das.datafiles.xml
 
+import com.rawlabs.das.datafiles.api.DataFileTableApi
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
-import com.rawlabs.das.datafiles.{BaseDataFileTable, DataFileConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.utils.{DataFileConfig, HttpFileCache}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 
@@ -22,7 +22,7 @@ import com.rawlabs.protocol.das.v1.query.Qual
  * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).
  */
 class XmlTable(config: DataFileConfig, sparkSession: SparkSession, httpFileCache: HttpFileCache)
-    extends BaseDataFileTable(config, httpFileCache) {
+    extends DataFileTableApi(config, httpFileCache) {
 
   override def format: String = "xml"
 
