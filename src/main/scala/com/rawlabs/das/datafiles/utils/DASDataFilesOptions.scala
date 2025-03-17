@@ -12,8 +12,9 @@
 
 package com.rawlabs.das.datafiles.utils
 
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import java.net.URI
+
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
 /**
  * Represents a single path’s configuration

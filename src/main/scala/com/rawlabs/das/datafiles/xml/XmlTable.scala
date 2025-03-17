@@ -12,10 +12,11 @@
 
 package com.rawlabs.das.datafiles.xml
 
+import org.apache.spark.sql.SparkSession
+
 import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import org.apache.spark.sql.SparkSession
 
 /**
  * Table that reads an XML file. Uses Spark-XML (com.databricks.spark.xml).

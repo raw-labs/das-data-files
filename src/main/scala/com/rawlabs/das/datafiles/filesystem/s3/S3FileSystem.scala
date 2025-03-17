@@ -12,11 +12,12 @@
 
 package com.rawlabs.das.datafiles.filesystem.s3
 
-import com.rawlabs.das.datafiles.filesystem.DASFileSystem
-
 import java.io.InputStream
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
+
+import com.rawlabs.das.datafiles.filesystem.DASFileSystem
 
 /**
  * A simple FileSystemApi for S3 using Hadoop's S3AFileSystem.
@@ -24,14 +25,13 @@ import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
  * @param accessKey AWS access key (or None to rely on the default credential chain).
  * @param secretKey AWS secret key (or None to rely on the default credential chain).
  * @param region AWS region (e.g. "us-east-1").
- * @param s3Endpoint Optional custom endpoint (e.g. "s3.us-east-1.amazonaws.com").
  *
  * Usage:
  *   - Use s3a://bucket/path in your calls to list, open, etc.
  *   - Example: "s3a://my-bucket/data/file.csv"
  */
-class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region: Option[String])
-    extends DASFileSystem {
+class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region: Option[String], cacheFolder: String)
+    extends DASFileSystem(cacheFolder) {
 
   // ---------------------------------------------------------
   // Hadoop Configuration Setup
@@ -48,12 +48,6 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
   // Region-based endpoint (if you want to explicitly set it)
   // E.g. "s3.us-east-1.amazonaws.com" or "s3.eu-west-1.amazonaws.com"
   region.foreach(r => conf.set("fs.s3a.endpoint", s"s3.$r.amazonaws.com"))
-
-  // NOTE: Additional options you might set:
-  // conf.set("fs.s3a.connection.ssl.enabled", "true")
-  // conf.set("fs.s3a.aws.credentials.provider", "com.amazonaws.auth.DefaultAWSCredentialsProviderChain")
-  // conf.set("fs.s3a.path.style.access", "true") // for path-style URLs if needed
-  // conf.set("fs.s3a.signing-algorithm", "S3SignerType") // older S3-based signers, etc.
 
   // ---------------------------------------------------------
   // Initialize the Hadoop FileSystem for S3
@@ -125,11 +119,11 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
 }
 
 object S3FileSystem {
-  def build(options: Map[String, String]): S3FileSystem = {
+  def build(options: Map[String, String], cacheFolder: String): S3FileSystem = {
     val accessKey = options.get("aws_access_key")
     val secretKey = options.get("aws_secret_key")
     val region = options.get("aws_region")
 
-    new S3FileSystem(accessKey, secretKey, region)
+    new S3FileSystem(accessKey, secretKey, region, cacheFolder)
   }
 }

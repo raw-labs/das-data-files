@@ -18,7 +18,8 @@ import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 
-class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession) extends BaseDataFileTable(config, sparkSession) {
+class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
+    extends BaseDataFileTable(config, sparkSession) {
 
   override val format: String = "json"
 

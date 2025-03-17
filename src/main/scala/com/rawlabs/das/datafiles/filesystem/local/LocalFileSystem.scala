@@ -24,7 +24,7 @@ import com.rawlabs.das.datafiles.filesystem.DASFileSystem
  * Local filesystem implementation for "file://" or plain paths. Usage:
  *   - e.g. "file:///home/user/data.csv" or just "/home/user/data.csv" if scheme is null.
  */
-class LocalFileSystem extends DASFileSystem {
+class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFolder) {
 
   /**
    * Lists the file or directory at the given URL.
@@ -58,6 +58,9 @@ class LocalFileSystem extends DASFileSystem {
     }
     new FileInputStream(file)
   }
+
+  // Local filesystem doesn't need to download files, so just return the URL as-is.
+  override def getLocalUrl(url: String): String = url
 
   /**
    * Resolves wildcards in the path, e.g. "file:///tmp/ *.csv" or "/tmp/ *.csv" if scheme is null. We'll do a simple

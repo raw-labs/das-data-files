@@ -16,8 +16,10 @@ import java.io.InputStream
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.Duration
+
 import scala.jdk.CollectionConverters._
 import scala.util.Try
+
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.rawlabs.das.datafiles.filesystem.DASFileSystem
@@ -31,8 +33,12 @@ import com.rawlabs.das.datafiles.filesystem.DASFileSystem
  * @param connectTimeoutMs connection timeout in milliseconds
  * @param readTimeoutMs read (per-request) timeout in milliseconds
  */
-class GithubFileSystem(authToken: Option[String], connectTimeoutMs: Int = 5000, readTimeoutMs: Int = 30000)
-    extends DASFileSystem {
+class GithubFileSystem(
+    authToken: Option[String],
+    cacheFolder: String,
+    connectTimeoutMs: Int = 5000,
+    readTimeoutMs: Int = 30000)
+    extends DASFileSystem(cacheFolder) {
 
   private val httpClient: HttpClient =
     HttpClient
@@ -195,8 +201,8 @@ class GithubFileSystem(authToken: Option[String], connectTimeoutMs: Int = 5000, 
 }
 
 object GithubFileSystem {
-  def build(options: Map[String, String]): GithubFileSystem = {
+  def build(options: Map[String, String], cacheFolder: String): GithubFileSystem = {
     val authToken = options.get("github_api_token")
-    new GithubFileSystem(authToken)
+    new GithubFileSystem(authToken, cacheFolder)
   }
 }

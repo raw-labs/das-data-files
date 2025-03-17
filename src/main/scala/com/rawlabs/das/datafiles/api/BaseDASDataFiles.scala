@@ -12,15 +12,17 @@
 
 package com.rawlabs.das.datafiles.api
 
+import java.net.URI
+
+import scala.collection.mutable
+
+import org.apache.spark.sql.SparkSession
+
 import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemFactory}
 import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SparkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
-import org.apache.spark.sql.SparkSession
-
-import java.net.URI
-import scala.collection.mutable
 
 case class DataFilesTableConfig(
     uri: URI,

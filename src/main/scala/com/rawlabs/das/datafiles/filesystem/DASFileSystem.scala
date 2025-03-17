@@ -16,7 +16,7 @@ import java.io.{File, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
 
-abstract class DASFileSystem {
+abstract class DASFileSystem(downloadFolder: String) {
 
   def list(url: String): List[String]
 
@@ -26,9 +26,9 @@ abstract class DASFileSystem {
 
   def stop(): Unit
 
-  def getLocalUrl(url: String, folder: String): String = {
+  def getLocalUrl(url: String): String = {
     val uniqueName = UUID.randomUUID().toString.take(8)
-    val outFile = new File(folder, uniqueName)
+    val outFile = new File(downloadFolder, uniqueName)
     val inputStream = open(url)
     try {
       Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
