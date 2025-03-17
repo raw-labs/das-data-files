@@ -12,7 +12,6 @@
 
 package com.rawlabs.das.datafiles.api
 
-import com.rawlabs.das.datafiles.filesystem.DataFilesCache
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
@@ -22,7 +21,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row, Column => SparkColumn, types => sparkTypes}
 
-import java.net.URI
+import java.io.File
 import scala.jdk.CollectionConverters._
 
 /**
@@ -33,31 +32,27 @@ import scala.jdk.CollectionConverters._
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class DataFileTableApi(config: DataFilesTableConfig, fileCache: DataFilesCache) extends DASTable with StrictLogging {
+abstract class BaseDataFileTable(config: DataFilesTableConfig)
+    extends DASTable
+    with StrictLogging {
 
   val tableName: String = config.name
 
-  val url: String = config.url
-
   def format: String
-
-  private val uri = URI.create(config.url)
 
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
    */
   protected lazy val columns: Seq[(String, Type)] = {
-    // resolveUrl url might download the file if needed
-    val resolved = fileCache.acquire(uri)
+    val executionUrl = acquireUrl()
     try {
-      val dfSchema = loadDataFrame(resolved).schema
+      val dfSchema = loadDataFrame(executionUrl).schema
       dfSchema.fields.toIndexedSeq.map { field =>
         val dasType = sparkTypeToDAS(field.dataType, field.nullable)
         (field.name, dasType)
       }
     } finally {
-      // Release the file if it was downloaded
-      fileCache.release(uri)
+      deleteIfNeeded(executionUrl)
     }
   }
 
@@ -66,7 +61,7 @@ abstract class DataFileTableApi(config: DataFilesTableConfig, fileCache: DataFil
     val builder = TableDefinition
       .newBuilder()
       .setTableId(TableId.newBuilder().setName(tableName))
-      .setDescription(s"Table for $format data from $url")
+      .setDescription(s"Table for $format data from ${config.uri}")
 
     columns.foreach { case (colName, colType) =>
       builder.addColumns(ColumnDefinition.newBuilder().setName(colName).setType(colType))
@@ -95,10 +90,10 @@ abstract class DataFileTableApi(config: DataFilesTableConfig, fileCache: DataFil
       sortKeys: Seq[SortKey],
       maybeLimit: Option[Long]): DASExecuteResult = {
 
-    val resolved = fileCache.acquire(uri)
+    val executionUrl = acquireUrl()
 
     try {
-      val df = loadDataFrame(resolved)
+      val df = loadDataFrame(executionUrl)
       val filteredDF = applyQuals(df, quals)
 
       val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
@@ -137,7 +132,7 @@ abstract class DataFileTableApi(config: DataFilesTableConfig, fileCache: DataFil
         override def close(): Unit = {}
       }
     } finally {
-      fileCache.release(uri)
+      deleteIfNeeded(executionUrl)
     }
   }
 
@@ -240,6 +235,21 @@ abstract class DataFileTableApi(config: DataFilesTableConfig, fileCache: DataFil
     }
 
     result
+  }
+
+  private def acquireUrl() = {
+    if (config.uri.getScheme == "s3") {
+      "s3a://" + config.uri.getAuthority + config.uri.getPath
+    } else {
+      config.filesystem.getLocalUrl(config.uri.toString, "/tmp")
+    }
+  }
+
+  private def deleteIfNeeded(resolved: String): Unit = {
+    if (config.uri.getScheme == "github") {
+      val file = new File(resolved)
+      file.delete()
+    }
   }
 
   // -------------------------------------------------------------------

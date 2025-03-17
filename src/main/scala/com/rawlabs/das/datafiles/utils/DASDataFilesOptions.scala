@@ -12,14 +12,14 @@
 
 package com.rawlabs.das.datafiles.utils
 
-import com.rawlabs.das.datafiles.filesystem.{AwsSecretCredential, FileSystemCredential, GithubApiTokenCredential}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import java.net.URI
 
 /**
  * Represents a single path’s configuration
  */
 
-case class PathConfig(url: String, maybeName: Option[String], format: Option[String], options: Map[String, String])
+case class PathConfig(uri: URI, maybeName: Option[String], format: Option[String], options: Map[String, String])
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -28,24 +28,6 @@ class DASDataFilesOptions(options: Map[String, String]) {
 
   // Number of paths to load, e.g. paths=3 => path0_..., path1_..., path2_...
   val nrPaths: Int = options.get("paths").map(_.toInt).getOrElse(1)
-
-  val fileSystemCredential: Option[FileSystemCredential] = {
-    if (options.contains("aws_access_key")) {
-      val accessKey = options("aws_access_key")
-      val secretKey =
-        options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
-
-      val region = options.getOrElse("aws_region", throw new DASSdkInvalidArgumentException("aws_region not found"))
-      Some(AwsSecretCredential(region, accessKey, secretKey))
-
-    } else if (options.contains("github_api_token")) {
-      val apiToken = options("github_api_token")
-      Some(GithubApiTokenCredential(apiToken))
-    } else {
-      None
-    }
-
-  }
 
   /**
    * Build a list of DataFileConfig from user’s config keys.
@@ -71,7 +53,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
         case (k, v) if k.startsWith(prefix) => (k.drop(prefix.length), v)
       }
 
-      PathConfig(maybeName = maybeName, url = url, format = format, options = pathOptions)
+      PathConfig(maybeName = maybeName, uri = new URI(url), format = format, options = pathOptions)
     }
   }
 

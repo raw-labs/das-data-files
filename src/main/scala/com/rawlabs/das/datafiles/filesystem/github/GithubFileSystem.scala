@@ -32,8 +32,8 @@ import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
  * @param connectTimeoutMs connection timeout in milliseconds
  * @param readTimeoutMs read (per-request) timeout in milliseconds
  */
-class GitHubFileSystem(authToken: Option[String] , connectTimeoutMs: Int = 5000, readTimeoutMs: Int = 30000)
-    extends FileSystemApi {
+class GithubFileSystem(authToken: Option[String], connectTimeoutMs: Int = 5000, readTimeoutMs: Int = 30000)
+    extends DASFileSystem {
 
   private val httpClient: HttpClient =
     HttpClient
@@ -192,5 +192,12 @@ class GitHubFileSystem(authToken: Option[String] , connectTimeoutMs: Int = 5000,
         (prefix, Some(candidate))
       } else (fullUrl, None)
     }
+  }
+}
+
+object GithubFileSystem {
+  def build(options: Map[String, String]): GithubFileSystem = {
+    val authToken = options.get("github_api_token")
+    new GithubFileSystem(authToken)
   }
 }

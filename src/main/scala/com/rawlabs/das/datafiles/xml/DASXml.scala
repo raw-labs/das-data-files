@@ -12,23 +12,23 @@
 
 package com.rawlabs.das.datafiles.xml
 
-import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
+import com.rawlabs.das.datafiles.api.{BaseDASDataFiles, BaseDataFileTable}
 import com.rawlabs.das.sdk.DASSettings
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 
 /**
  * The main plugin class that registers one table per file.
  */
-class DASXml(options: Map[String, String]) extends DASDataFilesApi(options) {
+class DASXml(options: Map[String, String]) extends BaseDASDataFiles(options) {
 
   // Build a list of our tables
-  val tables: Map[String, DataFileTableApi] = tableConfig.map { config =>
-    config.name -> new XmlTable(config, sparkSession, fileCache)
+  val tables: Map[String, BaseDataFileTable] = tableConfig.map { config =>
+    config.name -> new XmlTable(config, sparkSession)
   }.toMap
 
 }
 
-class DASXmlS3Builder extends DASSdkBuilder {
+class DASXmlBuilder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
   override def dasType: String = "xml"

@@ -12,14 +12,13 @@
 
 package com.rawlabs.das.datafiles.json
 
-import com.rawlabs.das.datafiles.api.{DataFileTableApi, DataFilesTableConfig}
-import com.rawlabs.das.datafiles.filesystem.DataFilesCache
+import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession, fileCache: DataFilesCache)
-    extends DataFileTableApi(config, fileCache) {
+class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
+    extends BaseDataFileTable(config) {
 
   override def format: String = "json"
 

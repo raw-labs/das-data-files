@@ -12,23 +12,23 @@
 
 package com.rawlabs.das.datafiles.parquet
 
-import com.rawlabs.das.datafiles.api.{DASDataFilesApi, DataFileTableApi}
+import com.rawlabs.das.datafiles.api.{BaseDASDataFiles, BaseDataFileTable}
 import com.rawlabs.das.sdk.DASSettings
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 
 /**
  * The main plugin class that registers one table per file.
  */
-class DASParquet(options: Map[String, String]) extends DASDataFilesApi(options) {
+class DASParquet(options: Map[String, String]) extends BaseDASDataFiles(options) {
 
   // Build a list of our tables
-  val tables: Map[String, DataFileTableApi] = tableConfig.map { config =>
-    config.name -> new ParquetTable(config, sparkSession, fileCache)
+  val tables: Map[String, BaseDataFileTable] = tableConfig.map { config =>
+    config.name -> new ParquetTable(config, sparkSession)
   }.toMap
 
 }
 
-class DASParquetS3Builder extends DASSdkBuilder {
+class DASParquetBuilder extends DASSdkBuilder {
 
   // This must match your "type" field in the config for the plugin
   override def dasType: String = "parquet"

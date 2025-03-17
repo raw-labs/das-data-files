@@ -12,35 +12,42 @@
 
 package com.rawlabs.das.datafiles.api
 
+import java.net.URI
+
 import scala.collection.mutable
+
 import org.apache.spark.sql.SparkSession
-import com.rawlabs.das.datafiles.filesystem.{AwsSecretCredential, DataFilesCache, FileSystemApi, GitHubFileSystem, GithubApiTokenCredential}
+
+import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, GithubFileSystem, S3FileSystem}
 import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SParkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
 
-case class DataFilesTableConfig(url: String, name: String, format: Option[String], options: Map[String, String])
+case class DataFilesTableConfig(
+    uri: URI,
+    name: String,
+    format: Option[String],
+    options: Map[String, String],
+    filesystem: DASFileSystem)
 
 /**
  * The main plugin class that registers one table per file.
  */
-abstract class DASDataFilesApi(options: Map[String, String]) extends DASSdk {
-  protected val dasOptions = new DASDataFilesOptions(options)
+abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
+  private val dasOptions = new DASDataFilesOptions(options)
 
-  protected lazy val sparkSession: SparkSession = SParkSessionBuilder.build("dasDataFilesApp", dasOptions)
-
-  private val fileSystem: FileSystemApi = dasOptions.fileSystemCredential match {
-    case Some(AwsSecretCredential(accessKey, secretKey)) => ???
-    case Some(GithubApiTokenCredential(token))    => new GitHubFileSystem(Some(token))
-    case None                                     => ???
-  }
-
-  protected val fileCache: DataFilesCache = DataFilesCache(fileSystem)
+  protected lazy val sparkSession: SparkSession = SParkSessionBuilder.build("dasDataFilesApp", options)
 
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
-    val urls = fileSystem.resolveWildcard(config.url)
+    val filesystem = config.uri.getScheme match {
+      case "s3"     => S3FileSystem.build(options)
+      case "github" => GithubFileSystem.build(options)
+      case "file"| null  => ???
+    }
+
+    val urls = filesystem.resolveWildcard(config.uri.toString)
 
     urls.map { url =>
       val name = if (urls.length == 1 && config.maybeName.isDefined) {
@@ -57,12 +64,12 @@ abstract class DASDataFilesApi(options: Map[String, String]) extends DASSdk {
       }
 
       val unique = ensureUniqueName(name)
-      DataFilesTableConfig(url, unique, config.format, config.options)
+      DataFilesTableConfig(new URI(url), unique, config.format, config.options, filesystem)
     }
   }
 
   // Build a list of our tables
-  def tables: Map[String, DataFileTableApi]
+  def tables: Map[String, BaseDataFileTable]
 
   // Return the definitions to the engine
   override def tableDefinitions: Seq[TableDefinition] = tables.values.map(_.tableDefinition).toSeq

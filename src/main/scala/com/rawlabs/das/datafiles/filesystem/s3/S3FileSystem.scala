@@ -29,7 +29,8 @@ import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
  *   - Use s3a://bucket/path in your calls to list, open, etc.
  *   - Example: "s3a://my-bucket/data/file.csv"
  */
-class S3FileSystemApi(accessKey: Option[String], secretKey: Option[String], region: String) extends FileSystemApi {
+class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region: Option[String])
+    extends DASFileSystem {
 
   // ---------------------------------------------------------
   // Hadoop Configuration Setup
@@ -43,10 +44,9 @@ class S3FileSystemApi(accessKey: Option[String], secretKey: Option[String], regi
   // Optionally set AWS credentials (if not relying on default AWS providers)
   accessKey.foreach(ak => conf.set("fs.s3a.access.key", ak))
   secretKey.foreach(sk => conf.set("fs.s3a.secret.key", sk))
-
   // Region-based endpoint (if you want to explicitly set it)
   // E.g. "s3.us-east-1.amazonaws.com" or "s3.eu-west-1.amazonaws.com"
-  conf.set("fs.s3a.endpoint", s"s3.$region.amazonaws.com")
+  region.foreach(r => conf.set("fs.s3a.endpoint", s"s3.$r.amazonaws.com"))
 
   // NOTE: Additional options you might set:
   // conf.set("fs.s3a.connection.ssl.enabled", "true")
@@ -119,5 +119,16 @@ class S3FileSystemApi(accessKey: Option[String], secretKey: Option[String], regi
    */
   override def stop(): Unit = {
     s3Fs.close()
+  }
+
+}
+
+object S3FileSystem {
+  def build(options: Map[String, String]): S3FileSystem = {
+    val accessKey = options.get("aws_access_key")
+    val secretKey = options.get("aws_secret_key")
+    val region = options.get("aws_region")
+
+    new S3FileSystem(accessKey, secretKey, region)
   }
 }

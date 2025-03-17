@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.xml
 
-import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
-import java.io.File
-
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.DASFileSystem
+import com.rawlabs.protocol.das.v1.query.Qual
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers._
@@ -23,8 +24,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+import java.net.URI
 
 class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
   private val xmlContent =
@@ -41,27 +42,26 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     f
   }
 
-  private val mockCache = mock(classOf[HttpFileCache])
+  private val mockFileSystem = mock(classOf[DASFileSystem])
+
+  private val url = "file://mocked/test.xml"
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    when(
-      mockCache.acquireFor(
-        anyString(),
-        ArgumentMatchers.eq("http://mocked.com/test.xml"),
-        any[Option[String]](),
-        any[Map[String, String]](),
-        anyInt())).thenReturn(tempXmlFile.getAbsolutePath)
+
+    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq(url), anyString()))
+      .thenReturn(tempXmlFile.getAbsolutePath)
   }
 
   "XmlTable" should "load rows from an XML file" in {
-    val config = PathConfig(
+    val config = DataFilesTableConfig(
+      uri = new URI(url),
       name = "testXml",
-      url = "http://mocked.com/test.xml",
       format = Some("xml"),
-      options = Map("root_tag" -> "rows", "row_tag" -> "row"))
+      options = Map("root_tag" -> "rows", "row_tag" -> "row"),
+      filesystem = mockFileSystem)
 
-    val table = new XmlTable(config, spark, mockCache)
+    val table = new XmlTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
 
     val rows = Iterator

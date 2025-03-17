@@ -10,18 +10,8 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.filesystem
+package com.rawlabs.das.datafiles.filesystem.local
 
-import java.io.InputStream
+class LocalFileSystem {
 
-
-trait FileSystemApi {
-
-  def list(url: String): List[String]
-
-  def open(url: String): InputStream
-
-  def resolveWildcard(url: String): List[String]
-
-  def stop(): Unit
 }

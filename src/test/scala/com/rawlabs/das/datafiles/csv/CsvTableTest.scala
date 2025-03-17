@@ -13,6 +13,8 @@
 package com.rawlabs.das.datafiles.csv
 
 import java.io.File
+import java.net.URI
+
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers._
@@ -20,11 +22,12 @@ import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
-import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
 
 import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.DASFileSystem
+import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
+import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
 
 class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
@@ -46,33 +49,32 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   // A mock HttpFileCache
-  private val mockCache = mock(classOf[HttpFileCache])
+  private val mockFilesystem = mock(classOf[DASFileSystem])
+
+  private val config = DataFilesTableConfig(
+    name = "testCsv",
+    uri = new URI("file://mocked.com/test.csv"),
+    format = Some("csv"),
+    options = Map("header" -> "true"),
+    filesystem = mockFilesystem)
+
+  // 2) Instantiate the CSV table
+  private val table = new CsvTable(config, spark)
 
   override def beforeAll(): Unit = {
     super.beforeAll()
 
     // For any call to getLocalFileFor with the given URL, return our local CSV
     when(
-      mockCache.acquireFor(
-        anyString(), // method
-        ArgumentMatchers.eq("http://mocked.com/test.csv"), // remoteUrl
-        any[Option[String]](),
-        any[Map[String, String]](),
-        any[Int]())).thenReturn(tempCsvFile.getAbsolutePath)
+      mockFilesystem.getLocalUrl(
+        ArgumentMatchers.eq("file://mocked.com/test.csv"), // remoteUrl
+        anyString())).thenReturn(tempCsvFile.getAbsolutePath)
   }
 
   behavior of "CsvTable.execute()"
 
   it should "return rows from CSV when the URL is HTTP" in {
     // 1) Build a DataFileConfig with a URL that looks HTTP
-    val config = PathConfig(
-      name = "testCsv",
-      url = "http://mocked.com/test.csv",
-      format = Some("csv"),
-      options = Map("header" -> "true"))
-
-    // 2) Instantiate the CSV table
-    val table = new CsvTable(config, spark, mockCache)
 
     // 3) We call 'execute' with no quals, no columns => return all columns
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
@@ -92,13 +94,14 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "allow a limit param" in {
-    val config = PathConfig(
+    val config = DataFilesTableConfig(
       name = "testCsvLimit",
-      url = "http://mocked.com/test.csv",
+      uri = new URI("file://mocked.com/test.csv"),
       format = Some("csv"),
-      options = Map("header" -> "true"))
+      options = Map("header" -> "true"),
+      filesystem = mockFilesystem)
 
-    val table = new CsvTable(config, spark, mockCache)
+    val table = new CsvTable(config, spark)
 
     // ask for a limit=2
     val result = table.execute(Nil, Nil, Nil, Some(2L))
@@ -115,12 +118,6 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "throw on insert/update/delete" in {
-    val config = PathConfig(
-      name = "readOnlyTest",
-      url = "http://mocked.com/test.csv",
-      format = Some("csv"),
-      options = Map("header" -> "true"))
-    val table = new CsvTable(config, spark, mockCache)
 
     an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
       table.insert(com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
@@ -143,14 +140,6 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "filter rows with EQUALS operator" in {
-    val config = PathConfig(
-      name = "testPushdownCsv",
-      url = "http://mocked.com/test.csv",
-      format = Some("csv"),
-      options = Map("header" -> "true"))
-
-    val table = new CsvTable(config, spark, mockCache)
-
     // Qual => "id = 2"
     val qual = Qual
       .newBuilder()
@@ -174,13 +163,6 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "filter rows with ILIKE operator" in {
-    val config = PathConfig(
-      name = "testILikeCsv",
-      url = "http://mocked.com/test.csv",
-      format = Some("csv"),
-      options = Map("header" -> "true"))
-
-    val table = new CsvTable(config, spark, mockCache)
 
     // Qual => "name ILIKE 'alice'"
     // Should match both "Alice" and "alice"
@@ -211,13 +193,6 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "apply sorting with sortKeys" in {
-    val config = PathConfig(
-      name = "testSortCsv",
-      url = "http://mocked.com/test.csv",
-      format = Some("csv"),
-      options = Map("header" -> "true"))
-
-    val table = new CsvTable(config, spark, mockCache)
 
     // Sort by name descending
     val sortKey = SortKey

@@ -12,23 +12,26 @@
 
 package com.rawlabs.das.datafiles.parquet
 
-import com.rawlabs.das.datafiles.utils.{PathConfig, HttpFileCache}
 import java.io.File
+import java.net.URI
 
 import org.apache.spark.sql.SaveMode
+import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.when
+import org.mockito.Mockito.{mock, when}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.DASFileSystem
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   private var tempDir: File = _
-  private val mockCache = org.mockito.Mockito.mock(classOf[HttpFileCache])
+  private val mockFileSystem = mock(classOf[DASFileSystem])
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -42,23 +45,19 @@ class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext w
     df.write.mode(SaveMode.Overwrite).parquet(tempDir.getAbsolutePath)
 
     // Stub the cache call
-    when(
-      mockCache.acquireFor(
-        anyString(),
-        org.mockito.ArgumentMatchers.eq("http://mocked.com/test.parquet"),
-        any[Option[String]](),
-        any[Map[String, String]](),
-        any[Int]())).thenReturn(tempDir.getAbsolutePath)
+    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked/test.parquet"), anyString()))
+      .thenReturn(tempDir.getAbsolutePath)
   }
 
   "ParquetTable" should "load rows from a Parquet file" in {
-    val config = PathConfig(
+    val config = DataFilesTableConfig(
       name = "testParquet",
-      url = "http://mocked.com/test.parquet",
+      uri = new URI("file://mocked/test.parquet"),
       format = Some("parquet"),
-      options = Map.empty)
+      options = Map.empty,
+      filesystem = mockFileSystem)
 
-    val table = new ParquetTable(config, spark, mockCache)
+    val table = new ParquetTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
 
     val rows = Iterator
