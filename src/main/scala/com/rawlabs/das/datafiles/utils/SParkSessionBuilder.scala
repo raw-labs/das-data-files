@@ -19,7 +19,7 @@ import org.apache.spark.sql.SparkSession
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.typesafe.config.ConfigFactory
 
-object SParkSessionBuilder {
+object SparkSessionBuilder {
 
   def build(appName: String, options: Map[String, String]): SparkSession = {
     val builder = SparkSession

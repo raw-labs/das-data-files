@@ -4,31 +4,19 @@
 
 [Data Access Service](https://github.com/raw-labs/protocol-das)
 for reading CSV, JSON, XML, and Parquet files from HTTP/HTTPS URLs, or S3 (via s3a).
-This plugin supports creating one or more “tables,” each representing a data file with
-automatic schema inference (or metadata for Parquet).
 
-## Overview
+This is the list of DAS types released in this DAS server:
+* DAS S3 CSV
+* DAS S3 JSON
+* DAS S3 XML
+* DAS S3 Parquet
+* DAS HTTP CSV
+* DAS HTTP JSON
+* DAS HTTP XML
+* DAS HTTP Parquet
 
-This DAS plugin defines multiple tables based on files from HTTP/HTTPS URLs or S3.:
-The plugin supports the following file types:
 
-* CSV
-* JSON
-* XML
-* Parquet
-
-A typical usage might look like:
-
-```sql
-SELECT id, name
-FROM my_csv_data
-WHERE id < 10
-ORDER BY name ASC
-```
-
-## Available DAS Types
-
-### DAS S3 CSV "s3-csv"
+## DAS S3 CSV "s3-csv" Options
 
 | Config Key                | Description                                                                                        | Example                                      |
 |---------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------|
@@ -68,7 +56,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS S3 JSON "s3-json"
+## DAS S3 JSON "s3-json" Options
 
 | Config Key                             | Description                                                                                         | Example                            |
 |----------------------------------------|-----------------------------------------------------------------------------------------------------|------------------------------------|
@@ -107,7 +95,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS S3 xml "s3-xml"
+## DAS S3 xml "s3-xml" Options
 
 | Config Key                           | Description                                                                                                                | Example                            |
 |--------------------------------------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------|
@@ -150,7 +138,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS S3 Parquet "s3-parquet"
+## DAS S3 Parquet "s3-parquet" Options
 
 | Config Key                     | Description                                                                                   | Example                            |
 |--------------------------------|-----------------------------------------------------------------------------------------------|------------------------------------|
@@ -186,7 +174,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS HTTP CSV "http-csv"
+## DAS HTTP CSV "http-csv" Options
 
 | Config Key                    | Description                                                                                        | Example                                      |
 |-------------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------|
@@ -232,7 +220,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS http JSON "http-json"
+## DAS http JSON "http-json" Options
 
 | Config Key                             | Description                                                                                        | Example                                  |
 |----------------------------------------|----------------------------------------------------------------------------------------------------|------------------------------------------|
@@ -278,7 +266,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS http xml "http-xml"
+## DAS http xml "http-xml" Options
 
 | Config Key                           | Description                                                                                                                | Example                                  |
 |--------------------------------------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
@@ -327,7 +315,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-### DAS http Parquet "http-parquet"
+## DAS http Parquet "http-parquet" Options
 
 | Config Key                    | Description                                                                                   | Example                                  |
 |-------------------------------|-----------------------------------------------------------------------------------------------|------------------------------------------|

@@ -1,4 +1,4 @@
-com.rawlabs.das.datafiles.DASDataFilesBuilder
+com.rawlabs.das.datafiles.generic.DASDataFilesBuilder
 com.rawlabs.das.datafiles.csv.DASCsvHttpBuilder
 com.rawlabs.das.datafiles.csv.DASCsvBuilder
 com.rawlabs.das.datafiles.json.DASJsonHttpBuilder
