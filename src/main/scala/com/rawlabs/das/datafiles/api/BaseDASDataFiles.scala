@@ -12,18 +12,15 @@
 
 package com.rawlabs.das.datafiles.api
 
-import java.net.URI
-
-import scala.collection.mutable
-
-import org.apache.spark.sql.SparkSession
-
-import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, GithubFileSystem, S3FileSystem}
-import com.rawlabs.das.datafiles.utils.DASDataFilesOptions
+import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemFactory}
+import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SparkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
-import com.rawlabs.das.datafiles.utils.SparkSessionBuilder
+import org.apache.spark.sql.SparkSession
+
+import java.net.URI
+import scala.collection.mutable
 
 case class DataFilesTableConfig(
     uri: URI,
@@ -42,11 +39,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
 
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
-    val filesystem = config.uri.getScheme match {
-      case "s3"     => S3FileSystem.build(options)
-      case "github" => GithubFileSystem.build(options)
-      case "file"| null  => ???
-    }
+    val filesystem = FileSystemFactory.build(config.uri, options)
 
     val urls = filesystem.resolveWildcard(config.uri.toString)
 

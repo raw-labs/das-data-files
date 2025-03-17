@@ -15,18 +15,18 @@ package com.rawlabs.das.datafiles.parquet
 import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 /**
  * Table that reads a Parquet file.
  */
 class ParquetTable(config: DataFilesTableConfig, sparkSession: SparkSession)
-    extends BaseDataFileTable(config) {
+    extends BaseDataFileTable(config, sparkSession) {
 
-  override def format: String = "parquet"
+  override val format: String = "parquet"
 
-  // Map our custom configuration keys to the corresponding Spark Parquet options.
-  private val sparkOptions: Map[String, String] = remapOptions(
+  // Map our custom configuration keys to the corresponding Spark options.
+  override protected val sparkOptions: Map[String, String] = remapOptions(
     Map(
       "merge_schema" -> "mergeSchema", // Whether to merge schemas from different files when reading from a directory.
       "recursive_file_lookup" -> "recursiveFileLookup", // Whether to recursively search subdirectories for Parquet files.
@@ -37,17 +37,6 @@ class ParquetTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     // Parquet has metadata that might let you guess row count or compression ratio,
     // but here we just do a rough guess:
     DASTable.TableEstimate(expectedNumberOfRows = 10000, avgRowWidthBytes = 200)
-  }
-
-  /**
-   * Override to read Parquet with Spark. Typically, we do not need 'inferSchema' for Parquet because it is stored in
-   * the file.
-   */
-  override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
-    sparkSession.read
-      .options(sparkOptions)
-      .parquet(resolvedUrl)
-
   }
 
 }

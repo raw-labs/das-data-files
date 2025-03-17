@@ -10,10 +10,11 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.filesystem
+package com.rawlabs.das.datafiles.filesystem.s3
+
+import com.rawlabs.das.datafiles.filesystem.DASFileSystem
 
 import java.io.InputStream
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 

@@ -12,17 +12,25 @@
 
 package com.rawlabs.das.datafiles.api
 
+import java.io.File
+
+import scala.jdk.CollectionConverters._
+
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, SparkSession, types => sparkTypes}
+
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId, Column => ProtoColumn, Row => ProtoRow}
+import com.rawlabs.protocol.das.v1.tables.{
+  Column => ProtoColumn,
+  ColumnDefinition,
+  Row => ProtoRow,
+  TableDefinition,
+  TableId
+}
 import com.rawlabs.protocol.das.v1.types._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Row, Column => SparkColumn, types => sparkTypes}
-
-import java.io.File
-import scala.jdk.CollectionConverters._
 
 /**
  * An abstract base class for "Data File" tables. Common logic:
@@ -32,18 +40,20 @@ import scala.jdk.CollectionConverters._
  *
  * Child classes implement: def loadDataFrame(): DataFrame
  */
-abstract class BaseDataFileTable(config: DataFilesTableConfig)
+abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     extends DASTable
     with StrictLogging {
 
   val tableName: String = config.name
 
-  def format: String
+  val format: String
+
+  protected val sparkOptions: Map[String, String]
 
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
    */
-  protected lazy val columns: Seq[(String, Type)] = {
+  private lazy val columns: Seq[(String, Type)] = {
     val executionUrl = acquireUrl()
     try {
       val dfSchema = loadDataFrame(executionUrl).schema
@@ -68,12 +78,6 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig)
     }
 
     builder.build()
-  }
-
-  protected def remapOptions(options: Map[String, String]): Map[String, String] = {
-    options.flatMap { case (key, option) =>
-      config.options.get(key).map(value => option -> value)
-    }
   }
 
   override def getTablePathKeys: Seq[com.rawlabs.protocol.das.v1.query.PathKey] = Seq.empty
@@ -146,13 +150,12 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig)
   override def delete(rowId: Value): Unit =
     throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
-  // -------------------------------------------------------------------
-  //Abstract method(s) children must implement
-  // -------------------------------------------------------------------
-  /**
-   * Child class reads the file with Spark, e.g. spark.read.csv(...).
-   */
-  protected def loadDataFrame(resolvedUrl: String): DataFrame
+  protected def loadDataFrame(resolvedUrl: String): DataFrame = {
+    sparkSession.read
+      .options(sparkOptions)
+      .format(format)
+      .load(resolvedUrl)
+  }
 
   // -------------------------------------------------------------------
   // Optionally, common pushdown logic
@@ -274,6 +277,13 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig)
 
       }
       df.orderBy(sortCols: _*)
+    }
+  }
+
+  // Helper to remap options from our custom keys to Spark keys
+  protected def remapOptions(options: Map[String, String]): Map[String, String] = {
+    options.flatMap { case (key, option) =>
+      config.options.get(key).map(value => option -> value)
     }
   }
 

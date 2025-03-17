@@ -10,18 +10,17 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.filesystem
+package com.rawlabs.das.datafiles.filesystem.github
 
 import java.io.InputStream
 import java.net.URI
 import java.net.http.{HttpClient, HttpRequest, HttpResponse}
 import java.time.Duration
-
 import scala.jdk.CollectionConverters._
 import scala.util.Try
-
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
+import com.rawlabs.das.datafiles.filesystem.DASFileSystem
 
 /**
  * Example GitHub-based FileSystemApi using Jackson for JSON parsing.
