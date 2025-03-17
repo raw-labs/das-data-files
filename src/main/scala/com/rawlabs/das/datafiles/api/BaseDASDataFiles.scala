@@ -34,7 +34,7 @@ case class DataFilesTableConfig(
 /**
  * The main plugin class that registers one table per file.
  */
-abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
+abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) extends DASSdk {
   private val dasOptions = new DASDataFilesOptions(options)
 
   protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", options)
@@ -62,6 +62,10 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
       val unique = ensureUniqueName(name)
       DataFilesTableConfig(new URI(url), unique, config.format, config.options, filesystem)
     }
+  }
+
+  if (tableConfig.length > maxTables) {
+    throw new IllegalArgumentException(s"Too many tables: ${tableConfig.length} > $maxTables")
   }
 
   // Build a list of our tables

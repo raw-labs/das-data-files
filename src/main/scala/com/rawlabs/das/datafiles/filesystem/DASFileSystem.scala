@@ -27,7 +27,7 @@ abstract class DASFileSystem(downloadFolder: String) {
   def stop(): Unit
 
   def getLocalUrl(url: String): String = {
-    val uniqueName = UUID.randomUUID().toString.take(8)
+    val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
     val inputStream = open(url)
     try {

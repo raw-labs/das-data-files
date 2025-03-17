@@ -62,7 +62,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         (field.name, dasType)
       }
     } finally {
-      deleteIfNeeded(executionUrl)
+      // deletes the file if needed (github)
+      releaseFile(executionUrl)
     }
   }
 
@@ -136,7 +137,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         override def close(): Unit = {}
       }
     } finally {
-      deleteIfNeeded(executionUrl)
+      // deletes the file if needed (github)
+      releaseFile(executionUrl)
     }
   }
 
@@ -244,7 +246,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     }
   }
 
-  private def deleteIfNeeded(resolved: String): Unit = {
+  private def releaseFile(resolved: String): Unit = {
     if (config.uri.getScheme == "github") {
       val file = new File(resolved)
       file.delete()

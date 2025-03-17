@@ -19,11 +19,12 @@ import com.rawlabs.das.datafiles.parquet.ParquetTable
 import com.rawlabs.das.datafiles.xml.XmlTable
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
+import com.typesafe.config.ConfigFactory
 
 /**
  * The main plugin class that registers one table per file.
  */
-class DASDataFiles(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASDataFiles(options: Map[String, String], maxTables: Int) extends BaseDASDataFiles(options, maxTables) {
 
   // Build a list of our tables
   val tables: Map[String, BaseDataFileTable] = tableConfig.map { config =>
@@ -45,10 +46,12 @@ class DASDataFiles(options: Map[String, String]) extends BaseDASDataFiles(option
  */
 class DASDataFilesBuilder extends DASSdkBuilder {
 
+  private val maxTables = ConfigFactory.load().getInt("raw.das.data-files.max-tables")
+
   // This must match your "type" field in the config for the plugin
   override def dasType: String = "datafiles"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {
-    new DASDataFiles(options)
+    new DASDataFiles(options, maxTables)
   }
 }
