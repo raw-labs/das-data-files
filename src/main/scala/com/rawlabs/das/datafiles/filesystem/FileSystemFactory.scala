@@ -23,6 +23,7 @@ object FileSystemFactory {
 
   private val config = ConfigFactory.load()
   private val cacheFolder = config.getString("raw.das.data-files.cache-dir")
+  private val allowLocal = config.getBoolean("raw.das.data-files.allow-local-files")
 
   /**
    * Build the appropriate DASFileSystem based on the URI scheme.
@@ -42,6 +43,9 @@ object FileSystemFactory {
         GithubFileSystem.build(options, cacheFolder)
 
       case "file" | null =>
+        if (!allowLocal) {
+          throw new IllegalArgumentException("Local files are not allowed.")
+        }
         // "file" or a missing scheme => local filesystem
         // (null occurs if user’s URL is just "/path/to/data.csv")
         new LocalFileSystem(cacheFolder)
