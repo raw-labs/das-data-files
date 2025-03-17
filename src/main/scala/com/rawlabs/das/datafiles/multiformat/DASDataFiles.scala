@@ -10,18 +10,13 @@
  * licenses/APL.txt.
  */
 
-<<<<<<<< HEAD:src/main/scala/com/rawlabs/das/datafiles/multiformat/DASDataFiles.scala
 package com.rawlabs.das.datafiles.multiformat
-========
-package com.rawlabs.das.datafiles.generic
->>>>>>>> 9193eb4e22904f46e3f9515aa7e75d3b0640b2cc:src/main/scala/com/rawlabs/das/datafiles/generic/DASDataFiles.scala
 
 import com.rawlabs.das.datafiles.api.{BaseDASDataFiles, BaseDataFileTable}
 import com.rawlabs.das.datafiles.csv.CsvTable
 import com.rawlabs.das.datafiles.json.JsonTable
 import com.rawlabs.das.datafiles.parquet.ParquetTable
 import com.rawlabs.das.datafiles.xml.XmlTable
-import com.rawlabs.das.datafiles.{BaseDASDataFiles, BaseDataFileTable}
 import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
