@@ -13,10 +13,10 @@
 package com.rawlabs.das.datafiles.filesystem
 
 import java.net.URI
-
 import com.rawlabs.das.datafiles.filesystem.github.GithubFileSystem
 import com.rawlabs.das.datafiles.filesystem.local.LocalFileSystem
 import com.rawlabs.das.datafiles.filesystem.s3.S3FileSystem
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.typesafe.config.ConfigFactory
 
 object FileSystemFactory {
@@ -44,14 +44,14 @@ object FileSystemFactory {
 
       case "file" | null =>
         if (!allowLocal) {
-          throw new IllegalArgumentException("Local files are not allowed.")
+          throw new DASSdkInvalidArgumentException("Local files are not allowed.")
         }
         // "file" or a missing scheme => local filesystem
         // (null occurs if user’s URL is just "/path/to/data.csv")
         new LocalFileSystem(cacheFolder)
 
       case other =>
-        throw new IllegalArgumentException(s"Unsupported URI scheme '$other' for path: ${uri.toString}")
+        throw new DASSdkInvalidArgumentException(s"Unsupported URI scheme '$other' for path: ${uri.toString}")
     }
   }
 }

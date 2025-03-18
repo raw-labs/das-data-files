@@ -17,7 +17,6 @@ import java.net.URI
 
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -65,10 +64,8 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     super.beforeAll()
 
     // For any call to getLocalFileFor with the given URL, return our local CSV
-    when(
-      mockFilesystem.getLocalUrl(
-        ArgumentMatchers.eq("file://mocked.com/test.csv"), // remoteUrl
-        anyString())).thenReturn(tempCsvFile.getAbsolutePath)
+    when(mockFilesystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test.csv")))
+      .thenReturn(Right(tempCsvFile.getAbsolutePath))
   }
 
   behavior of "CsvTable.execute()"

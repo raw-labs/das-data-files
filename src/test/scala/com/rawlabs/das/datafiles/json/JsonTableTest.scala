@@ -17,7 +17,6 @@ import java.net.URI
 
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -62,11 +61,11 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test.json"), anyString()))
-      .thenReturn(tempJsonFile.getAbsolutePath)
+    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test.json")))
+      .thenReturn(Right(tempJsonFile.getAbsolutePath))
 
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test-lines.json"), anyString()))
-      .thenReturn(tempJsonLinesFile.getAbsolutePath)
+    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test-lines.json")))
+      .thenReturn(Right(tempJsonLinesFile.getAbsolutePath))
 
   }
 

@@ -13,99 +13,93 @@
 package com.rawlabs.das.datafiles.filesystem.local
 
 import java.io.{File, FileInputStream, InputStream}
-import java.net.URI
-import java.nio.file.{DirectoryStream, FileSystems, Files, Path, Paths}
+import java.net.{URI, URISyntaxException}
+import java.nio.file._
 
-import scala.jdk.CollectionConverters.IterableHasAsScala
+import scala.jdk.CollectionConverters._
 
-import com.rawlabs.das.datafiles.filesystem.DASFileSystem
+import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
 
-/**
- * Local filesystem implementation for "file://" or plain paths. Usage:
- *   - e.g. "file:///home/user/data.csv" or just "/home/user/data.csv" if scheme is null.
- */
 class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFolder) {
 
-  /**
-   * Lists the file or directory at the given URL.
-   *   - If the path is a file, return a single-element list.
-   *   - If the path is a directory, return immediate child files (non-recursive).
-   */
-  override def list(url: String): List[String] = {
-    val file = fileFromUrl(url)
+  override def list(url: String): Either[FileSystemError, List[String]] = {
+    val file = fileFromUrl(url) match {
+      case Left(err) => return Left(err)
+      case Right(f)  => f
+    }
+
     if (!file.exists()) {
-      Nil
+      Left(FileSystemError.NotFound(url))
     } else if (file.isDirectory) {
-      // Directory => list its immediate children (files only)
-      file
+      // Directory => list immediate children (files only)
+      val files = file
         .listFiles()
         .filter(_.isFile)
         .map(_.toURI.toString)
         .toList
+
+      Right(files)
     } else {
       // Single file
-      List(file.toURI.toString)
+      Right(List(file.toURI.toString))
     }
   }
 
-  /**
-   * Opens the file for reading and returns an InputStream. Caller must close the stream.
-   */
-  override def open(url: String): InputStream = {
-    val file = fileFromUrl(url)
-    if (!file.exists() || file.isDirectory) {
-      throw new IllegalArgumentException(s"LocalFileSystem cannot open $url; does not exist or is a directory.")
+  override def open(url: String): Either[FileSystemError, InputStream] = {
+    val file = fileFromUrl(url) match {
+      case Left(err) => return Left(err)
+      case Right(f)  => f
     }
-    new FileInputStream(file)
+
+    if (!file.exists()) {
+      Left(FileSystemError.NotFound(url))
+    } else if (file.isDirectory) {
+      Left(FileSystemError.GenericError(s"Cannot open directory ($url) as file"))
+    } else {
+      Right(new FileInputStream(file))
+    }
   }
 
-  // Local filesystem doesn't need to download files, so just return the URL as-is.
-  override def getLocalUrl(url: String): String = url
-
-  /**
-   * Resolves wildcards in the path, e.g. "file:///tmp/ *.csv" or "/tmp/ *.csv" if scheme is null. We'll do a simple
-   * "glob" approach. If no wildcard, returns list() or the single file.
-   */
-  override def resolveWildcard(url: String): List[String] = {
+  override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
     val uri = new URI(url)
     val path = Paths.get(uri) // This can handle file:// or no scheme
     val pathString = path.toString
 
-    // If the path doesn't contain '*', '?', or other globbing symbols,
-    // treat as normal => single or directory listing:
+    // If the path doesn't contain any glob symbol, treat it as normal:
     if (!containsGlob(pathString)) {
       // Return the normal listing
-      return list(url)
-    }
+      list(url)
+    } else {
+      // We have a glob => separate directory from the pattern
+      val (dirPath, pattern) = splitDirAndPattern(path)
 
-    // If there is a glob, let's separate directory from the pattern
-    // e.g. "/tmp/*.csv"
-    val (dirPath, pattern) = splitDirAndPattern(path)
+      if (!Files.isDirectory(dirPath)) {
+        // If "dirPath" is not a directory, we can't do a glob listing:
+        Right(Nil)
+      } else {
+        val matcher = FileSystems.getDefault.getPathMatcher("glob:" + pattern)
+        val stream: DirectoryStream[Path] = Files.newDirectoryStream(dirPath)
+        try {
+          val matched = stream.asScala
+            .filter(p => matcher.matches(p.getFileName))
+            .map(_.toUri.toString)
+            .toList
 
-    // Use Java NIO DirectoryStream with a "glob" filter
-    if (!Files.isDirectory(dirPath)) {
-      // If the "dirPath" is not a directory, we can't do a glob listing:
-      return Nil
-    }
-
-    val matcher = FileSystems.getDefault.getPathMatcher("glob:" + pattern)
-
-    val stream: DirectoryStream[Path] = Files.newDirectoryStream(dirPath)
-    try {
-      stream.asScala
-        .filter(p => matcher.matches(p.getFileName))
-        .map(_.toUri.toString)
-        .toList
-    } finally {
-      stream.close()
+          Right(matched)
+        } finally {
+          stream.close()
+        }
+      }
     }
   }
 
+  override def stop(): Unit = {}
+
   /**
-   * Closes the filesystem, no-op for local.
+   * For local paths, getLocalUrl is basically a no-op; we can return the original path as "local".
    */
-  override def stop(): Unit = {
-    // Nothing to do
+  override def getLocalUrl(url: String): Either[FileSystemError, String] = {
+    Right(url)
   }
 
   // -----------------------------------------------------------------
@@ -113,31 +107,26 @@ class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFold
   // -----------------------------------------------------------------
 
   /**
-   * Helper to parse the URL into a local File object. E.g. "file:///home/user/data.csv" => new
-   * File("/home/user/data.csv"). If scheme is null, same approach => new File(url).
+   * Attempt to parse the URL into a local File object. If the scheme is invalid, return Left().
    */
-  private def fileFromUrl(url: String): File = {
-    val uri = new URI(url)
-    if (uri.getScheme == null || uri.getScheme == "file") {
-      new File(uri)
-    } else {
-      // Should never happen if we consistently route "github://", "s3://" to their own classes
-      throw new IllegalArgumentException(s"LocalFileSystem only supports file:// URLs or no scheme, got: $url")
+  private def fileFromUrl(url: String): Either[FileSystemError, File] = {
+    try {
+      val uri = new URI(url)
+      if (uri.getScheme == null || uri.getScheme == "file") {
+        Right(new File(uri))
+      } else {
+        Left(FileSystemError.Unsupported(s"LocalFileSystem only supports file:// URLs or no scheme but got: $url"))
+      }
+    } catch {
+      case e: URISyntaxException =>
+        Left(FileSystemError.GenericError(s"Invalid URL: ${e.getMessage}"))
     }
   }
 
-  /**
-   * Quick check if a path has wildcard symbols like '*' or '?' or '[' etc.
-   */
   private def containsGlob(pathString: String): Boolean = {
-    // Basic approach
     pathString.contains("*") || pathString.contains("?") || pathString.contains("[")
   }
 
-  /**
-   * Split a path like /tmp/ *.csv into ("/tmp", "*.csv"). If there's no slash or entire thing is a pattern, adjust
-   * accordingly.
-   */
   private def splitDirAndPattern(fullPath: Path): (Path, String) = {
     val parent = fullPath.getParent
     val fileName = fullPath.getFileName.toString

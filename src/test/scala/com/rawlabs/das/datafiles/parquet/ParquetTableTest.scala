@@ -17,7 +17,6 @@ import java.net.URI
 
 import org.apache.spark.sql.SaveMode
 import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -45,8 +44,8 @@ class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext w
     df.write.mode(SaveMode.Overwrite).parquet(tempDir.getAbsolutePath)
 
     // Stub the cache call
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked/test.parquet"), anyString()))
-      .thenReturn(tempDir.getAbsolutePath)
+    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked/test.parquet")))
+      .thenReturn(Right(tempDir.getAbsolutePath))
   }
 
   "ParquetTable" should "load rows from a Parquet file" in {

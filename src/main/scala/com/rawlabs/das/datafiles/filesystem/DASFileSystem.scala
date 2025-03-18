@@ -12,27 +12,54 @@
 
 package com.rawlabs.das.datafiles.filesystem
 
-import java.io.{File, InputStream}
+import java.io.{File, IOException, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
 
+import com.rawlabs.das.datafiles.filesystem.FileSystemError.GenericError
+
+/**
+ * Base class for "DAS" filesystem abstractions.
+ */
 abstract class DASFileSystem(downloadFolder: String) {
 
-  def list(url: String): List[String]
+  /**
+   * Lists files at `url`. On success, returns a list of full paths or URIs.
+   */
+  def list(url: String): Either[FileSystemError, List[String]]
 
-  def open(url: String): InputStream
+  /**
+   * Opens the file at `url` and returns an InputStream. Caller must close.
+   */
+  def open(url: String): Either[FileSystemError, InputStream]
 
-  def resolveWildcard(url: String): List[String]
+  /**
+   * Resolves wildcard patterns in `url` (like "*.csv"), returning the matched files.
+   */
+  def resolveWildcard(url: String): Either[FileSystemError, List[String]]
 
+  /**
+   * Cleanly shuts down / closes resources if needed.
+   */
   def stop(): Unit
 
-  def getLocalUrl(url: String): String = {
+  /**
+   * Gets a local path (on disk) for the given `url`. In some file systems this might require downloading; in others, it
+   * can be a no-op.
+   */
+  def getLocalUrl(url: String): Either[FileSystemError, String] = {
     val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
-    val inputStream = open(url)
+    val inputStream = open(url) match {
+      case Right(is) => is
+      case Left(err) => return Left(err)
+    }
     try {
       Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
-      outFile.getAbsolutePath
+      Right(outFile.getAbsolutePath)
+    } catch {
+      case e: IOException =>
+        Left(GenericError(s"Error getting local url: ${e.getMessage}"))
     } finally {
       inputStream.close()
     }

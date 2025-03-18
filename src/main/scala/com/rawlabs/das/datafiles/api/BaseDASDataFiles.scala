@@ -18,9 +18,14 @@ import scala.collection.mutable
 
 import org.apache.spark.sql.SparkSession
 
-import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemFactory}
+import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError, FileSystemFactory}
 import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SparkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
+import com.rawlabs.das.sdk.{
+  DASSdkInvalidArgumentException,
+  DASSdkPermissionDeniedException,
+  DASSdkUnauthenticatedException
+}
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
 
@@ -43,7 +48,15 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
     val filesystem = FileSystemFactory.build(config.uri, options)
 
-    val urls = filesystem.resolveWildcard(config.uri.toString)
+    val urls = filesystem.resolveWildcard(config.uri.toString) match {
+      case Right(url) => url
+      case Left(FileSystemError.NotFound(_)) =>
+        throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
+      case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
+      case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
+      case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
+      case Left(FileSystemError.GenericError(msg))     => throw new DASSdkInvalidArgumentException(msg)
+    }
 
     urls.map { url =>
       val name = if (urls.length == 1 && config.maybeName.isDefined) {

@@ -19,8 +19,14 @@ import scala.jdk.CollectionConverters._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, SparkSession, types => sparkTypes}
 
+import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.sdk.scala.DASTable
-import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException}
+import com.rawlabs.das.sdk.{
+  DASExecuteResult,
+  DASSdkInvalidArgumentException,
+  DASSdkPermissionDeniedException,
+  DASSdkUnauthenticatedException
+}
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
 import com.rawlabs.protocol.das.v1.tables.{
   Column => ProtoColumn,
@@ -242,7 +248,15 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     if (config.uri.getScheme == "s3") {
       "s3a://" + config.uri.getAuthority + config.uri.getPath
     } else {
-      config.filesystem.getLocalUrl(config.uri.toString)
+      config.filesystem.getLocalUrl(config.uri.toString) match {
+        case Right(url) => url
+        case Left(FileSystemError.NotFound(_)) =>
+          throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
+        case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
+        case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
+        case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
+        case Left(FileSystemError.GenericError(msg))     => throw new DASSdkInvalidArgumentException(msg)
+      }
     }
   }
 

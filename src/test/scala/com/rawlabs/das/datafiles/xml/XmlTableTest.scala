@@ -17,7 +17,6 @@ import java.net.URI
 
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
@@ -50,8 +49,8 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq(url), anyString()))
-      .thenReturn(tempXmlFile.getAbsolutePath)
+    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq(url)))
+      .thenReturn(Right(tempXmlFile.getAbsolutePath))
   }
 
   "XmlTable" should "load rows from an XML file" in {
