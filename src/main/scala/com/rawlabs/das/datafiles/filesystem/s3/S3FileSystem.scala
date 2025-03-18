@@ -21,6 +21,7 @@ import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError.{GenericError, NotFound}
 import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
 class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region: Option[String], cacheFolder: String)
     extends DASFileSystem(cacheFolder) {
@@ -30,15 +31,25 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
   // Let Hadoop know to use s3a
   conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
-  // Optionally set AWS credentials
-  accessKey.foreach(ak => conf.set("fs.s3a.access.key", ak))
-  secretKey.foreach(sk => conf.set("fs.s3a.secret.key", sk))
+  if (accessKey.isDefined) {
+    conf.set("fs.s3a.access.key", accessKey.get)
+    conf.set(
+      "fs.s3a.secret.key",
+      secretKey.getOrElse(throw new DASSdkInvalidArgumentException("Missing aws secret key")))
+  } else {
+    conf.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
+  }
+
   region.foreach(r => conf.set("fs.s3a.endpoint", s"s3.$r.amazonaws.com"))
 
-  private val s3Fs: FileSystem = FileSystem.get(conf)
+  override def list(url: String): Either[FileSystemError, List[String]] = {
+    if (!url.startsWith("s3://") || url.startsWith("s3a://")) {
+      return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
+    }
+    val renamed = url.replace("s3://", "s3a://")
 
-  override def list(path: String): Either[FileSystemError, List[String]] = {
-    val hadoopPath = new Path(path)
+    val hadoopPath = new Path(renamed)
+    val s3Fs = FileSystem.get(hadoopPath.toUri, conf)
     try {
       val status = s3Fs.getFileStatus(hadoopPath)
       if (status.isDirectory) {
@@ -53,29 +64,36 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
         Right(List(hadoopPath.toString))
       }
     } catch {
-      case e: FileNotFoundException => Left(NotFound(path))
+      case e: FileNotFoundException => Left(NotFound(url))
       case e: org.apache.hadoop.security.AccessControlException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied: $path => ${e.getMessage}"))
-      case NonFatal(e) => Left(GenericError(s"Error listing S3 path: $path => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Access denied: $url => ${e.getMessage}"))
+      case NonFatal(e) => Left(GenericError(s"Error listing S3 path: $url => ${e.getMessage}"))
     }
   }
 
-  override def open(path: String): Either[FileSystemError, InputStream] = {
-    val hadoopPath = new Path(path)
+  override def open(url: String): Either[FileSystemError, InputStream] = {
+    if (!url.startsWith("s3://") || url.startsWith("s3a://")) {
+      return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
+    }
+    val renamed = url.replace("s3://", "s3a://")
+    val hadoopPath = new Path(renamed)
+    val s3Fs = FileSystem.get(hadoopPath.toUri, conf)
     try {
       Right(s3Fs.open(hadoopPath))
     } catch {
       case e: FileNotFoundException =>
-        Left(NotFound(path))
+        Left(NotFound(url))
       case e: org.apache.hadoop.security.AccessControlException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied: $path => ${e.getMessage}"))
-      case NonFatal(e) => Left(GenericError(s"Error opening S3 file: $path => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Access denied: $url => ${e.getMessage}"))
+      case NonFatal(e) => Left(GenericError(s"Error opening S3 file: $url => ${e.getMessage}"))
     }
   }
 
-  override def resolveWildcard(path: String): Either[FileSystemError, List[String]] = {
-    val hadoopPath = new Path(path)
+  override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
+    val renamed = url.replace("s3://", "s3a://")
+    val hadoopPath = new Path(renamed)
     try {
+      val s3Fs = FileSystem.get(hadoopPath.toUri, conf)
       val matches: Array[FileStatus] = s3Fs.globStatus(hadoopPath)
       if (matches == null || matches.isEmpty) {
         Right(Nil)
@@ -87,54 +105,18 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
         Right(files)
       }
     } catch {
-      case e: FileNotFoundException => Left(NotFound(path))
+      case e: FileNotFoundException => Left(NotFound(url))
       case e: org.apache.hadoop.security.AccessControlException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied: $path => ${e.getMessage}"))
-      case NonFatal(e) => Left(GenericError(s"Error resolving S3 wildcard: $path => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Access denied: $url => ${e.getMessage}"))
+      case NonFatal(e) => Left(GenericError(s"Error resolving S3 wildcard: $url => ${e.getMessage}"))
     }
   }
 
-  override def stop(): Unit = {
-    s3Fs.close()
-  }
+  override def stop(): Unit = {}
 
-  override def getLocalUrl(path: String): Either[FileSystemError, String] = {
-    // If you want to actually download S3 file to local cache, you'd do that here,
-    // or you can mimic the approach from the base class, but returning Either.
-    // For demonstration, let's say we do the same approach as base:
-    // We'll just let the base "open" + copy. But let's keep it simple:
-    // => Use the base class approach if you want.
-    // For now, assume we just want to physically copy it to localFolder:
-    import java.util.UUID
-    import java.nio.file.{Files, StandardCopyOption}
-    import java.io.File
-
-    open(path) match {
-      case Left(err) =>
-        Left(err)
-      case Right(stream) =>
-        try {
-          val uniqueName = UUID.randomUUID().toString
-          val outFile = new File(cacheFolder, uniqueName)
-          Files.copy(stream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
-          Right(outFile.getAbsolutePath)
-        } catch {
-          case e: FileNotFoundException => Left(NotFound(path))
-          case e: org.apache.hadoop.security.AccessControlException =>
-            Left(FileSystemError.PermissionDenied(s"Access denied: $path => ${e.getMessage}"))
-          case NonFatal(e) => Left(GenericError(s"Error resolving S3 wildcard: $path => ${e.getMessage}"))
-        } finally {
-          stream.close()
-        }
-    }
-  }
 }
 
 object S3FileSystem {
-
-  /**
-   * Adjusted so it returns Either.
-   */
   def build(options: Map[String, String], cacheFolder: String): S3FileSystem = {
     val accessKey = options.get("aws_access_key")
     val secretKey = options.get("aws_secret_key")

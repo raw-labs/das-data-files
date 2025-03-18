@@ -50,6 +50,7 @@ abstract class DASFileSystem(downloadFolder: String) {
   def getLocalUrl(url: String): Either[FileSystemError, String] = {
     val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
+    outFile.mkdirs()
     val inputStream = open(url) match {
       case Right(is) => is
       case Left(err) => return Left(err)

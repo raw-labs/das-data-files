@@ -243,10 +243,12 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     result
   }
 
-  private def acquireUrl() = {
+  private def acquireUrl(): String = {
     // sparks support s3 filesystem directly so convert it to s3a
     if (config.uri.getScheme == "s3") {
       "s3a://" + config.uri.getAuthority + config.uri.getPath
+    } else if (config.uri.getScheme == "s3a") {
+      config.uri.toString
     } else {
       config.filesystem.getLocalUrl(config.uri.toString) match {
         case Right(url) => url

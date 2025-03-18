@@ -42,13 +42,17 @@ case class DataFilesTableConfig(
 abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) extends DASSdk {
   private val dasOptions = new DASDataFilesOptions(options)
 
+  // Keep track of used names so we ensure uniqueness
+  private val usedNames = mutable.Set[String]()
+
   protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", options)
 
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
     val filesystem = FileSystemFactory.build(config.uri, options)
 
-    val urls = filesystem.resolveWildcard(config.uri.toString) match {
+    val response = filesystem.resolveWildcard(config.uri.toString)
+    val urls = response match {
       case Right(url) => url
       case Left(FileSystemError.NotFound(_)) =>
         throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
@@ -103,8 +107,6 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
   override def close(): Unit = {
     sparkSession.stop()
   }
-  // Keep track of used names so we ensure uniqueness
-  private val usedNames = mutable.Set[String]()
 
   /**
    * Given a URL, derive the table name from the filename. E.g. "https://host/path/data.csv" => "data_csv"
