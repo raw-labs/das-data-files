@@ -106,6 +106,7 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
 
   override def close(): Unit = {
     sparkSession.stop()
+    tableConfig.foreach(tbl => tbl.filesystem.stop())
   }
 
   /**

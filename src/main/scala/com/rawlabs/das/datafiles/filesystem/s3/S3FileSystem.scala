@@ -43,7 +43,7 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
   region.foreach(r => conf.set("fs.s3a.endpoint", s"s3.$r.amazonaws.com"))
 
   override def list(url: String): Either[FileSystemError, List[String]] = {
-    if (!url.startsWith("s3://") || url.startsWith("s3a://")) {
+    if (!url.startsWith("s3://") || !url.startsWith("s3a://")) {
       return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
     }
     val renamed = url.replace("s3://", "s3a://")
@@ -68,6 +68,8 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
       case e: org.apache.hadoop.security.AccessControlException =>
         Left(FileSystemError.PermissionDenied(s"Access denied: $url => ${e.getMessage}"))
       case NonFatal(e) => Left(GenericError(s"Error listing S3 path: $url => ${e.getMessage}"))
+    } finally {
+      s3Fs.close()
     }
   }
 
@@ -86,14 +88,16 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
       case e: org.apache.hadoop.security.AccessControlException =>
         Left(FileSystemError.PermissionDenied(s"Access denied: $url => ${e.getMessage}"))
       case NonFatal(e) => Left(GenericError(s"Error opening S3 file: $url => ${e.getMessage}"))
+    } finally {
+      s3Fs.close()
     }
   }
 
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
     val renamed = url.replace("s3://", "s3a://")
     val hadoopPath = new Path(renamed)
+    val s3Fs = FileSystem.get(hadoopPath.toUri, conf)
     try {
-      val s3Fs = FileSystem.get(hadoopPath.toUri, conf)
       val matches: Array[FileStatus] = s3Fs.globStatus(hadoopPath)
       if (matches == null || matches.isEmpty) {
         Right(Nil)
@@ -109,6 +113,8 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
       case e: org.apache.hadoop.security.AccessControlException =>
         Left(FileSystemError.PermissionDenied(s"Access denied: $url => ${e.getMessage}"))
       case NonFatal(e) => Left(GenericError(s"Error resolving S3 wildcard: $url => ${e.getMessage}"))
+    } finally {
+      s3Fs.close()
     }
   }
 

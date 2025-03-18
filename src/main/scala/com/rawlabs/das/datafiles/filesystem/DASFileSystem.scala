@@ -23,6 +23,9 @@ import com.rawlabs.das.datafiles.filesystem.FileSystemError.GenericError
  */
 abstract class DASFileSystem(downloadFolder: String) {
 
+  private val downloadPath = new File(downloadFolder)
+  downloadPath.mkdirs()
+
   /**
    * Lists files at `url`. On success, returns a list of full paths or URIs.
    */
@@ -50,7 +53,6 @@ abstract class DASFileSystem(downloadFolder: String) {
   def getLocalUrl(url: String): Either[FileSystemError, String] = {
     val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
-    outFile.mkdirs()
     val inputStream = open(url) match {
       case Right(is) => is
       case Left(err) => return Left(err)

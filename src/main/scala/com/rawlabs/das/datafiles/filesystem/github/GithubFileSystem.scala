@@ -131,7 +131,9 @@ class GithubFileSystem(
     }
   }
 
-  override def stop(): Unit = {}
+  override def stop(): Unit = {
+    httpClient.close()
+  }
 
   // ----------------------------------------------------------------
   // Internal helpers
