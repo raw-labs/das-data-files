@@ -14,155 +14,117 @@ package com.rawlabs.das.datafiles.filesystem.github
 
 import java.io.InputStream
 import java.net.URI
-import java.net.http.{HttpClient, HttpRequest, HttpResponse}
-import java.time.Duration
 
 import scala.jdk.CollectionConverters._
 
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import com.rawlabs.das.datafiles.filesystem.FileSystemError
-import com.rawlabs.das.datafiles.filesystem._
+import org.kohsuke.github.{GHRepository, GitHub, GitHubBuilder}
 
-class GithubFileSystem(
-    authToken: Option[String],
-    cacheFolder: String,
-    connectTimeoutMs: Int = 5000,
-    readTimeoutMs: Int = 30000)
-    extends DASFileSystem(cacheFolder) {
+import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
 
-  private val httpClient =
-    HttpClient
-      .newBuilder()
-      .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-      .build()
+class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends DASFileSystem(cacheFolder) {
 
-  private val objectMapper = new ObjectMapper()
+  // Build the GitHub client using Hub4j.
+  // If an auth token is provided, use it; otherwise, use anonymous access.
+  private val github: GitHub = {
+    val builder = new GitHubBuilder()
+    authToken.foreach(token => builder.withOAuthToken(token))
+    builder.build()
+  }
 
+  /**
+   * Lists files at the given GitHub URL.
+   *
+   * It first parses the URL (expected in the format: github://owner/repo/branch/path/to/file_or_dir) and then attempts
+   * to list the directory contents using Hub4j. If the given path is a file, it returns a single-element list.
+   */
   override def list(url: String): Either[FileSystemError, List[String]] = {
-    val (owner, repo, branch, subPath) = parseGitHubUrl(url) match {
-      case Left(err)     => return Left(err)
-      case Right(parsed) => parsed
-    }
-
-    val apiUrl = s"https://api.github.com/repos/$owner/$repo/contents/$subPath?ref=$branch"
-
-    fetchJson(apiUrl).flatMap { rootNode =>
-      if (rootNode.isArray) {
-        // Directory listing => ArrayNode
-        val arrayNode = rootNode.asInstanceOf[ArrayNode]
-        val files = arrayNode
-          .iterator()
-          .asScala
-          .collect {
-            case node if node.has("type") && node.get("type").asText() == "file" =>
-              val filePath = node.get("path").asText() // e.g. "docs/README.md"
-              s"github://$owner/$repo/$branch/$filePath"
+    parseGitHubUrl(url) match {
+      case Left(err) => Left(err)
+      case Right((owner, repoName, branch, path)) =>
+        try {
+          val repo: GHRepository = github.getRepository(s"$owner/$repoName")
+          // Try to list the directory content first.
+          val contents =
+            try {
+              repo.getDirectoryContent(path, branch).asScala.toList
+            } catch {
+              // If deserialization fails, assume it is a file and fetch file content instead.
+              case e: Exception
+                  if Option(e.getCause).exists(
+                    _.isInstanceOf[com.fasterxml.jackson.databind.exc.MismatchedInputException]) =>
+                List(repo.getFileContent(path, branch))
+            }
+          // Only include files in the result.
+          val files = contents.filter(_.isFile).map { content =>
+            s"github://$owner/$repoName/$branch/${content.getPath}"
           }
-          .toList
-
-        Right(files)
-      } else if (rootNode.isObject) {
-        val nodeType = Option(rootNode.get("type")).map(_.asText()).getOrElse("")
-        if (nodeType == "file") {
-          Right(List(s"github://$owner/$repo/$branch/$subPath"))
-        } else {
-          // It's not a file => could be a directory with no children or an error
-          Right(Nil)
+          Right(files)
+        } catch {
+          case e: Exception =>
+            Left(FileSystemError.GenericError(s"Error listing $url: ${e.getMessage}"))
         }
-      } else {
-        // Unrecognized response
-        Right(Nil)
-      }
     }
   }
 
+  /**
+   * Opens the file at the given GitHub URL and returns an InputStream.
+   *
+   * The file is accessed via Hub4j, and its download URL is used to open a stream.
+   */
   override def open(url: String): Either[FileSystemError, InputStream] = {
-    val (owner, repo, branch, filePath) = parseGitHubUrl(url) match {
-      case Left(err)     => return Left(err)
-      case Right(parsed) => parsed
-    }
-    val rawUrl = s"https://raw.githubusercontent.com/$owner/$repo/$branch/$filePath"
-
-    val requestBuilder = HttpRequest
-      .newBuilder(URI.create(rawUrl))
-      .timeout(Duration.ofMillis(readTimeoutMs))
-      .GET()
-
-    authToken.foreach { token =>
-      requestBuilder.header("Authorization", s"Bearer $token")
-    }
-
-    val request = requestBuilder.build()
-    val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-    val code = response.statusCode()
-
-    if (code >= 200 && code < 300) {
-      Right(response.body())
-    } else {
-      // Map to error type
-      response.body().close() // discard the stream if error
-      code match {
-        case 401 => Left(FileSystemError.Unauthorized(s"Unauthorized to open $rawUrl"))
-        case 403 => Left(FileSystemError.PermissionDenied(s"Forbidden to open $rawUrl"))
-        case 404 => Left(FileSystemError.NotFound(url))
-        case _   => Left(FileSystemError.GenericError(s"Error $code while opening $rawUrl"))
-      }
+    parseGitHubUrl(url) match {
+      case Left(err) => Left(err)
+      case Right((owner, repoName, branch, path)) =>
+        try {
+          val repo: GHRepository = github.getRepository(s"$owner/$repoName")
+          val fileContent = repo.getFileContent(path, branch)
+          // Use the file’s download URL to open a stream.
+          val downloadUrl = fileContent.getDownloadUrl
+          val inputStream = new URI(downloadUrl.toString).toURL.openStream()
+          Right(inputStream)
+        } catch {
+          case e: Exception =>
+            Left(FileSystemError.GenericError(s"Error opening $url: ${e.getMessage}"))
+        }
     }
   }
 
+  /**
+   * Resolves wildcard patterns in the GitHub URL.
+   *
+   * This implementation splits the URL into a prefix (without the wildcard part) and a pattern. It then lists the files
+   * at the prefix and filters them based on the glob pattern.
+   */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
-    val (prefixPath, maybePattern) = splitWildcard(url)
-
+    val (prefixUrl, maybePattern) = splitWildcard(url)
     maybePattern match {
       case None =>
-        // No wildcard => just list everything
-        list(prefixPath)
-
+        list(prefixUrl)
       case Some(pattern) =>
-        list(prefixPath).map { allFiles =>
-          // Filter by pattern. A simple approach:
-          val regex = ("^" + prefixPath + "/" + globToRegex(pattern) + "$").r
+        list(prefixUrl).map { allFiles =>
+          // Create a regex from the glob pattern.
+          val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
           allFiles.filter(regex.matches)
         }
     }
   }
 
+  /**
+   * Stops the filesystem. Hub4j’s GitHub client does not require an explicit shutdown, but if needed you could close
+   * resources here.
+   */
   override def stop(): Unit = {
-    httpClient.close()
+    // Optionally close the GitHub client if needed.
+    // github.close()  // Uncomment if GitHub client implements Closeable.
   }
 
   // ----------------------------------------------------------------
-  // Internal helpers
+  // Internal helper functions
   // ----------------------------------------------------------------
 
-  private def fetchJson(apiUrl: String): Either[FileSystemError, JsonNode] = {
-    val requestBuilder = HttpRequest
-      .newBuilder(URI.create(apiUrl))
-      .timeout(Duration.ofMillis(readTimeoutMs))
-      .GET()
-
-    authToken.foreach { token =>
-      requestBuilder.header("Authorization", s"Bearer $token")
-    }
-
-    requestBuilder.header("Accept", "application/vnd.github.v3+json")
-
-    val request = requestBuilder.build()
-    val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-    val code = response.statusCode()
-    if (code >= 200 && code < 300) {
-      Right(objectMapper.readTree(response.body()))
-    } else {
-      code match {
-        case 401 => Left(FileSystemError.Unauthorized(s"Unauthorized for $apiUrl"))
-        case 403 => Left(FileSystemError.PermissionDenied(s"Forbidden for $apiUrl"))
-        case 404 => Left(FileSystemError.NotFound(apiUrl))
-        case _   => Left(FileSystemError.GenericError(s"GitHub error $code for $apiUrl"))
-      }
-    }
-  }
-
+  /**
+   * Parses a GitHub URL of the form: github://owner/repo/branch/path/to/file_or_dir into its components.
+   */
   private def parseGitHubUrl(url: String): Either[FileSystemError, (String, String, String, String)] = {
     if (!url.startsWith("github://")) {
       Left(FileSystemError.Unsupported(s"URL must start with github://, got: $url"))
@@ -177,21 +139,24 @@ class GithubFileSystem(
     }
   }
 
+  /**
+   * Splits the URL into a prefix and an optional wildcard pattern. For example, given
+   * "github://owner/repo/branch/path/\*.csv", it returns ("github://owner/repo/branch/path", Some("*.csv")).
+   */
   private def splitWildcard(fullUrl: String): (String, Option[String]) = {
     val lastSlash = fullUrl.lastIndexOf('/')
     if (lastSlash < 0) (fullUrl, None)
     else {
       val candidate = fullUrl.substring(lastSlash + 1)
-      if (candidate.contains("*")) {
-        val prefix = fullUrl.substring(0, lastSlash)
-        (prefix, Some(candidate))
-      } else (fullUrl, None)
+      if (candidate.contains("*") || candidate.contains("?"))
+        (fullUrl.substring(0, lastSlash), Some(candidate))
+      else
+        (fullUrl, None)
     }
   }
 }
 
 object GithubFileSystem {
-
   def build(options: Map[String, String], cacheFolder: String): GithubFileSystem = {
     val authToken = options.get("github_api_token")
     new GithubFileSystem(authToken, cacheFolder)

@@ -103,49 +103,60 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
     val executionUrl = acquireUrl()
 
-    try {
-      val df = loadDataFrame(executionUrl)
-      val filteredDF = applyQuals(df, quals)
+    val df = loadDataFrame(executionUrl)
+    val filteredDF = applyQuals(df, quals)
 
-      val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
-      val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
+    val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
+    val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
 
-      // applySortKeys *before* limit
-      val dfSorted = applySortKeys(dfSelected, sortKeys)
+    // applySortKeys *before* limit
+    val dfSorted = applySortKeys(dfSelected, sortKeys)
 
-      val dfLimited = maybeLimit match {
-        case Some(l) => dfSorted.limit(l.toInt)
-        case None    => dfSorted
-      }
-
-      val sparkIter = dfLimited.toLocalIterator().asScala
-
-      // For quick lookup of col -> DAS Type
-      val colTypesMap: Map[String, Type] = columns.toMap
-
-      new DASExecuteResult {
-        override def hasNext: Boolean = sparkIter.hasNext
-
-        override def next(): ProtoRow = {
-          val rowBuilder = ProtoRow.newBuilder()
-          val row = sparkIter.next()
-
-          finalCols.foreach { col =>
-            val rawVal = row.getAs[Any](col)
-            val dasType = colTypesMap.getOrElse(
-              col,
-              throw new RuntimeException(s"table $tableName Column $col not found in schema"))
-            val protoVal = rawToProtoValue(rawVal, dasType, col)
-            rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
-          }
-          rowBuilder.build()
-        }
-        override def close(): Unit = {}
-      }
-    } finally {
-      // deletes the file if needed (github)
-      releaseFile(executionUrl)
+    val dfLimited = maybeLimit match {
+      case Some(l) => dfSorted.limit(l.toInt)
+      case None    => dfSorted
     }
+
+    val sparkIter = dfLimited.toLocalIterator().asScala
+
+    // For quick lookup of col -> DAS Type
+    val colTypesMap: Map[String, Type] = columns.toMap
+
+    new DASExecuteResult {
+      private var cleanedUp = false
+
+      // Delete the file if needed when the iterator is exhausted
+      override def hasNext: Boolean = {
+        val hn = sparkIter.hasNext
+        if (!hn && !cleanedUp) {
+          releaseFile(executionUrl)
+          cleanedUp = true
+        }
+        hn
+      }
+
+      override def next(): ProtoRow = {
+        val rowBuilder = ProtoRow.newBuilder()
+        val row = sparkIter.next()
+
+        finalCols.foreach { col =>
+          val rawVal = row.getAs[Any](col)
+          val dasType =
+            colTypesMap.getOrElse(col, throw new RuntimeException(s"table $tableName Column $col not found in schema"))
+          val protoVal = rawToProtoValue(rawVal, dasType, col)
+          rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
+        }
+        rowBuilder.build()
+      }
+      // Delete the file if needed when the iterator is exhausted
+      override def close(): Unit = {
+        if (!cleanedUp) {
+          releaseFile(executionUrl)
+          cleanedUp = true
+        }
+      }
+    }
+
   }
 
   // Mark read-only

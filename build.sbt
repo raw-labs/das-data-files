@@ -110,7 +110,13 @@ lazy val root = (project in file("."))
       "com.databricks" %% "spark-xml" % "0.18.0",
       "org.apache.hadoop" % "hadoop-aws" % "3.4.1",
       "org.apache.hadoop" % "hadoop-common" % "3.4.1",
-      // ScalaTest for unit tests
+      "org.kohsuke" % "github-api" % "1.327" excludeAll (
+        ExclusionRule(organization = "org.slf4j"),
+        ExclusionRule(organization = "com.fasterxml.jackson.databind"),
+        ExclusionRule(organization = "com.fasterxml.jackson.core")
+      ), // for github filesystem
+
+// ScalaTest for unit tests
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",
       "org.scalatestplus" %% "mockito-5-12" % "3.2.19.0" % "test"))
 
