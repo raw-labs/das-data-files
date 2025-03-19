@@ -12,30 +12,31 @@
 
 package com.rawlabs.das.datafiles.csv
 
-import java.io.File
-import java.net.URI
-
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
+import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueString}
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito._
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
-import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
-import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
+import java.io.File
+import java.net.URI
 
-class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
+class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterEach {
 
   // A small CSV file content for testing
   private val csvContent =
     """id,name
       |1,Alice
       |2,Bob
-      |3,Carol
+      |3,
       |4,alice
       |""".stripMargin
 
@@ -60,9 +61,9 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   // 2) Instantiate the CSV table
   private val table = new CsvTable(config, spark)
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    reset(mockFilesystem)
     // For any call to getLocalFileFor with the given URL, return our local CSV
     when(mockFilesystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test.csv")))
       .thenReturn(Right(tempCsvFile.getAbsolutePath))
@@ -70,14 +71,25 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
 
   behavior of "CsvTable.execute()"
 
+  it should "build a proper tableDefinition with inferred schema" in {
+    val defn = table.tableDefinition
+    defn.getColumnsCount shouldBe 2 // "id" and "name"
+    val col0 = defn.getColumns(0)
+    col0.getName shouldBe "id"
+    col0.getType.hasInt shouldBe true  // or hasLong, depending on inference
+    val col1 = defn.getColumns(1)
+    col1.getName shouldBe "name"
+    col1.getType.hasString shouldBe true
+  }
+
   it should "return rows from CSV when the URL is HTTP" in {
     // 1) Build a DataFileConfig with a URL that looks HTTP
 
     // 3) We call 'execute' with no quals, no columns => return all columns
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
-    // 4) We'll read rows
+    // 4) We'll read rows, line 3 in a null value
     val expected =
-      Seq((1, "Alice"), (2, "Bob"), (3, "Carol"), (4, "alice"))
+      Seq((1, "Alice"), (2, "Bob"), (3, ""), (4, "alice"))
 
     expected.foreach { case (id, name) =>
       result.hasNext shouldBe true
@@ -160,7 +172,6 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "filter rows with ILIKE operator" in {
-
     // Qual => "name ILIKE 'alice'"
     // Should match both "Alice" and "alice"
     val qual = Qual
@@ -196,22 +207,44 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       .newBuilder()
       .setName("name")
       .setIsReversed(true) // DESC
+      .setNullsFirst(true)
       .build()
 
     val result = table.execute(Nil, Nil, Seq(sortKey), None)
     val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
 
-    // We have name values: "alice", "Alice", "Bob", "Carol"
-    // Desc sort by name => "alice" > "Carol" > "Bob" > "Alice" in pure string ordering?
-    // Actually, in ASCII sorting, uppercase < lowercase. So let's see the order:
-    //   "alice" (ASCII 97)
-    //   "Carol" (ASCII 67 => 'C' is after 'a'? Actually 'C' is 67)
-    //   "Bob"   (ASCII 66 => 'B' is 66)
-    //   "Alice" (ASCII 65 => 'A' is 65)
-    //
-    // Desc => "alice" -> "Carol" -> "Bob" -> "Alice"
+    // We have name values:"Alice", "Bob", null,  "alice"
+    // Desc nulls first=> null -> "alice" -> "Bob" -> "Alice"
 
-    rows.map(r => r.getColumns(1).getData.getString.getV) shouldBe List("alice", "Carol", "Bob", "Alice")
+    rows.map(r => r.getColumns(1).getData.getString.getV) shouldBe List("", "alice", "Bob", "Alice")
+  }
+
+  it should "throw a DASSdkInvalidArgumentException when file is too large" in {
+    when(mockFilesystem.getLocalUrl(anyString()))
+      .thenReturn(Left(FileSystemError.FileTooLarge("file://foo.csv", 9999999999L, 100000000L)))
+
+    intercept[DASSdkInvalidArgumentException] {
+      table.execute(Seq.empty, Seq.empty, Seq.empty, None)
+    }
+  }
+
+  it should "filter rows that match IS NULL" in {
+    // Suppose your CSV/JSON includes some row with null in the 'name' column.
+    // Then we do "WHERE name = null"
+    val qual = Qual
+      .newBuilder()
+      .setName("name")
+      .setSimpleQual(
+        SimpleQual
+          .newBuilder()
+          .setOperator(Operator.EQUALS) // or NOT_EQUALS
+          .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance)))
+      .build()
+
+    val result = table.execute(Seq(qual), Seq.empty, Seq.empty, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    // We have one row with name=null, row 3
+    rows.map(r => r.getColumns(0).getData.getInt.getV) shouldBe List(3)
   }
 
 }
