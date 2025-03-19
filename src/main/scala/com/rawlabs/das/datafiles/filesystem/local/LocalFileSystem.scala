@@ -54,7 +54,7 @@ class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFold
     if (!file.exists()) {
       Left(FileSystemError.NotFound(url))
     } else if (file.isDirectory) {
-      Left(FileSystemError.GenericError(s"Cannot open directory ($url) as file"))
+      Left(FileSystemError.Unsupported(s"Cannot open directory ($url) as file"))
     } else {
       Right(new FileInputStream(file))
     }
@@ -119,7 +119,7 @@ class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFold
       }
     } catch {
       case e: URISyntaxException =>
-        Left(FileSystemError.GenericError(s"Invalid URL: ${e.getMessage}"))
+        Left(FileSystemError.GenericError(s"Invalid URL: ${e.getMessage}", e))
     }
   }
 

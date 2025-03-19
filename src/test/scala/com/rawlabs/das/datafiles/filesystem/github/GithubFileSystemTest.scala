@@ -23,7 +23,7 @@ import org.scalatestplus.mockito.MockitoSugar
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 
-class GithubFileSystemSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
   "GithubFileSystem.list" should "list a directory of files" in {
     // 1) Create mocks

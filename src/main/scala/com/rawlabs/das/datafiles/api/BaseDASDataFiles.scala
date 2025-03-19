@@ -59,7 +59,7 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
       case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
       case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
       case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
-      case Left(FileSystemError.GenericError(msg))     => throw new DASSdkInvalidArgumentException(msg)
+      case Left(FileSystemError.GenericError(msg, e))  => throw new DASSdkInvalidArgumentException(msg, e)
     }
 
     urls.map { url =>

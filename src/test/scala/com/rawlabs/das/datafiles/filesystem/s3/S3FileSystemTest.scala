@@ -26,7 +26,7 @@ import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model._
 
-class S3FileSystemSpec extends AnyFlatSpec with Matchers with MockitoSugar {
+class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
   "S3FileSystem.list" should "return a single file if headObject succeeds" in {
     // 1) Mock S3Client

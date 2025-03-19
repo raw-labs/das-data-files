@@ -62,7 +62,7 @@ abstract class DASFileSystem(downloadFolder: String) {
       Right(outFile.getAbsolutePath)
     } catch {
       case e: IOException =>
-        Left(GenericError(s"Error getting local url: ${e.getMessage}"))
+        Left(GenericError(s"Error getting local url: ${e.getMessage}", e))
     } finally {
       inputStream.close()
     }

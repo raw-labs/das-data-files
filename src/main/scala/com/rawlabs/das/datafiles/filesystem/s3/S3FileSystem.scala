@@ -28,8 +28,18 @@ import software.amazon.awssdk.auth.credentials.{
 }
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.account.model.{AccessDeniedException, TooManyRequestsException}
+import software.amazon.awssdk.services.acm.model.LimitExceededException
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model._
+import software.amazon.awssdk.services.s3.model.{
+  GetObjectRequest,
+  HeadObjectRequest,
+  ListObjectsV2Request,
+  ListObjectsV2Response,
+  NoSuchBucketException,
+  NoSuchKeyException,
+  S3Exception
+}
 
 /**
  * S3FileSystem that uses the AWS SDK v2 for S3 operations (list, open, wildcard resolution, etc.).
@@ -64,14 +74,20 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSyste
       // If HEAD is successful => it's a single file
       Right(List(s"$url")) // We can return the exact original URI or an "s3a://" variant if you prefer
     } catch {
-      case e: NoSuchKeyException =>
-        // Object not found => maybe it's a prefix (like a directory)
-        listAsDirectory(bucket, key, url)
-      case e: S3Exception if e.statusCode() == 404 =>
-        // Also treat 404 => maybe a prefix
-        listAsDirectory(bucket, key, url)
+      case _: NoSuchKeyException | _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url))
+      case e: LimitExceededException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case e: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case e: S3Exception if e.statusCode() == 403 =>
+        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+      case e: S3Exception if e.statusCode() == 401 =>
+        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error listing $url => ${e.getMessage}"))
+        Left(FileSystemError.GenericError(s"Error opening S3 file", e))
+      case _: AccessDeniedException =>
+        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
     }
   }
 
@@ -90,16 +106,21 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSyste
       val response: ResponseInputStream[_] = s3Client.getObject(getReq)
       Right(new BufferedInputStream(response))
     } catch {
-      case e: NoSuchKeyException =>
+      case _: NoSuchKeyException | _: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url))
+      case e: LimitExceededException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case e: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Forbidden to open $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized to open $url => ${e.getMessage}"))
-      case e: S3Exception if e.statusCode() == 404 =>
-        Left(FileSystemError.NotFound(url))
+        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error opening S3 file: $url => ${e.getMessage}"))
+        Left(FileSystemError.GenericError(s"Error opening S3 file", e))
+      case _: AccessDeniedException =>
+        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+
     }
   }
 
@@ -146,7 +167,7 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSyste
       Right(matched.map(k => s"s3://$bucket/$k"))
     } catch {
       case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error resolving S3 wildcard: $url => ${e.getMessage}"))
+        Left(FileSystemError.GenericError(s"Error resolving S3 wildcard: $url => ${e.getMessage}", e))
     }
   }
 

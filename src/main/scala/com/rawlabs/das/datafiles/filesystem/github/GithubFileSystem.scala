@@ -16,8 +16,9 @@ import java.io.InputStream
 import java.net.URI
 
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
-import org.kohsuke.github.{GHRepository, GitHub, GitHubBuilder}
+import org.kohsuke.github.{GHFileNotFoundException, GHRepository, GitHub, GitHubBuilder, HttpException}
 
 import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
 
@@ -52,8 +53,17 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String) extends DASFil
           }
           Right(files)
         } catch {
-          case e: Exception =>
-            Left(FileSystemError.GenericError(s"Error listing $url: ${e.getMessage}"))
+          case _: GHFileNotFoundException => Left(FileSystemError.NotFound(s"File not found: $url"))
+          case e: HttpException if e.getResponseCode == 404 =>
+            Left(FileSystemError.NotFound(url))
+          case e: HttpException if e.getResponseCode == 401 =>
+            Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+          case e: HttpException if e.getResponseCode == 403 =>
+            Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+          case e: HttpException if e.getResponseCode == 429 =>
+            Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+          case NonFatal(e) =>
+            Left(FileSystemError.GenericError(s"Error listing $url", e))
         }
     }
   }
@@ -75,8 +85,17 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String) extends DASFil
           val inputStream = new URI(downloadUrl.toString).toURL.openStream()
           Right(inputStream)
         } catch {
-          case e: Exception =>
-            Left(FileSystemError.GenericError(s"Error opening $url: ${e.getMessage}"))
+          case _: GHFileNotFoundException => Left(FileSystemError.NotFound(s"File not found: $url"))
+          case e: HttpException if e.getResponseCode == 404 =>
+            Left(FileSystemError.NotFound(url))
+          case e: HttpException if e.getResponseCode == 401 =>
+            Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+          case e: HttpException if e.getResponseCode == 403 =>
+            Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+          case e: HttpException if e.getResponseCode == 429 =>
+            Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+          case NonFatal(e) =>
+            Left(FileSystemError.GenericError(s"Error opening $url", e))
         }
     }
   }
