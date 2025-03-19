@@ -10,12 +10,10 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles
+package com.rawlabs.das.datafiles.utils
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import com.rawlabs.das.datafiles.utils.DASDataFilesOptions
 
 class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 

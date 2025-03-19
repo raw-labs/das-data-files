@@ -77,7 +77,7 @@ abstract class DASFileSystem(downloadFolder: String) {
     glob
       .replace(".", "\\.")
       .replace("?", ".")
-      .replace("*", "[^/]*") // don't match slashes (avoid crossing directories)
+      .replace("*", "[^/]*") // don't match slashes (don't cross directories)
   }
 
 }

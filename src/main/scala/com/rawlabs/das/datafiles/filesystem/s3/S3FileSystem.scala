@@ -34,44 +34,10 @@ import software.amazon.awssdk.services.s3.model._
 /**
  * S3FileSystem that uses the AWS SDK v2 for S3 operations (list, open, wildcard resolution, etc.).
  *
- * @param accessKey optional AWS access key
- * @param secretKey optional AWS secret key
- * @param region optional region (e.g. "us-east-1")
+ * @param s3Client   s3Client instance to use for operations
  * @param cacheFolder local folder for caching/downloading, if needed
  */
-class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region: Option[String], cacheFolder: String)
-    extends DASFileSystem(cacheFolder) {
-
-  // --------------------------------------------------------------------------
-  // Build the S3Client using the AWS SDK v2
-  // --------------------------------------------------------------------------
-
-  private val s3Client: S3Client = {
-    val builder = S3Client.builder()
-
-    // Region
-    region.foreach(r => builder.region(Region.of(r)))
-
-    // You can also customize the S3 config, like disabling chunked encoding, path style, etc.
-    // builder.serviceConfiguration(S3Configuration.builder().build())
-
-    // Credentials
-    // 1) If user specified keys, use them
-    // 2) Otherwise, use anonymous (or DefaultCredentialsProvider, if you prefer)
-    val credentials =
-      if (accessKey.isDefined) {
-        val creds = AwsBasicCredentials.create(
-          accessKey.get,
-          secretKey.getOrElse(throw new DASSdkInvalidArgumentException("Missing AWS secret key")))
-        StaticCredentialsProvider.create(creds)
-      } else {
-        // Consider using DefaultCredentialsProvider.create() if you want to pick up environment or profile
-        AnonymousCredentialsProvider.create()
-      }
-
-    builder.credentialsProvider(credentials)
-    builder.build()
-  }
+class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSystem(cacheFolder) {
 
   // --------------------------------------------------------------------------
   // Public API
@@ -255,10 +221,30 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
 
 object S3FileSystem {
   def build(options: Map[String, String], cacheFolder: String): S3FileSystem = {
-    val accessKey = options.get("aws_access_key")
-    val secretKey = options.get("aws_secret_key")
-    val region = options.get("aws_region")
 
-    new S3FileSystem(accessKey, secretKey, region, cacheFolder)
+    val builder = S3Client.builder()
+
+    options.get("aws_region").foreach(r => builder.region(Region.of(r)))
+
+    // You can also customize the S3 config, like disabling chunked encoding, path style, etc.
+    // builder.serviceConfiguration(S3Configuration.builder().build())
+
+    // Credentials
+    // 1) If user specified keys, use them
+    // 2) Otherwise, use anonymous (or DefaultCredentialsProvider, if you prefer)
+    val credentials =
+      if (options.contains("aws_access_key")) {
+        val creds = AwsBasicCredentials.create(
+          options("aws_access_key"),
+          options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("Missing AWS secret key")))
+        StaticCredentialsProvider.create(creds)
+      } else {
+        // Consider using DefaultCredentialsProvider.create() if you want to pick up environment or profile
+        AnonymousCredentialsProvider.create()
+      }
+
+    builder.credentialsProvider(credentials)
+
+    new S3FileSystem(builder.build(), cacheFolder)
   }
 }

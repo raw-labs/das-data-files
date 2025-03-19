@@ -21,15 +21,7 @@ import org.kohsuke.github.{GHRepository, GitHub, GitHubBuilder}
 
 import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
 
-class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends DASFileSystem(cacheFolder) {
-
-  // Build the GitHub client using Hub4j.
-  // If an auth token is provided, use it; otherwise, use anonymous access.
-  private val github: GitHub = {
-    val builder = new GitHubBuilder()
-    authToken.foreach(token => builder.withOAuthToken(token))
-    builder.build()
-  }
+class GithubFileSystem(githubClient: GitHub, cacheFolder: String) extends DASFileSystem(cacheFolder) {
 
   /**
    * Lists files at the given GitHub URL.
@@ -42,7 +34,7 @@ class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends D
       case Left(err) => Left(err)
       case Right((owner, repoName, branch, path)) =>
         try {
-          val repo: GHRepository = github.getRepository(s"$owner/$repoName")
+          val repo: GHRepository = githubClient.getRepository(s"$owner/$repoName")
           // Try to list the directory content first.
           val contents =
             try {
@@ -76,7 +68,7 @@ class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends D
       case Left(err) => Left(err)
       case Right((owner, repoName, branch, path)) =>
         try {
-          val repo: GHRepository = github.getRepository(s"$owner/$repoName")
+          val repo: GHRepository = githubClient.getRepository(s"$owner/$repoName")
           val fileContent = repo.getFileContent(path, branch)
           // Use the file’s download URL to open a stream.
           val downloadUrl = fileContent.getDownloadUrl
@@ -103,7 +95,7 @@ class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends D
       case Some(pattern) =>
         list(prefixUrl).map { allFiles =>
           // Create a regex from the glob pattern.
-          val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
+          val regex = ("^" + prefixUrl + "/" + globToRegex(pattern) + "$").r
           allFiles.filter(regex.matches)
         }
     }
@@ -113,10 +105,7 @@ class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends D
    * Stops the filesystem. Hub4j’s GitHub client does not require an explicit shutdown, but if needed you could close
    * resources here.
    */
-  override def stop(): Unit = {
-    // Optionally close the GitHub client if needed.
-    // github.close()  // Uncomment if GitHub client implements Closeable.
-  }
+  override def stop(): Unit = {}
 
   // ----------------------------------------------------------------
   // Internal helper functions
@@ -158,7 +147,9 @@ class GithubFileSystem(authToken: Option[String], cacheFolder: String) extends D
 
 object GithubFileSystem {
   def build(options: Map[String, String], cacheFolder: String): GithubFileSystem = {
-    val authToken = options.get("github_api_token")
-    new GithubFileSystem(authToken, cacheFolder)
+    val builder = new GitHubBuilder()
+    options.get("github_api_token").foreach(token => builder.withOAuthToken(token))
+
+    new GithubFileSystem(builder.build(), cacheFolder)
   }
 }

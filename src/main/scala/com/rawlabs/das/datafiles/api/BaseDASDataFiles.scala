@@ -115,8 +115,12 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
   private def deriveNameFromUrl(url: String): String = {
     // Extract last path segment
     val filePart = url.split("/").lastOption.getOrElse(url)
-    // Replace '.' with '_'
-    filePart.replace('.', '_')
+    val withoutExtension = filePart.lastIndexOf(".") match {
+      case -1  => filePart
+      case idx => filePart.substring(0, idx)
+    }
+    // Replace other dots with '_'
+    withoutExtension.replace('.', '_')
   }
 
   /**
