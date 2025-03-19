@@ -21,4 +21,5 @@ object FileSystemError {
   final case class Unsupported(message: String) extends FileSystemError
   final case class TooManyRequests(message: String) extends FileSystemError
   final case class GenericError(message: String, cause: Throwable) extends FileSystemError
+  final case class FileTooLarge(url: String, size: Long, max: Long) extends FileSystemError
 }

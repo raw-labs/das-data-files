@@ -268,7 +268,10 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
         case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
         case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
+        case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
         case Left(FileSystemError.GenericError(msg, e))  => throw new DASSdkInvalidArgumentException(msg, e)
+        case Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize)) =>
+          throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
       }
     }
   }

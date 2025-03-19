@@ -21,7 +21,7 @@ import com.rawlabs.das.datafiles.filesystem.FileSystemError.GenericError
 /**
  * Base class for "DAS" filesystem abstractions.
  */
-abstract class DASFileSystem(downloadFolder: String) {
+abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) {
 
   private val downloadPath = new File(downloadFolder)
   downloadPath.mkdirs()
@@ -42,15 +42,25 @@ abstract class DASFileSystem(downloadFolder: String) {
   def resolveWildcard(url: String): Either[FileSystemError, List[String]]
 
   /**
-   * Cleanly shuts down / closes resources if needed.
+   * Returns the size of the file in bytes. If the filesystem concept doesn't apply to "directories" or if the file is
+   * not found, return an error.
    */
-  def stop(): Unit
+  def getFileSize(url: String): Either[FileSystemError, Long]
 
   /**
    * Gets a local path (on disk) for the given `url`. In some file systems this might require downloading; in others, it
    * can be a no-op.
    */
   def getLocalUrl(url: String): Either[FileSystemError, String] = {
+
+    // check the file size first
+    getFileSize(url) match {
+      case Left(err) => return Left(err)
+      case Right(actualSize) if actualSize > maxLocalFileSize =>
+        return Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize))
+      case _ => // File size is OK
+    }
+
     val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
     val inputStream = open(url) match {
@@ -67,6 +77,11 @@ abstract class DASFileSystem(downloadFolder: String) {
       inputStream.close()
     }
   }
+
+  /**
+   * Cleanly shuts down / closes resources if needed.
+   */
+  def stop(): Unit
 
   /**
    * Converts a simple glob (with *, ?) into a corresponding regex string. E.g. "*.csv" => ".*\.csv"

@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.DASFileSystem
+import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
@@ -42,7 +42,7 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     f
   }
 
-  private val mockFileSystem = mock(classOf[DASFileSystem])
+  private val mockFileSystem = mock(classOf[BaseFileSystem])
 
   private val url = "file://mocked/test.xml"
 

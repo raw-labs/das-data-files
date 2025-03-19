@@ -25,6 +25,7 @@ object FileSystemFactory {
   private val config = ConfigFactory.load()
   private val cacheFolder = config.getString("raw.das.data-files.cache-dir")
   private val allowLocal = config.getBoolean("raw.das.data-files.allow-local-files")
+  private val maxDownloadSize = config.getLong("raw.das.data-files.max-download-size")
 
   /**
    * Build the appropriate DASFileSystem based on the URI scheme.
@@ -33,15 +34,15 @@ object FileSystemFactory {
    * @param options Additional configuration for the FS (credentials, tokens, etc.).
    * @return A DASFileSystem instance (S3, GitHub, Local, etc.).
    */
-  def build(uri: URI, options: Map[String, String]): DASFileSystem = {
+  def build(uri: URI, options: Map[String, String]): BaseFileSystem = {
     uri.getScheme match {
       case "s3" =>
         // Use your existing S3 builder. (S3FileSystem.build takes a Map[String, String])
-        S3FileSystem.build(options, cacheFolder)
+        S3FileSystem.build(options, cacheFolder, maxDownloadSize)
 
       case "github" =>
         // Use your existing GitHub builder. (GithubFileSystem.build also takes a Map)
-        GithubFileSystem.build(options, cacheFolder)
+        GithubFileSystem.build(options, cacheFolder, maxDownloadSize)
 
       case "file" | null =>
         if (!allowLocal) {
@@ -49,7 +50,7 @@ object FileSystemFactory {
         }
         // "file" or a missing scheme => local filesystem
         // (null occurs if user’s URL is just "/path/to/data.csv")
-        new LocalFileSystem(cacheFolder)
+        new LocalFileSystem(cacheFolder, maxDownloadSize)
 
       case other =>
         throw new DASSdkInvalidArgumentException(s"Unsupported URI scheme '$other' for path: ${uri.toString}")

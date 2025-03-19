@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.DASFileSystem
+import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
 import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueString}
 
@@ -48,7 +48,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   // A mock HttpFileCache
-  private val mockFilesystem = mock(classOf[DASFileSystem])
+  private val mockFilesystem = mock(classOf[BaseFileSystem])
 
   private val config = DataFilesTableConfig(
     name = "testCsv",

@@ -17,7 +17,7 @@ import java.net.URI
 
 import scala.util.control.NonFatal
 
-import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
 // AWS SDK v2 imports
@@ -47,7 +47,8 @@ import software.amazon.awssdk.services.s3.model.{
  * @param s3Client s3Client instance to use for operations
  * @param cacheFolder local folder for caching/downloading, if needed
  */
-class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSystem(cacheFolder) {
+class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Long = 100 * 1024 * 1024)
+    extends BaseFileSystem(cacheFolder, maxDownloadSize) {
 
   // --------------------------------------------------------------------------
   // Public API
@@ -74,7 +75,10 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSyste
       // If HEAD is successful => it's a single file
       Right(List(s"$url")) // We can return the exact original URI or an "s3a://" variant if you prefer
     } catch {
-      case _: NoSuchKeyException | _: NoSuchBucketException =>
+      case _: NoSuchKeyException =>
+        // Object not found => maybe it's a prefix (like a directory)
+        listAsDirectory(bucket, key, url)
+      case _: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url))
       case e: LimitExceededException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
@@ -172,6 +176,30 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSyste
   }
 
   /**
+   * Return the size of the S3 file (in bytes), or an error if not found or key is a "folder".
+   */
+  override def getFileSize(url: String): Either[FileSystemError, Long] = {
+    if (!url.startsWith("s3://")) {
+      return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
+    }
+    val (bucket, key) = parseS3Url(url)
+    try {
+      val headReq = HeadObjectRequest.builder().bucket(bucket).key(key).build()
+      val headResp = s3Client.headObject(headReq)
+      Right(headResp.contentLength()) // long
+    } catch {
+      case _: NoSuchKeyException | _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url))
+      case e: S3Exception if e.statusCode() == 403 =>
+        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+      case e: S3Exception if e.statusCode() == 401 =>
+        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        Left(FileSystemError.GenericError(s"Error reading S3 file size", e))
+    }
+  }
+
+  /**
    * Clean up resources. In AWS SDK v2, the S3Client is safe to close, though it's often shared. We'll close it for
    * completeness.
    */
@@ -241,7 +269,7 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSyste
 }
 
 object S3FileSystem {
-  def build(options: Map[String, String], cacheFolder: String): S3FileSystem = {
+  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): S3FileSystem = {
 
     val builder = S3Client.builder()
 
@@ -266,6 +294,6 @@ object S3FileSystem {
 
     builder.credentialsProvider(credentials)
 
-    new S3FileSystem(builder.build(), cacheFolder)
+    new S3FileSystem(builder.build(), cacheFolder, maxDownloadSize)
   }
 }

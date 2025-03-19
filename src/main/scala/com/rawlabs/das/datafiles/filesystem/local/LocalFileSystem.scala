@@ -18,9 +18,9 @@ import java.nio.file._
 
 import scala.jdk.CollectionConverters._
 
-import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 
-class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFolder) {
+class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long) extends BaseFileSystem(downloadFolder, maxDownloadSize) {
 
   override def list(url: String): Either[FileSystemError, List[String]] = {
     val file = fileFromUrl(url) match {
@@ -100,6 +100,24 @@ class LocalFileSystem(downloadFolder: String) extends DASFileSystem(downloadFold
    */
   override def getLocalUrl(url: String): Either[FileSystemError, String] = {
     Right(url)
+  }
+
+  /**
+   * Return the size of the file in bytes, or an error if not found or a directory.
+   */
+  override def getFileSize(url: String): Either[FileSystemError, Long] = {
+    val file = fileFromUrl(url) match {
+      case Left(err) => return Left(err)
+      case Right(f)  => f
+    }
+
+    if (!file.exists()) {
+      Left(FileSystemError.NotFound(url))
+    } else if (file.isDirectory) {
+      Left(FileSystemError.Unsupported(s"Cannot get size of a directory ($url)"))
+    } else {
+      Right(file.length()) // length in bytes
+    }
   }
 
   // -----------------------------------------------------------------

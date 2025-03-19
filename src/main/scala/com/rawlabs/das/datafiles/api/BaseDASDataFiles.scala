@@ -18,7 +18,7 @@ import scala.collection.mutable
 
 import org.apache.spark.sql.SparkSession
 
-import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError, FileSystemFactory}
+import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError, FileSystemFactory}
 import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SparkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.das.sdk.{
@@ -34,7 +34,7 @@ case class DataFilesTableConfig(
     name: String,
     format: Option[String],
     options: Map[String, String],
-    filesystem: DASFileSystem)
+    filesystem: BaseFileSystem)
 
 /**
  * The main plugin class that registers one table per file.
@@ -59,7 +59,9 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
       case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
       case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
       case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
+      case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
       case Left(FileSystemError.GenericError(msg, e))  => throw new DASSdkInvalidArgumentException(msg, e)
+      case _                                           => throw new DASSdkInvalidArgumentException("Unexpected error")
     }
 
     urls.map { url =>

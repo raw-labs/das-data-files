@@ -20,9 +20,10 @@ import scala.util.control.NonFatal
 
 import org.kohsuke.github.{GHFileNotFoundException, GHRepository, GitHub, GitHubBuilder, HttpException}
 
-import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 
-class GithubFileSystem(githubClient: GitHub, cacheFolder: String) extends DASFileSystem(cacheFolder) {
+class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSize: Long = 100L * 1024L * 1024L)
+    extends BaseFileSystem(cacheFolder, maxDownloadSize) {
 
   /**
    * Lists files at the given GitHub URL.
@@ -121,6 +122,37 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String) extends DASFil
   }
 
   /**
+   * Return the size of the GitHub file (in bytes), or an error if not found/dir.
+   */
+  override def getFileSize(url: String): Either[FileSystemError, Long] = {
+    parseGitHubUrl(url) match {
+      case Left(err) => Left(err)
+      case Right((owner, repoName, branch, path)) =>
+        try {
+          val repo: GHRepository = githubClient.getRepository(s"$owner/$repoName")
+          val fileContent = repo.getFileContent(path, branch)
+          if (fileContent.isFile) {
+            Right(fileContent.getSize) // size in bytes
+          } else {
+            Left(FileSystemError.Unsupported(s"Path refers to a directory, cannot get size: $url"))
+          }
+        } catch {
+          case _: GHFileNotFoundException => Left(FileSystemError.NotFound(s"File not found: $url"))
+          case e: HttpException if e.getResponseCode == 404 =>
+            Left(FileSystemError.NotFound(url))
+          case e: HttpException if e.getResponseCode == 401 =>
+            Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+          case e: HttpException if e.getResponseCode == 403 =>
+            Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+          case e: HttpException if e.getResponseCode == 429 =>
+            Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+          case NonFatal(e) =>
+            Left(FileSystemError.GenericError(s"Error reading GitHub file size for $url", e))
+        }
+    }
+  }
+
+  /**
    * Stops the filesystem. Hub4j’s GitHub client does not require an explicit shutdown, but if needed you could close
    * resources here.
    */
@@ -165,10 +197,10 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String) extends DASFil
 }
 
 object GithubFileSystem {
-  def build(options: Map[String, String], cacheFolder: String): GithubFileSystem = {
+  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): GithubFileSystem = {
     val builder = new GitHubBuilder()
     options.get("github_api_token").foreach(token => builder.withOAuthToken(token))
 
-    new GithubFileSystem(builder.build(), cacheFolder)
+    new GithubFileSystem(builder.build(), cacheFolder, maxDownloadSize)
   }
 }

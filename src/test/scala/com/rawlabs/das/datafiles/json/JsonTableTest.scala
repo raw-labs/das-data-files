@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 
 import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.DASFileSystem
+import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
 import com.rawlabs.protocol.das.v1.query.Qual
 
 class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
@@ -57,7 +57,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
   }
 
   // Mock HttpFileCache
-  private val mockFileSystem = mock(classOf[DASFileSystem])
+  private val mockFileSystem = mock(classOf[BaseFileSystem])
 
   override def beforeAll(): Unit = {
     super.beforeAll()
