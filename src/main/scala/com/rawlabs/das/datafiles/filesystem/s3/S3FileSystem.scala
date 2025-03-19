@@ -12,15 +12,20 @@
 
 package com.rawlabs.das.datafiles.filesystem.s3
 
+import java.io.{BufferedInputStream, InputStream}
+import java.net.URI
+
+import scala.util.control.NonFatal
+
 import com.rawlabs.das.datafiles.filesystem.{DASFileSystem, FileSystemError}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
-import java.io.{BufferedInputStream, InputStream}
-import java.net.URI
-import scala.util.control.NonFatal
-
 // AWS SDK v2 imports
-import software.amazon.awssdk.auth.credentials.{AnonymousCredentialsProvider, AwsBasicCredentials, StaticCredentialsProvider}
+import software.amazon.awssdk.auth.credentials.{
+  AnonymousCredentialsProvider,
+  AwsBasicCredentials,
+  StaticCredentialsProvider
+}
 import software.amazon.awssdk.core.ResponseInputStream
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
@@ -80,7 +85,7 @@ class S3FileSystem(accessKey: Option[String], secretKey: Option[String], region:
    */
   override def list(url: String): Either[FileSystemError, List[String]] = {
     // Ensure it starts with s3:// or s3a://
-    if (!url.startsWith("s3://") ) {
+    if (!url.startsWith("s3://")) {
       return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
     }
 
