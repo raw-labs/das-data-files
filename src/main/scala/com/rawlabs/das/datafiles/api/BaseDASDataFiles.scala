@@ -60,7 +60,6 @@ abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) ex
       case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
       case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
       case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
-      case Left(FileSystemError.GenericError(msg, e))  => throw new DASSdkInvalidArgumentException(msg, e)
       case _                                           => throw new DASSdkInvalidArgumentException("Unexpected error")
     }
 

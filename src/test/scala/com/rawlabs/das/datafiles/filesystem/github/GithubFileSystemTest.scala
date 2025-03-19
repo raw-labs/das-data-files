@@ -59,9 +59,9 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     verify(mockRepo).getDirectoryContent("folder", "main")
   }
 
-  it should "return an error if getRepository throws an exception" in {
+  it should "return an NotFound error if getRepository throws an GHFileNotFoundException" in {
     val mockGitHub = mock[GitHub]
-    when(mockGitHub.getRepository("owner/repo")).thenThrow(new RuntimeException("repo not found"))
+    when(mockGitHub.getRepository("owner/repo")).thenThrow(new GHFileNotFoundException("repo not found"))
 
     val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
 
@@ -69,7 +69,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     val result = fs.list(url)
     result.isLeft shouldBe true
     val leftVal = result.swap.getOrElse(fail("Expected a left value"))
-    leftVal shouldBe a[FileSystemError.GenericError]
+    leftVal shouldBe a[FileSystemError.NotFound]
   }
 
   "GithubFileSystem.open" should "retrieve a file and return an InputStream" in {
@@ -163,16 +163,16 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     files should contain("github://owner/repo/main/folder/data.csv")
   }
 
-  it should "return GenericError if an exception is thrown during listing" in {
+  it should "return permission denied if HttpException id thrown with 403" in {
     val mockGitHub = mock[GitHub]
     when(mockGitHub.getRepository("owner/repo"))
-      .thenThrow(new RuntimeException("Some GitHub error"))
+      .thenThrow(new HttpException("Some GitHub error", 403, "Forbidden", "https://github.com"))
 
     val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
     val result = fs.resolveWildcard("github://owner/repo/main/folder/*.csv")
 
     result.isLeft shouldBe true
-    result.swap.getOrElse(fail("expected lef")) shouldBe a[FileSystemError.GenericError]
+    result.swap.getOrElse(fail("expected lef")) shouldBe a[FileSystemError.PermissionDenied]
   }
 
 }

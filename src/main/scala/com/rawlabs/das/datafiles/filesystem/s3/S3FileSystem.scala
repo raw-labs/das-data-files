@@ -15,8 +15,6 @@ package com.rawlabs.das.datafiles.filesystem.s3
 import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
 
-import scala.util.control.NonFatal
-
 import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
@@ -31,15 +29,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.account.model.{AccessDeniedException, TooManyRequestsException}
 import software.amazon.awssdk.services.acm.model.LimitExceededException
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{
-  GetObjectRequest,
-  HeadObjectRequest,
-  ListObjectsV2Request,
-  ListObjectsV2Response,
-  NoSuchBucketException,
-  NoSuchKeyException,
-  S3Exception
-}
+import software.amazon.awssdk.services.s3.model._
 
 /**
  * S3FileSystem that uses the AWS SDK v2 for S3 operations (list, open, wildcard resolution, etc.).
@@ -88,8 +78,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error opening S3 file", e))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
     }
@@ -120,8 +108,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error opening S3 file", e))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
 
@@ -135,26 +121,25 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
    *   - filter the results
    */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
-
-    // 1) parse bucket + full path
-    val (bucket, fullPath) = parseS3Url(url)
-    val wildcardIndex = fullPath.indexWhere(c => c == '*' || c == '?')
-
-    if (wildcardIndex < 0) {
-      // No actual wildcard => just do normal listing
-      return list(url)
-    }
-
-    val prefix = fullPath.substring(0, wildcardIndex)
-    // naive approach to get directory prefix (some users do "prefix/???.csv" etc.)
-    val prefixOnly = prefix.lastIndexOf('/') match {
-      case -1  => "" // no slash => top-level
-      case idx => prefix.substring(0, idx + 1)
-    }
-
-    val pattern = fullPath.substring(wildcardIndex) // e.g. "*.csv" or "???.txt"
-
     try {
+      // 1) parse bucket + full path
+      val (bucket, fullPath) = parseS3Url(url)
+      val wildcardIndex = fullPath.indexWhere(c => c == '*' || c == '?')
+
+      if (wildcardIndex < 0) {
+        // No actual wildcard => just do normal listing
+        return list(url)
+      }
+
+      val prefix = fullPath.substring(0, wildcardIndex)
+      // naive approach to get directory prefix (some users do "prefix/???.csv" etc.)
+      val prefixOnly = prefix.lastIndexOf('/') match {
+        case -1  => "" // no slash => top-level
+        case idx => prefix.substring(0, idx + 1)
+      }
+
+      val pattern = fullPath.substring(wildcardIndex) // e.g. "*.csv" or "???.txt"
+
       // 2) List all objects under that prefix
       val objects = listObjectsRecursive(bucket, prefixOnly).map(_.trim)
       // 3) Filter them by matching the wildcard pattern as a simple glob
@@ -170,8 +155,18 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       // Return as fully qualified s3:// or s3a:// URIs
       Right(matched.map(k => s"s3://$bucket/$k"))
     } catch {
-      case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error resolving S3 wildcard: $url => ${e.getMessage}", e))
+      case _: NoSuchKeyException | _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url))
+      case e: LimitExceededException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case e: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case e: S3Exception if e.statusCode() == 403 =>
+        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+      case e: S3Exception if e.statusCode() == 401 =>
+        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+      case _: AccessDeniedException =>
+        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
     }
   }
 
@@ -194,8 +189,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        Left(FileSystemError.GenericError(s"Error reading S3 file size", e))
     }
   }
 

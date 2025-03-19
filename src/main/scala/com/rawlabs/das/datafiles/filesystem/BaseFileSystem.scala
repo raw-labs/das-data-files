@@ -12,11 +12,9 @@
 
 package com.rawlabs.das.datafiles.filesystem
 
-import java.io.{File, IOException, InputStream}
+import java.io.{File, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
-
-import com.rawlabs.das.datafiles.filesystem.FileSystemError.GenericError
 
 /**
  * Base class for "DAS" filesystem abstractions.
@@ -70,9 +68,6 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) {
     try {
       Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
       Right(outFile.getAbsolutePath)
-    } catch {
-      case e: IOException =>
-        Left(GenericError(s"Error getting local url: ${e.getMessage}", e))
     } finally {
       inputStream.close()
     }

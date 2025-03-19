@@ -16,10 +16,10 @@ sealed trait FileSystemError
 
 object FileSystemError {
   final case class NotFound(url: String) extends FileSystemError
+  final case class InvalidUrl(url: String) extends FileSystemError
   final case class PermissionDenied(message: String) extends FileSystemError
   final case class Unauthorized(message: String) extends FileSystemError
   final case class Unsupported(message: String) extends FileSystemError
   final case class TooManyRequests(message: String) extends FileSystemError
-  final case class GenericError(message: String, cause: Throwable) extends FileSystemError
   final case class FileTooLarge(url: String, size: Long, max: Long) extends FileSystemError
 }

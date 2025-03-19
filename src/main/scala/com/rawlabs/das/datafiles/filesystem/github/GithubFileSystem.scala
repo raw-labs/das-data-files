@@ -16,9 +16,8 @@ import java.io.InputStream
 import java.net.URI
 
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
 
-import org.kohsuke.github.{GHFileNotFoundException, GHRepository, GitHub, GitHubBuilder, HttpException}
+import org.kohsuke.github._
 
 import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 
@@ -63,8 +62,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
             Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
           case e: HttpException if e.getResponseCode == 429 =>
             Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-          case NonFatal(e) =>
-            Left(FileSystemError.GenericError(s"Error listing $url", e))
         }
     }
   }
@@ -95,8 +92,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
             Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
           case e: HttpException if e.getResponseCode == 429 =>
             Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-          case NonFatal(e) =>
-            Left(FileSystemError.GenericError(s"Error opening $url", e))
+
         }
     }
   }
@@ -146,8 +142,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
             Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
           case e: HttpException if e.getResponseCode == 429 =>
             Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-          case NonFatal(e) =>
-            Left(FileSystemError.GenericError(s"Error reading GitHub file size for $url", e))
         }
     }
   }

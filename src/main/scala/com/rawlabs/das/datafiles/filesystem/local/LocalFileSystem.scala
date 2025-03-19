@@ -20,7 +20,8 @@ import scala.jdk.CollectionConverters._
 
 import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 
-class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long) extends BaseFileSystem(downloadFolder, maxDownloadSize) {
+class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
+    extends BaseFileSystem(downloadFolder, maxDownloadSize) {
 
   override def list(url: String): Either[FileSystemError, List[String]] = {
     val file = fileFromUrl(url) match {
@@ -136,8 +137,8 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long) extends Bas
         Left(FileSystemError.Unsupported(s"LocalFileSystem only supports file:// URLs or no scheme but got: $url"))
       }
     } catch {
-      case e: URISyntaxException =>
-        Left(FileSystemError.GenericError(s"Invalid URL: ${e.getMessage}", e))
+      case _: URISyntaxException =>
+        Left(FileSystemError.InvalidUrl(url))
     }
   }
 
