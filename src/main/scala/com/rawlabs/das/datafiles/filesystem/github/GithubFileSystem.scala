@@ -122,11 +122,8 @@ class GithubFileSystem(
       case Some(pattern) =>
         list(prefixPath).map { allFiles =>
           // Filter by pattern. A simple approach:
-          val regex = ("^" + pattern.replace(".", "\\.").replace("*", ".*") + "$").r
-          allFiles.filter { fileUrl =>
-            val (_, _, _, fileName) = parseGitHubUrl(fileUrl).getOrElse(("", "", "", ""))
-            regex.findFirstIn(fileName).isDefined
-          }
+          val regex = ("^" + prefixPath + "/" + globToRegex(pattern) + "$").r
+          allFiles.filter(regex.matches)
         }
     }
   }

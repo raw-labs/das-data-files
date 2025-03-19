@@ -68,4 +68,16 @@ abstract class DASFileSystem(downloadFolder: String) {
     }
   }
 
+  /**
+   * Converts a simple glob (with *, ?) into a corresponding regex string. E.g. "*.csv" => ".*\.csv"
+   *
+   * This is simplistic and doesn't handle bracket expressions ([abc]) or other advanced globs.
+   */
+  protected def globToRegex(glob: String): String = {
+    glob
+      .replace(".", "\\.")
+      .replace("?", ".")
+      .replace("*", "[^/]*") // don't match slashes (avoid crossing directories)
+  }
+
 }
