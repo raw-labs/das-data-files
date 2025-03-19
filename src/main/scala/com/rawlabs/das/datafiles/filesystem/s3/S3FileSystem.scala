@@ -34,7 +34,7 @@ import software.amazon.awssdk.services.s3.model._
 /**
  * S3FileSystem that uses the AWS SDK v2 for S3 operations (list, open, wildcard resolution, etc.).
  *
- * @param s3Client   s3Client instance to use for operations
+ * @param s3Client s3Client instance to use for operations
  * @param cacheFolder local folder for caching/downloading, if needed
  */
 class S3FileSystem(s3Client: S3Client, cacheFolder: String) extends DASFileSystem(cacheFolder) {
