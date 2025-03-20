@@ -12,9 +12,12 @@
 
 package com.rawlabs.das.datafiles.csv
 
-import java.io.File
-import java.net.URI
-
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.{FileCacheManager, FileSystemError}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
+import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueString}
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers.anyString
@@ -23,12 +26,8 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
-import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
-import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueString}
+import java.io.File
+import java.net.URI
 
 class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterEach {
 
@@ -50,23 +49,23 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   // A mock HttpFileCache
-  private val mockFilesystem = mock(classOf[BaseFileSystem])
+  private val mockCacheManager = mock(classOf[FileCacheManager])
 
   private val config = DataFilesTableConfig(
     name = "testCsv",
     uri = new URI("file://mocked.com/test.csv"),
     format = Some("csv"),
     options = Map("header" -> "true"),
-    filesystem = mockFilesystem)
+    fileCacheManager = mockCacheManager)
 
   // 2) Instantiate the CSV table
   private val table = new CsvTable(config, spark)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
-    reset(mockFilesystem)
+    reset(mockCacheManager)
     // For any call to getLocalFileFor with the given URL, return our local CSV
-    when(mockFilesystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test.csv")))
+    when(mockCacheManager.getLocalPathForUrl(ArgumentMatchers.eq("file://mocked.com/test.csv")))
       .thenReturn(Right(tempCsvFile.getAbsolutePath))
   }
 
@@ -109,7 +108,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       uri = new URI("file://mocked.com/test.csv"),
       format = Some("csv"),
       options = Map("header" -> "true"),
-      filesystem = mockFilesystem)
+      fileCacheManager = mockCacheManager)
 
     val table = new CsvTable(config, spark)
 
@@ -221,7 +220,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "throw a DASSdkInvalidArgumentException when file is too large" in {
-    when(mockFilesystem.getLocalUrl(anyString()))
+    when(mockCacheManager.getLocalPathForUrl(anyString()))
       .thenReturn(Left(FileSystemError.FileTooLarge("file://foo.csv", 9999999999L, 100000000L)))
 
     intercept[DASSdkInvalidArgumentException] {

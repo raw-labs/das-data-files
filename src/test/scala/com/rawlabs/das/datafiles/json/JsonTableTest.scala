@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.json
 
-import java.io.File
-import java.net.URI
-
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.FileCacheManager
+import com.rawlabs.protocol.das.v1.query.Qual
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -22,10 +23,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+import java.net.URI
 
 class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
@@ -57,14 +56,14 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
   }
 
   // Mock HttpFileCache
-  private val mockFileSystem = mock(classOf[BaseFileSystem])
+  private val mockCacheManager = mock(classOf[FileCacheManager])
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test.json")))
+    when(mockCacheManager.getLocalPathForUrl(ArgumentMatchers.eq("file://mocked.com/test.json")))
       .thenReturn(Right(tempJsonFile.getAbsolutePath))
 
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked.com/test-lines.json")))
+    when(mockCacheManager.getLocalPathForUrl(ArgumentMatchers.eq("file://mocked.com/test-lines.json")))
       .thenReturn(Right(tempJsonLinesFile.getAbsolutePath))
 
   }
@@ -77,7 +76,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       uri = new URI("file://mocked.com/test.json"),
       format = Some("json"),
       options = Map.empty, // default to read json is multiline=true (normal json and not json lines)
-      filesystem = mockFileSystem)
+      fileCacheManager = mockCacheManager)
 
     val table = new JsonTable(config, spark)
 
@@ -110,7 +109,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       uri = new URI("file://mocked.com/test-lines.json"),
       format = Some("json"),
       options = Map("multiLine" -> "false"), // for json lines file this has to be false
-      filesystem = mockFileSystem)
+      fileCacheManager = mockCacheManager)
 
     val table = new JsonTable(config, spark)
 

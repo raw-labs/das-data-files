@@ -44,6 +44,8 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
 
   val name = "s3"
 
+  override def supportsUrl(url: String): Boolean = parseS3Url(url).isRight
+
   /**
    * Lists files at the given S3 `url`, returning either:
    *   - A single object (if HEAD succeeds).
@@ -126,15 +128,12 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
 
       if (maybePattern.isEmpty) return list(url)
 
-      val regex = ("^" + globToRegex(maybePattern.get) + "$").r
+      val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
 
       // Single-level listing for the prefix
       val objects = listObjectsSingleLevel(bucket, prefix)
-      val matched = objects.filter { keyName =>
-        // Only consider the portion after the prefix
-        val relativePart = keyName.stripPrefix(prefix)
-        regex.findFirstIn(relativePart).isDefined
-      }
+      val matched = objects.filter(regex.matches)
+
       Right(matched.map(k => s"s3://$bucket/$k"))
     } catch {
       case _: NoSuchKeyException | _: NoSuchBucketException =>

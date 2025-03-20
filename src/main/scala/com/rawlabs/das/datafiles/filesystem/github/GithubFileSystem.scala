@@ -28,6 +28,8 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
 
   val name: String = "github"
 
+  override def supportsUrl(url: String): Boolean = parseGitHubUrl(url).isRight
+
   /**
    * Lists files at the given GitHub URL.
    *
@@ -40,12 +42,13 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       case Right(file) => file
     }
 
+
     try {
       val repo: GHRepository = githubClient.getRepository(s"${file.owner}/${file.repo}")
       // Try to list the directory content first.
       val contents =
         try {
-          repo.getDirectoryContent(file.path, file.branch).asScala.toList
+          repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
         } catch {
           // If deserialization fails, assume it is a file and fetch file content instead.
           case e: Exception
@@ -118,8 +121,8 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         list(prefixUrl)
       case Some(pattern) =>
         list(prefixUrl).map { allFiles =>
+          val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
           // Create a regex from the glob pattern.
-          val regex = ("^" + prefixUrl + "/" + globToRegex(pattern) + "$").r
           allFiles.filter(regex.matches)
         }
     }

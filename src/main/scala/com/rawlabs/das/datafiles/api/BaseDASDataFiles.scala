@@ -18,7 +18,7 @@ import scala.collection.mutable
 
 import org.apache.spark.sql.SparkSession
 
-import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError, FileSystemFactory}
+import com.rawlabs.das.datafiles.filesystem.{FileCacheManager, FileSystemError, FileSystemFactory}
 import com.rawlabs.das.datafiles.utils.{DASDataFilesOptions, SparkSessionBuilder}
 import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.das.sdk.{
@@ -36,14 +36,14 @@ case class DataFilesTableConfig(
     name: String,
     format: Option[String],
     options: Map[String, String],
-    filesystem: BaseFileSystem)
+    fileCacheManager: FileCacheManager)
 
 /**
  * The main plugin class that registers one table per file.
  */
 abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk with StrictLogging {
 
-  private val maxTables = ConfigFactory.load().getInt("raw.das.data-files.max-tables")
+  import BaseDASDataFiles._
 
   private val dasOptions = new DASDataFilesOptions(options)
 
@@ -52,9 +52,20 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
 
   protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", options)
 
+  private val filesystems = {
+    val oneOfEachScheme = dasOptions.pathConfig.map(x => x.uri.getScheme -> x.uri).toMap
+
+    oneOfEachScheme.map { case (scheme, uri) =>
+      scheme -> FileSystemFactory.build(uri, options)
+    }
+  }
+
+  private val fileCacheManager: FileCacheManager =
+    new FileCacheManager(filesystems.values.toSeq, fileCacheExpiration, cleanupCachePeriod)
+
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
-    val filesystem = FileSystemFactory.build(config.uri, options)
+    val filesystem = filesystems(config.uri.getScheme)
 
     val urls = filesystem.resolveWildcard(config.uri.toString) match {
       case Right(url) => url
@@ -84,7 +95,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
       }
 
       val unique = ensureUniqueName(name)
-      DataFilesTableConfig(new URI(url), unique, config.maybeFormat, config.options, filesystem)
+      DataFilesTableConfig(new URI(url), unique, config.maybeFormat, config.options, fileCacheManager)
     }
   }
 
@@ -115,7 +126,8 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
 
   override def close(): Unit = {
     sparkSession.stop()
-    tableConfig.foreach(tbl => tbl.filesystem.stop())
+    filesystems.values.foreach(_.stop())
+    fileCacheManager.stop()
   }
 
   /**
@@ -145,5 +157,14 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
     usedNames += finalName
     finalName
   }
+
+}
+
+object BaseDASDataFiles {
+
+  private val config = ConfigFactory.load()
+  private val maxTables = config.getInt("raw.das.data-files.max-tables")
+  private val fileCacheExpiration = config.getInt("raw.das.data-files.file-cache-expiration")
+  private val cleanupCachePeriod = config.getInt("raw.das.data-files.cleanup-cache-period")
 
 }

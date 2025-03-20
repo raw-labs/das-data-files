@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.xml
 
-import java.io.File
-import java.net.URI
-
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.FileCacheManager
+import com.rawlabs.protocol.das.v1.query.Qual
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -22,10 +23,8 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+import java.net.URI
 
 class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
   private val xmlContent =
@@ -42,14 +41,14 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     f
   }
 
-  private val mockFileSystem = mock(classOf[BaseFileSystem])
+  private val mockCacheManager = mock(classOf[FileCacheManager])
 
   private val url = "file://mocked/test.xml"
 
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq(url)))
+    when(mockCacheManager.getLocalPathForUrl(ArgumentMatchers.eq(url)))
       .thenReturn(Right(tempXmlFile.getAbsolutePath))
   }
 
@@ -59,7 +58,7 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testXml",
       format = Some("xml"),
       options = Map("root_tag" -> "rows", "row_tag" -> "row"),
-      filesystem = mockFileSystem)
+      fileCacheManager = mockCacheManager)
 
     val table = new XmlTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)

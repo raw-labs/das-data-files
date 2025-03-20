@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.parquet
 
-import java.io.File
-import java.net.URI
-
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.FileCacheManager
+import com.rawlabs.protocol.das.v1.query.Qual
 import org.apache.spark.sql.SaveMode
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito.{mock, when}
@@ -22,15 +23,13 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.BaseFileSystem
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+import java.net.URI
 
 class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
   private var tempDir: File = _
-  private val mockFileSystem = mock(classOf[BaseFileSystem])
+  private val mockCacheManager = mock(classOf[FileCacheManager])
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -44,7 +43,7 @@ class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext w
     df.write.mode(SaveMode.Overwrite).parquet(tempDir.getAbsolutePath)
 
     // Stub the cache call
-    when(mockFileSystem.getLocalUrl(ArgumentMatchers.eq("file://mocked/test.parquet")))
+    when(mockCacheManager.getLocalPathForUrl(ArgumentMatchers.eq("file://mocked/test.parquet")))
       .thenReturn(Right(tempDir.getAbsolutePath))
   }
 
@@ -54,7 +53,7 @@ class ParquetTableTest extends AnyFlatSpec with Matchers with SparkTestContext w
       uri = new URI("file://mocked/test.parquet"),
       format = Some("parquet"),
       options = Map.empty,
-      filesystem = mockFileSystem)
+      fileCacheManager = mockCacheManager)
 
     val table = new ParquetTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
