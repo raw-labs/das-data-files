@@ -28,6 +28,7 @@ import com.rawlabs.das.sdk.{
 }
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
+import com.typesafe.config.ConfigFactory
 
 case class DataFilesTableConfig(
     uri: URI,
@@ -39,7 +40,10 @@ case class DataFilesTableConfig(
 /**
  * The main plugin class that registers one table per file.
  */
-abstract class BaseDASDataFiles(options: Map[String, String], maxTables: Int) extends DASSdk {
+abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
+
+  private val maxTables = ConfigFactory.load().getInt("raw.das.data-files.max-tables")
+
   private val dasOptions = new DASDataFilesOptions(options)
 
   // Keep track of used names so we ensure uniqueness

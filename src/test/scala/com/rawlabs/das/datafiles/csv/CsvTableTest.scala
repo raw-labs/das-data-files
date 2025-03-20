@@ -12,12 +12,9 @@
 
 package com.rawlabs.das.datafiles.csv
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
-import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
-import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueString}
+import java.io.File
+import java.net.URI
+
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.ArgumentMatchers.anyString
@@ -26,8 +23,12 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.File
-import java.net.URI
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
+import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueString}
 
 class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterEach {
 
@@ -76,7 +77,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     defn.getColumnsCount shouldBe 2 // "id" and "name"
     val col0 = defn.getColumns(0)
     col0.getName shouldBe "id"
-    col0.getType.hasInt shouldBe true  // or hasLong, depending on inference
+    col0.getType.hasInt shouldBe true // or hasLong, depending on inference
     val col1 = defn.getColumns(1)
     col1.getName shouldBe "name"
     col1.getType.hasString shouldBe true
