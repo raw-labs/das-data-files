@@ -12,9 +12,9 @@
 
 package com.rawlabs.das.datafiles.filesystem
 
-import com.typesafe.scalalogging.StrictLogging
-
 import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService, ScheduledThreadPoolExecutor, TimeUnit}
+
+import com.typesafe.scalalogging.StrictLogging
 
 /**
  * Represents a cached entry for a given URL.

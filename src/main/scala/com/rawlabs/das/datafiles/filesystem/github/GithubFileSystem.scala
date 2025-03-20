@@ -42,7 +42,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       case Right(file) => file
     }
 
-
     try {
       val repo: GHRepository = githubClient.getRepository(s"${file.owner}/${file.repo}")
       // Try to list the directory content first.

@@ -12,17 +12,29 @@
 
 package com.rawlabs.das.datafiles.api
 
+import scala.jdk.CollectionConverters._
+
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.utils.SparkToDASConverter
 import com.rawlabs.das.sdk.scala.DASTable
-import com.rawlabs.das.sdk.{DASExecuteResult, DASSdkInvalidArgumentException, DASSdkPermissionDeniedException, DASSdkUnauthenticatedException}
+import com.rawlabs.das.sdk.{
+  DASExecuteResult,
+  DASSdkInvalidArgumentException,
+  DASSdkPermissionDeniedException,
+  DASSdkUnauthenticatedException
+}
 import com.rawlabs.protocol.das.v1.query.{Qual, SortKey}
-import com.rawlabs.protocol.das.v1.tables.{ColumnDefinition, TableDefinition, TableId, Column => ProtoColumn, Row => ProtoRow}
+import com.rawlabs.protocol.das.v1.tables.{
+  Column => ProtoColumn,
+  ColumnDefinition,
+  Row => ProtoRow,
+  TableDefinition,
+  TableId
+}
 import com.rawlabs.protocol.das.v1.types._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.{DataFrame, SparkSession}
-
-import scala.jdk.CollectionConverters._
 
 /**
  * An abstract base class for "Data File" tables. Common logic:

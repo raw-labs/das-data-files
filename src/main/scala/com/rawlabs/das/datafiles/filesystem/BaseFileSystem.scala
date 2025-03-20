@@ -96,7 +96,7 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
     val (folder, candidate) = if (lastSlash < 0) {
       "" -> url
     } else {
-      url.substring(0, lastSlash+1) -> url.substring(lastSlash + 1)
+      url.substring(0, lastSlash + 1) -> url.substring(lastSlash + 1)
     }
 
     if (candidate.contains("*") || candidate.contains("?"))

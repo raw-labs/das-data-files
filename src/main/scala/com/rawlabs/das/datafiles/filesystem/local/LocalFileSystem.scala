@@ -25,7 +25,7 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
 
   val name: String = "local"
 
-  override def supportsUrl(url: String): Boolean =  fileFromUrl(url).isRight
+  override def supportsUrl(url: String): Boolean = fileFromUrl(url).isRight
 
   override def list(url: String): Either[FileSystemError, List[String]] = {
     val file = fileFromUrl(url) match {
