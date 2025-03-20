@@ -3,37 +3,28 @@
 [![License](https://img.shields.io/:license-BSL%201.1-blue.svg)](/licenses/BSL.txt)
 
 [Data Access Service](https://github.com/raw-labs/protocol-das)
-for reading CSV, JSON, XML, and Parquet files from HTTP/HTTPS URLs, or S3 (via s3a).
+This is a Scala/Spark plugin that reads data from multiple file systems (Local, S3, GitHub)
+in various formats (CSV, JSON, Parquet, XML)
 
 This is the list of DAS types released in this DAS server:
-* DAS S3 CSV
-* DAS S3 JSON
-* DAS S3 XML
-* DAS S3 Parquet
-* DAS HTTP CSV
-* DAS HTTP JSON
-* DAS HTTP XML
-* DAS HTTP Parquet
 
+* DAS CSV
+* DAS JSON
+* DAS XML
+* DAS Parquet
 
-## DAS S3 CSV "s3-csv" Options
+## Global Options
 
-| Config Key                | Description                                                                                        | Example                                      |
-|---------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------|
-| aws_access_key            | Access key for S3. (if not defined anonymous access is used)                                       |                                              |
-| aws_secret_key            | Secret key for S3.                                                                                 |                                              |
-| tables                    | The number of tables to define.                                                                    | tables '2'                                   |
-| table{i}_url              | The path or URL to the file.  http:// or https://                                                  | table0_url 'https://host/data.csv'           |
-| table{i}_name             | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL.      | table0_name 'my_Table'                       |
-| table{i}_*                | Specific option for table`i` e.g. for csv `table0_header`                                          | table0_header 'true'                         |
-| table{i}_header           | Whether the first line is a header row (default: true).                                            | table0_header 'true'                         |
-| table{i}_delimiter        | Field delimiter character (default: ,)                                                             | table0_delimiter ','                         |
-| table{i}_quote            | Quote character for enclosed fields (default: ").                                                  | table0_quote '"'                             |
-| table{i}_escape           | Escape character for quotes inside quoted fields (default: \\).                                    | table0_escape '\\'                           |
-| table{i}_multiline        | Whether a single record can span multiple lines (default: false).                                  | table0_delimiter ','                         |
-| table{i}_mode             | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | table0_mode 'PERMISSIVE'                     |
-| table{i}_date_format      | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | table0_date_format 'yyyy-MM-d'               |
-| table{i}_timestamp_format | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | table0_date_format 'yyyy-MM-dd''T''HH:mm:ss' |
+| Config Key       | Description                                                                                         | Example                               |
+|------------------|-----------------------------------------------------------------------------------------------------|---------------------------------------|
+| paths            | The number of paths to define.                                                                      | paths '2'                             |
+| path{i}_url      | Full URI or wildcard pointing to the file/folder. Required for each path index i.                   | path0_url 's3://bucket/path/file.csv' |
+| path{i}_name     | (Human-friendly table name override for path i. If omitted, the name is derived from the file name. | path0_name 'my_Table'                 |
+| path{i}_*        | Specific option for path`i` e.g. for csv `path0_header`                                             | path0_header 'true'                   |
+| aws_access_key   | The aws access key for s3 buckets urls (optional) .                                                 | aws_access_key 'my-key'               |
+| aws_secret_key   | The aws secret key for s3 buckets urls (optional) .                                                 | aws_secret_key 'my-secret'            |
+| aws_region       | the aws region (optional).                                                                          | aws_region 'eu-west-1'                |
+| github_api_token | The github api-token for  github urls (optional).                                                   | github_api_token 'token'              |
 
 For example:
 
@@ -41,38 +32,92 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-csv',
+  das_type 'csv',
   
   -- s3 credentials (optional) 
   aws_access_key 'my_key',
   aws_secret_key 'my_secret',
+  aws_region     'eu-west-1',
   
-  tables '2',
-  
-  table0_url 's3://bucket/path/data1.csv',
-  table0_header 'false',
+  paths '2',
+ 
+  path0_url 's3://bucket/path/data.csv',
    
-  table1_url 's3://bucket/path/data2.csv',
+  path1_url 's3://bucket/path/files/*.csv',
 );
 ```
 
-## DAS S3 JSON "s3-json" Options
+## URL Schemes & Wildcard Resolution
 
-| Config Key                             | Description                                                                                         | Example                            |
-|----------------------------------------|-----------------------------------------------------------------------------------------------------|------------------------------------|
-| aws_access_key                         | Access key for S3. (if not defined anonymous access is used)                                        |                                    |
-| aws_secret_key                         | Secret key for S3.                                                                                  |                                    |
-| tables                                 | The number of tables to define.                                                                     | tables '2'                         |
-| table{i}_url                           | The path or URL to the file.  http:// or https://                                                   | table0_url 'https://host/data.csv' |
-| table{i}_name                          | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL.       | table0_name 'my_Table'             |
-| table{i}_*                             | Specific option for table`i` e.g. for csv `table0_header`                                           | table0_header 'true'               |
-| table{i}_multiline                     | Whether a single record can span multiple lines (default: true).                                    |                                    |
-| table{i}_mode                          | The mode for parsing JSON files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |                                    |
-| table{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                              |                                    |
-| table{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                    |                                    |
-| table{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                        |                                    |
-| table{i}_drop_field_if_all_null        | Whether to drop fields that are always null (optional).                                             |                                    |
-| table{i}_column_name_of_corrupt_record | Name for field holding corrupt records (optional).                                                  |                                    |
+The Data Files DAS Plugin supports several URI “schemes” to indicate the filesystem where the data resides.
+You can also use wildcard patterns (e.g. *.csv) to match multiple files at once.
+
+### Supported URL Schemes
+
+**Local Files**
+
+* file:// (e.g. file:///home/user/data.csv)
+* No scheme: If the URL has no scheme, it is treated as local (e.g. /home/user/data.csv).
+* Note: Local file access is only permitted if raw.das.data-files.allow-local-files is true. Otherwise, a
+  DASSdkInvalidArgumentException will be thrown.
+
+**Amazon S3**
+
+* s3://bucket/key
+* The plugin uses the AWS SDK to list and download objects. If you do not provide aws_access_key and aws_secret_key, the
+  code attempts anonymous credentials (which usually only work for public buckets).
+
+**GitHub**
+
+* github://owner/repo/branch/path/to/file_or_folder
+* Private repos require a github_api_token.
+
+### Wildcard Resolution
+
+URLs can contain wildcard patterns such as *.csv or *.json.
+This allows you to create multiple “tables” for a single path definition in your config. For example:
+
+```sql
+path0_url 's3://my-bucket/data/*.csv'
+```
+Would match all CSV files in the data/ folder.
+
+Wildcard resolution is single-level, filtering within a “directory” or prefix.
+
+1. Internally, the plugin looks for special glob symbols (*, ?) in the final segment of the path.
+    * If no glob symbols are present, the plugin treats the path as a single file or “directory” to be listed.
+    * If there is a wildcard (e.g. *.csv, file_?.csv), the plugin separates the “prefix”
+      (folder path) from the pattern (filename glob).
+1. Multiple Results
+    * If the wildcard matches multiple files, each matched file gets its own table.
+      The plugin tries to derive a name from the filename (or use the user-supplied path{i}_name, with _suffix
+      appended).
+    * If you have paths=1 but path0_url matches 10 files, you end up with 10 “tables” in your DAS environment.
+    * If path0_name=my_table, the tables will be named my_table_{filename1}, my_table_{filename2}, etc.
+
+### Pattern limitations
+
+The project’s wildcard resolution is relatively basic:
+
+* `*` matches zero or more characters in a single path segment.
+* `?` matches exactly one character in a single path segment.
+* Bracket expressions like [abc] or extended patterns like {foo,bar} are not supported.
+
+For recursive listing across subdirectories Provide additional path definitions (e.g. path1_url, path2_url) for
+different folders,
+
+## DAS CSV "csv" Options
+
+| Config Key               | Description                                                                                        | Example                                     |
+|--------------------------|----------------------------------------------------------------------------------------------------|---------------------------------------------|
+| path{i}_header           | Whether the first line is a header row (default: true).                                            | path0_header 'true'                         |
+| path{i}_delimiter        | Field delimiter character (default: ,)                                                             | path0_delimiter ','                         |
+| path{i}_quote            | Quote character for enclosed fields (default: ").                                                  | path0_quote '"'                             |
+| path{i}_escape           | Escape character for quotes inside quoted fields (default: \\).                                    | path0_escape '\\'                           |
+| path{i}_multiline        | Whether a single record can span multiple lines (default: false).                                  | path0_delimiter ','                         |
+| path{i}_mode             | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | path0_mode 'PERMISSIVE'                     |
+| path{i}_date_format      | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | path0_date_format 'yyyy-MM-d'               |
+| path{i}_timestamp_format | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | path0_date_format 'yyyy-MM-dd''T''HH:mm:ss' |
 
 For example:
 
@@ -80,41 +125,33 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-json',
+  das_type 'csv',
   
   -- s3 credentials (optional) 
   aws_access_key 'my_key',
   aws_secret_key 'my_secret',
+  aws_region     'eu-west-1',
   
-  tables '2',
-  
-  table0_url 's3://bucket/path/data1.json',
-  table0_allow_comments 'true',
+  paths '2',
+ 
+  path0_url 's3://bucket/path/*.csv',
+  path0_header 'false',
    
-  table1_url 's3://bucket/path/data2.json',
+  path1_url 's3://bucket/path/data2.csv',
 );
 ```
 
-## DAS S3 xml "s3-xml" Options
+## DAS S3 JSON "json" Options
 
-| Config Key                           | Description                                                                                                                | Example                            |
-|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| aws_access_key                       | Access key for S3. (if not defined anonymous access is used)                                                               |                                    |
-| aws_secret_key                       | Secret key for S3.                                                                                                         |                                    |
-| tables                               | The number of tables to define.                                                                                            | tables '2'                         |
-| table{i}_url                         | The path or URL to the file.  http:// or https://                                                                          | table0_url 'https://host/data.csv' |
-| table{i}_name                        | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL.                              | table0_name 'my_Table'             |
-| table{i}_*                           | Specific option for table`i` e.g. for csv `table0_header`                                                                  | table0_header 'true'               |
-| table{i}_row_tag                     | The tag for each row in the XML document (default: row).                                                                   |                                    |
-| table{i}_root_tag                    | The tag for the root element in the XML document (optional).                                                               |                                    |
-| table{i}_attribute_prefix            | Tag used to represent the element's text value when it has attributes (optional).                                          |                                    | 
-| table{i}_values_tag                  | Tag used to represent the element's text value when it has attributes (optional).                                          |                                    |
-| table{i}_sampling_ratio              | Ratio of rows to use for schema inference (between 0 and 1) (optional).                                                    |                                    |
-| table{i}_treat_empty_values_as_nulls | Whether to treat empty string values as null (optional).                                                                   |                                    |
-| table{i}_charset                     | Character encoding of the XML file (default: UTF-8).                                                                       |                                    |
-| table{i}_mode                        | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |                                    |
-| table{i}_dateFormat                  | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                     |                                    |
-| table{i}_timestampFormat             | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                                            |                                    |
+| Config Key                            | Description                                                                                         | Example |
+|---------------------------------------|-----------------------------------------------------------------------------------------------------|---------|
+| path{i}_multiline                     | Whether a single record can span multiple lines (default: true).                                    |         |
+| path{i}_mode                          | The mode for parsing JSON files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |         |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                              |         |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                    |         |
+| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                        |         |
+| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (optional).                                             |         |
+| path{i}_column_name_of_corrupt_record | Name for field holding corrupt records (optional).                                                  |         |
 
 For example:
 
@@ -122,35 +159,35 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-xml',
+  das_type 'json',
   
-  -- s3 credentials (optional) 
-  aws_access_key 'my_key',
-  aws_secret_key 'my_secret',
+  -- github credentials (optional)
+  github_api_token 'token'
   
-  tables '2',
+  paths '2',
   
-  table0_url 's3://bucket/path/discogs.xml',
-  table0_row_tag 'artist',
+  path0_url 'github://owner/repo/branch/data1.json',
+  path0_allow_comments 'true',
+  path0_date_format 'yyyy-MM-d',
    
-  table1_url 's3://bucket/path/data2.xml',
-  table1_row_tag 'item',
+  path1_url 'github://owner/repo/branch/files/*.json',
 );
 ```
 
-## DAS S3 Parquet "s3-parquet" Options
+## DAS XML "xml" Options
 
-| Config Key                     | Description                                                                                   | Example                            |
-|--------------------------------|-----------------------------------------------------------------------------------------------|------------------------------------|
-| aws_access_key                 | Access key for S3. (if not defined anonymous access is used)                                  |                                    |
-| aws_secret_key                 | Secret key for S3.                                                                            |                                    |
-| tables                         | The number of tables to define.                                                               | tables '2'                         |
-| table{i}_url                   | The path or URL to the file.  http:// or https://                                             | table0_url 'https://host/data.csv' |
-| table{i}_name                  | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL. | table0_name 'my_Table'             |
-| table{i}_*                     | Specific option for table`i` e.g. for csv `table0_header`                                     | table0_header 'true'               |
-| table{i}_merge_schema          | Whether to merge schemas from different files when reading from a directory (optional).       |
-| table{i}_recursive_file_lookup | Whether to recursively search subdirectories for Parquet files (default false).               |
-| table{i}_path_glob_filter      | Glob pattern to filter which files to read.                                                   |
+| Config Key                          | Description                                                                                                                | Example           |
+|-------------------------------------|----------------------------------------------------------------------------------------------------------------------------|-------------------|
+| path{i}_row_tag                     | The tag for each row in the XML document (mandatory).                                                                      | path0_row 'myTag' |
+| path{i}_root_tag                    | The tag for the root element in the XML document (optional).                                                               |                   |
+| path{i}_attribute_prefix            | Tag used to represent the element's text value when it has attributes (optional).                                          |                   | 
+| path{i}_values_tag                  | Tag used to represent the element's text value when it has attributes (optional).                                          |                   |
+| path{i}_sampling_ratio              | Ratio of rows to use for schema inference (between 0 and 1) (optional).                                                    |                   |
+| path{i}_treat_empty_values_as_nulls | Whether to treat empty string values as null (optional).                                                                   |                   |
+| path{i}_charset                     | Character encoding of the XML file (default: UTF-8).                                                                       |                   |
+| path{i}_mode                        | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |                   |
+| path{i}_dateFormat                  | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                     |                   |
+| path{i}_timestampFormat             | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                                            |                   |
 
 For example:
 
@@ -158,202 +195,45 @@ For example:
 CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   wrapper 'multicorn_das.DASFdw',
   das_url 'host.docker.internal:50051',
-  das_type 's3-parquet',
+  das_type 'xml',
   
-  -- s3 credentials (optional) 
-  aws_access_key 'my_key',
-  aws_secret_key 'my_secret',
+  paths '2',
   
-  tables '2',
+  path0_url 's3://bucket/path/discogs.xml',
+  path0_row_tag 'artist',
+   
+  path1_url 's3://bucket/path/data2.xml',
+  path1_row_tag 'item',
+);
+```
+
+## DAS Parquet "parquet" Options
+
+| Config Key                    | Description                                                                                  | Example                           |
+|-------------------------------|----------------------------------------------------------------------------------------------|-----------------------------------|
+| paths                         | The number of paths to define.                                                               | paths '2'                         |
+| path{i}_url                   | The path or URL to the file.  http:// or https://                                            | path0_url 'https://host/data.csv' |
+| path{i}_name                  | (Optional) The path name as seen in queries. Defaults to a name derived from the file’s URL. | path0_name 'my_path'              |
+| path{i}_*                     | Specific option for path`i` e.g. for csv `path0_header`                                      | path0_header 'true'               |
+| path{i}_merge_schema          | Whether to merge schemas from different files when reading from a directory (optional).      |                                   |
+| path{i}_recursive_file_lookup | Whether to recursively search subdirectories for Parquet files (default false).              |                                   |
+| path{i}_path_glob_filter      | Glob pattern to filter which files to read.                                                  |                                   | 
+
+For example:
+
+```sql
+CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
+  wrapper 'multicorn_das.DASFdw',
+  das_url 'host.docker.internal:50051',
+  das_type 'parquet',
   
-  table0_url 's3://bucket/path/parquet1',
+  paths '2',
+  
+  path0_url 's3://bucket/path/parquet1',
   path_glob_filter '*.parquet',
    
-  table1_url 's3://bucket/path/parquet2',
-  table0_merge_schema 'true'
-);
-```
-
-## DAS HTTP CSV "http-csv" Options
-
-| Config Key                    | Description                                                                                        | Example                                      |
-|-------------------------------|----------------------------------------------------------------------------------------------------|----------------------------------------------|
-| http_follow_redirects         | Whether to follow HTTP redirects (default: false).                                                 | http_follow_redirects 'true'                 |
-| http_connect_timeout          | HTTP connect timeout in milliseconds (default: 5000).                                              | http_connect_timeout_millis '10000'          |
-| http_ssl_trust_all            | Whether to trust all SSL certificates (default: false).                                            | http_ssl_trust_all 'true'                    |
-| tables                        | The number of tables to define.                                                                    | tables '2'                                   |
-| table{i}_url                  | The path or URL to the file.  http:// or https://                                                  | table0_url 'https://host/data.csv'           |
-| table{i}_name                 | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL.      | table0_name 'my_Table'                       |
-| table{i}_*                    | Specific option for table`i` e.g. for csv `table0_header`                                          | table0_header 'true'                         |
-| table{i}_http_body            | custom http body                                                                                   | table0_http_body '{"foo": "bar"}'            |
-| table{i}_http_headers         | number of http headers of the request                                                              | table0_http_headers '1'                      |
-| table{i}_http_header{j}_key   | key of http header `j`                                                                             | table0_http_header0_key 'Authorization'      |
-| table{i}_http_header{j}_value | value of http header `j`                                                                           | table0_http_header0_value 'Bearer token'     |
-| table{i}_http_read_timeout    | HTTP read timeout in milliseconds (default: 30000)                                                 | table0_http_read_timeout '10000'             |
-| table{i}_header               | Whether the first line is a header row (default: true).                                            | table0_header 'true'                         |
-| table{i}_delimiter            | Field delimiter character (default: ,)                                                             | table0_delimiter ','                         |
-| table{i}_quote                | Quote character for enclosed fields (default: ").                                                  | table0_quote '"'                             |
-| table{i}_escape               | Escape character for quotes inside quoted fields (default: \\).                                    | table0_escape '\\'                           |
-| table{i}_multiline            | Whether a single record can span multiple lines (default: false).                                  | table0_delimiter ','                         |
-| table{i}_mode                 | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | table0_mode 'PERMISSIVE'                     |
-| table{i}_date_format          | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | table0_date_format 'yyyy-MM-d'               |
-| table{i}_timestamp_format     | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | table0_date_format 'yyyy-MM-dd''T''HH:mm:ss' |
-
-For example:
-
-```sql
-CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
-  wrapper 'multicorn_das.DASFdw',
-  das_url 'host.docker.internal:50051',
-  das_type 'http-csv',
-  
-  tables '2',
-  
-  table0_url 'https://www.host/data1.csv',
-  table0_http_headers '1',
-  table0_http_header0_key 'Authorization',
-  table0_http_header0_value 'Bearer <token>',
-  table0_header 'false',
-   
-  table1_url 'https://host2/other/data2.csv',
-  table1_http_read_timeout '20000'
-);
-```
-
-## DAS http JSON "http-json" Options
-
-| Config Key                             | Description                                                                                        | Example                                  |
-|----------------------------------------|----------------------------------------------------------------------------------------------------|------------------------------------------|
-| http_follow_redirects                  | Whether to follow HTTP redirects (default: false).                                                 | http_follow_redirects 'true'             |
-| http_connect_timeout                   | HTTP connect timeout in milliseconds (default: 5000).                                              | http_connect_timeout_millis '10000'      |
-| http_ssl_trust_all                     | Whether to trust all SSL certificates (default: false).                                            | http_ssl_trust_all 'true'                |
-| tables                                 | The number of tables to define.                                                                    | tables '2'                               |
-| table{i}_url                           | The path or URL to the file.  http:// or https://                                                  | table0_url 'https://host/data.csv'       |
-| table{i}_name                          | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL.      | table0_name 'my_Table'                   |
-| table{i}_*                             | Specific option for table`i` e.g. for csv `table0_header`                                          | table0_header 'true'                     |
-| table{i}_http_body                     | custom http body                                                                                   | table0_http_body '{"foo": "bar"}'        |
-| table{i}_http_headers                  | number of http headers of the request                                                              | table0_http_headers '1'                  |
-| table{i}_http_header{j}_key            | key of http header `j`                                                                             | table0_http_header0_key 'Authorization'  |
-| table{i}_http_header{j}_value          | value of http header `j`                                                                           | table0_http_header0_value 'Bearer token' |
-| table{i}_http_read_timeout             | HTTP read timeout in milliseconds (default: 30000)                                                 | table0_http_read_timeout '10000'         |
-| table{i}_multiline                     | Whether a single record can span multiple lines (default: true).                                   |                                          |
-| table{i}_mode                          | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |                                          |
-| table{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             |                                          |
-| table{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                   |                                          |
-| table{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                       |                                          |
-| table{i}_drop_field_if_all_null        | Whether to drop fields that are always null (optional).                                            |                                          |
-| table{i}_column_name_of_corrupt_record | Name for field holding corrupt records (optional).                                                 |                                          |
-
-For example:
-
-```sql
-CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
-  wrapper 'multicorn_das.DASFdw',
-  das_url 'host.docker.internal:50051',
-  das_type 'http-json',
-  
-  tables '2',
-  
-  table0_url 'https://www.host/data1.json',
-  table0_http_headers '1',
-  table0_http_header0_key 'Authorization',
-  table0_http_header0_value 'Bearer <token>',
-  table0_allow_comments 'true',
-   
-  table1_url 'https://host2/path/data2.json',
-  table1_http_read_timeout '20000'
-
-);
-```
-
-## DAS http xml "http-xml" Options
-
-| Config Key                           | Description                                                                                                                | Example                                  |
-|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------------|
-| http_follow_redirects                | Whether to follow HTTP redirects (default: false).                                                                         | http_follow_redirects 'true'             |
-| http_connect_timeout                 | HTTP connect timeout in milliseconds (default: 5000).                                                                      | http_connect_timeout_millis '10000'      |
-| http_ssl_trust_all                   | Whether to trust all SSL certificates (default: false).                                                                    | http_ssl_trust_all 'true'                |
-| tables                               | The number of tables to define.                                                                                            | tables '2'                               |
-| table{i}_url                         | The path or URL to the file.  http:// or https://                                                                          | table0_url 'https://host/data.csv'       |
-| table{i}_name                        | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL.                              | table0_name 'my_Table'                   |
-| table{i}_*                           | Specific option for table`i` e.g. for csv `table0_header`                                                                  | table0_header 'true'                     |
-| table{i}_http_method                 | http method (default: GET)                                                                                                 | table0_http_method 'POST'                |
-| table{i}_http_body                   | custom http body                                                                                                           | table0_http_body '{"foo": "bar"}'        |
-| table{i}_http_headers                | number of http headers of the request                                                                                      | table0_http_headers '1'                  |
-| table{i}_http_header{j}_key          | key of http header `j`                                                                                                     | table0_http_header0_key 'Authorization'  |
-| table{i}_http_header{j}_value        | value of http header `j`                                                                                                   | table0_http_header0_value 'Bearer token' |
-| table{i}_http_read_timeout           | HTTP read timeout in milliseconds (default: 30000)                                                                         | table0_http_read_timeout '10000'         |
-| table{i}_row_tag                     | The tag for each row in the XML document (default: row).                                                                   |                                          |
-| table{i}_root_tag                    | The tag for the root element in the XML document (optional).                                                               |                                          |
-| table{i}_attribute_prefix            | Tag used to represent the element's text value when it has attributes (optional).                                          |                                          | 
-| table{i}_values_tag                  | Tag used to represent the element's text value when it has attributes (optional).                                          |                                          |
-| table{i}_sampling_ratio              | Ratio of rows to use for schema inference (between 0 and 1) (optional).                                                    |                                          |
-| table{i}_treat_empty_values_as_nulls | Whether to treat empty string values as null (optional).                                                                   |                                          |
-| table{i}_charset                     | Character encoding of the XML file (default: UTF-8).                                                                       |                                          |
-| table{i}_mode                        | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |                                          |
-| table{i}_dateFormat                  | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                     |                                          |
-| table{i}_timestampFormat             | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                                            |                                          |
-
-For example:
-
-```sql
-CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
-  wrapper 'multicorn_das.DASFdw',
-  das_url 'host.docker.internal:50051',
-  das_type 'http-xml',
-  
-  tables '2',
-  
-  table0_url 'https://www.host/discogs.xml',
-  table0_http_headers '1',
-  table0_http_header0_key 'Authorization',
-  table0_http_header0_value 'Bearer <token>',
-  table0_row_tag 'artist',
-   
-  table1_url 'https://host2/path/data2.xml',
-  table1_row_tag 'item',
-);
-```
-
-## DAS http Parquet "http-parquet" Options
-
-| Config Key                    | Description                                                                                   | Example                                  |
-|-------------------------------|-----------------------------------------------------------------------------------------------|------------------------------------------|
-| http_follow_redirects         | Whether to follow HTTP redirects (default: false).                                            | http_follow_redirects 'true'             |
-| http_connect_timeout          | HTTP connect timeout in milliseconds (default: 5000).                                         | http_connect_timeout_millis '10000'      |
-| http_ssl_trust_all            | Whether to trust all SSL certificates (default: false).                                       | http_ssl_trust_all 'true'                |
-| tables                        | The number of tables to define.                                                               | tables '2'                               |
-| table{i}_url                  | The path or URL to the file.  http:// or https://                                             | table0_url 'https://host/data.csv'       |
-| table{i}_name                 | (Optional) The table name as seen in queries. Defaults to a name derived from the file’s URL. | table0_name 'my_Table'                   |
-| table{i}_*                    | Specific option for table`i` e.g. for csv `table0_header`                                     | table0_header 'true'                     |
-| table{i}_http_method          | http method (default: GET)                                                                    | table0_http_method 'POST'                |
-| table{i}_http_body            | custom http body                                                                              | table0_http_body '{"foo": "bar"}'        |
-| table{i}_http_headers         | number of http headers of the request                                                         | table0_http_headers '1'                  |
-| table{i}_http_header{j}_key   | key of http header `j`                                                                        | table0_http_header0_key 'Authorization'  |
-| table{i}_http_header{j}_value | value of http header `j`                                                                      | table0_http_header0_value 'Bearer token' |
-| table{i}_http_read_timeout    | HTTP read timeout in milliseconds (default: 30000)                                            | table0_http_read_timeout '10000'         |
-
-For example:
-
-```sql
-CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
-  wrapper 'multicorn_das.DASFdw',
-  das_url 'host.docker.internal:50051',
-  das_type 'http-parquet',
-  
-  -- HTTP connection settings (optional)
-  http_follow_redirects 'true',
-  http_connect_timeout_millis '10000',
-  http_ssl_trust_all 'true',
-  
-  tables '2',
-  
-  table0_url 'https://www.host/data1.parquet',
-  table0_http_headers '1',
-  table0_http_header0_key 'Authorization',
-  table0_http_header0_value 'Bearer <token>',
-   
-  table1_url 'https://host2/path/parquet2',
+  path1_url 's3://bucket/path/parquet2',
+  path0_merge_schema 'true'
 );
 ```
 

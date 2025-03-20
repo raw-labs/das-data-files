@@ -53,6 +53,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
   protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", options)
 
   private val filesystems = {
+    // Build a map of filesystems by scheme we only need one of each type
     val oneOfEachScheme = dasOptions.pathConfig.map(x => x.uri.getScheme -> x.uri).toMap
 
     oneOfEachScheme.map { case (scheme, uri) =>
