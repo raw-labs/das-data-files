@@ -26,6 +26,8 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
 
   private case class GithubFile(owner: String, repo: String, branch: String, path: String)
 
+  val name: String = "github"
+
   /**
    * Lists files at the given GitHub URL.
    *

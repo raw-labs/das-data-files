@@ -104,6 +104,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
     val executionUrl = acquireUrl()
 
+    logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
     val df = loadDataFrame(executionUrl)
     val filteredDF = applyQuals(df, quals)
 

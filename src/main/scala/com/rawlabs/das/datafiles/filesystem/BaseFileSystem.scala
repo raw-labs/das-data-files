@@ -16,13 +16,17 @@ import java.io.{File, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
 
+import com.typesafe.scalalogging.StrictLogging
+
 /**
  * Base class for "DAS" filesystem abstractions.
  */
-abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) {
+abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) extends StrictLogging {
 
   private val downloadPath = new File(downloadFolder)
   downloadPath.mkdirs()
+
+  val name: String
 
   /**
    * Lists files at `url`. On success, returns a list of full paths or URIs.
@@ -55,12 +59,14 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) {
     getFileSize(url) match {
       case Left(err) => return Left(err)
       case Right(actualSize) if actualSize > maxLocalFileSize =>
+        logger.warn(s"File $url is too large ($actualSize bytes), downloading aborted")
         return Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize))
       case _ => // File size is OK
     }
 
     val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
+    logger.debug(s"Downloading $url to $outFile")
     val inputStream = open(url) match {
       case Right(is) => is
       case Left(err) => return Left(err)

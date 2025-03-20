@@ -23,6 +23,8 @@ import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
     extends BaseFileSystem(downloadFolder, maxDownloadSize) {
 
+  val name: String = "local"
+
   override def list(url: String): Either[FileSystemError, List[String]] = {
     val file = fileFromUrl(url) match {
       case Left(err) => return Left(err)

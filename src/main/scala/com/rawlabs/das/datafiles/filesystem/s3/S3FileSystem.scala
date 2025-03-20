@@ -42,16 +42,14 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
   // Public API
   // --------------------------------------------------------------------------
 
+  val name = "s3"
+
   /**
    * Lists files at the given S3 `url`, returning either:
    *   - A single object (if HEAD succeeds).
    *   - The contents of a "directory" at depth=1 (if HEAD fails with NoSuchKey).
    */
   override def list(url: String): Either[FileSystemError, List[String]] = {
-    if (!url.startsWith("s3://")) {
-      return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
-    }
-
     val (bucket, key) = parseS3Url(url) match {
       case Left(error)   => return Left(error)
       case Right(values) => values

@@ -29,6 +29,7 @@ import com.rawlabs.das.sdk.{
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.StrictLogging
 
 case class DataFilesTableConfig(
     uri: URI,
@@ -40,7 +41,7 @@ case class DataFilesTableConfig(
 /**
  * The main plugin class that registers one table per file.
  */
-abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
+abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk with StrictLogging {
 
   private val maxTables = ConfigFactory.load().getInt("raw.das.data-files.max-tables")
 
@@ -55,8 +56,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
     val filesystem = FileSystemFactory.build(config.uri, options)
 
-    val response = filesystem.resolveWildcard(config.uri.toString)
-    val urls = response match {
+    val urls = filesystem.resolveWildcard(config.uri.toString) match {
       case Right(url) => url
       case Left(FileSystemError.NotFound(_)) =>
         throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
@@ -66,6 +66,8 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
       case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
       case _                                           => throw new DASSdkInvalidArgumentException("Unexpected error")
     }
+
+    if (urls.length > 1) logger.debug("Multiple URLs found: {}", urls.mkString(", "))
 
     urls.map { url =>
       val name = if (urls.length == 1 && config.maybeName.isDefined) {
@@ -89,6 +91,8 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
   if (tableConfig.length > maxTables) {
     throw new IllegalArgumentException(s"Too many tables: ${tableConfig.length} > $maxTables")
   }
+
+  logger.info("Adding tables: {}", tableConfig.map(_.name).mkString(", "))
 
   // Build a list of our tables
   def tables: Map[String, BaseDataFileTable]
