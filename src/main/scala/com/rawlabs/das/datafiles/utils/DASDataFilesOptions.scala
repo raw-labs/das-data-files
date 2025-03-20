@@ -20,7 +20,7 @@ import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
  * Represents a single path’s configuration
  */
 
-case class PathConfig(uri: URI, maybeName: Option[String], format: Option[String], options: Map[String, String])
+case class PathConfig(uri: URI, maybeName: Option[String], maybeFormat: Option[String], options: Map[String, String])
 
 /**
  * Holds all parsed config from user’s definition for the entire DAS.
@@ -44,7 +44,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
         options.getOrElse(
           prefix + "url",
           throw new DASSdkInvalidArgumentException(s"Missing '${prefix}url' option for DataFile DAS."))
-      val format = options.get(prefix + "format")
+      val maybeFormat = options.get(prefix + "format")
 
       // Name is optional: if not provided, derive from URL
       val maybeName = options.get(prefix + "name")
@@ -54,7 +54,7 @@ class DASDataFilesOptions(options: Map[String, String]) {
         case (k, v) if k.startsWith(prefix) => (k.drop(prefix.length), v)
       }
 
-      PathConfig(maybeName = maybeName, uri = new URI(url), format = format, options = pathOptions)
+      PathConfig(maybeName = maybeName, uri = new URI(url), maybeFormat = maybeFormat, options = pathOptions)
     }
   }
 

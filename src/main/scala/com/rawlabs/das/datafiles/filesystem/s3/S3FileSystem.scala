@@ -15,10 +15,11 @@ package com.rawlabs.das.datafiles.filesystem.s3
 import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
 
+import scala.jdk.CollectionConverters._
+
 import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
-// AWS SDK v2 imports
 import software.amazon.awssdk.auth.credentials.{
   AnonymousCredentialsProvider,
   AwsBasicCredentials,
@@ -33,9 +34,6 @@ import software.amazon.awssdk.services.s3.model._
 
 /**
  * S3FileSystem that uses the AWS SDK v2 for S3 operations (list, open, wildcard resolution, etc.).
- *
- * @param s3Client s3Client instance to use for operations
- * @param cacheFolder local folder for caching/downloading, if needed
  */
 class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Long = 100 * 1024 * 1024)
     extends BaseFileSystem(cacheFolder, maxDownloadSize) {
@@ -45,29 +43,31 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
   // --------------------------------------------------------------------------
 
   /**
-   * Lists files at the given S3 `url`, returning either a single object or the contents of a "directory."
-   *
-   * Example: list("s3://my-bucket/path/prefix/") => Right(List of child objects) If the url is a single object (no
-   * trailing slash, presumably) and it exists => one-element list
+   * Lists files at the given S3 `url`, returning either:
+   *   - A single object (if HEAD succeeds).
+   *   - The contents of a "directory" at depth=1 (if HEAD fails with NoSuchKey).
    */
   override def list(url: String): Either[FileSystemError, List[String]] = {
-    // Ensure it starts with s3:// or s3a://
     if (!url.startsWith("s3://")) {
       return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
     }
 
-    val (bucket, key) = parseS3Url(url)
+    val (bucket, key) = parseS3Url(url) match {
+      case Left(error)   => return Left(error)
+      case Right(values) => values
+    }
 
     try {
-      // 1) Try HEAD to see if it's a single object
+      // Try HEAD to see if it's a single object
       val headReq = HeadObjectRequest.builder().bucket(bucket).key(key).build()
       s3Client.headObject(headReq)
+
       // If HEAD is successful => it's a single file
-      Right(List(s"$url")) // We can return the exact original URI or an "s3a://" variant if you prefer
+      Right(List(url))
     } catch {
       case _: NoSuchKeyException =>
-        // Object not found => maybe it's a prefix (like a directory)
-        listAsDirectory(bucket, key, url)
+        // Not a single object => treat as a prefix (like "directory") but only depth=1
+        listAsDirectorySingleLevel(bucket, key, url)
       case _: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url))
       case e: LimitExceededException =>
@@ -87,11 +87,11 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
    * Opens the file at `url` and returns an InputStream if found.
    */
   override def open(url: String): Either[FileSystemError, InputStream] = {
-    if (!url.startsWith("s3://")) {
-      return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
+    val (bucket, key) = parseS3Url(url) match {
+      case Left(error)   => return Left(error)
+      case Right(values) => values
     }
 
-    val (bucket, key) = parseS3Url(url)
     val getReq = GetObjectRequest.builder().bucket(bucket).key(key).build()
 
     try {
@@ -110,49 +110,33 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
-
     }
   }
 
   /**
-   * Resolves wildcard patterns in `url`, e.g. "s3://bucket/path/\*.csv" We'll do a naive approach:
-   *   - Split prefix (everything up to first wildcard) vs. suffix
-   *   - list the entire prefix
-   *   - filter the results
+   * Resolves wildcard patterns in `url`, e.g. "s3://bucket/path/\*.csv". We do a naive approach: list the entire
+   * single-level prefix and filter by pattern.
    */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
     try {
-      // 1) parse bucket + full path
-      val (bucket, fullPath) = parseS3Url(url)
-      val wildcardIndex = fullPath.indexWhere(c => c == '*' || c == '?')
-
-      if (wildcardIndex < 0) {
-        // No actual wildcard => just do normal listing
-        return list(url)
+      val (bucket, fullPath) = parseS3Url(url) match {
+        case Left(error)   => return Left(error)
+        case Right(values) => values
       }
 
-      val prefix = fullPath.substring(0, wildcardIndex)
-      // naive approach to get directory prefix (some users do "prefix/???.csv" etc.)
-      val prefixOnly = prefix.lastIndexOf('/') match {
-        case -1  => "" // no slash => top-level
-        case idx => prefix.substring(0, idx + 1)
-      }
+      val (prefix, maybePattern) = splitWildcard(fullPath)
 
-      val pattern = fullPath.substring(wildcardIndex) // e.g. "*.csv" or "???.txt"
+      if (maybePattern.isEmpty) return list(url)
 
-      // 2) List all objects under that prefix
-      val objects = listObjectsRecursive(bucket, prefixOnly).map(_.trim)
-      // 3) Filter them by matching the wildcard pattern as a simple glob
-      val regex = ("^" + globToRegex(pattern) + "$").r
+      val regex = ("^" + globToRegex(maybePattern.get) + "$").r
+
+      // Single-level listing for the prefix
+      val objects = listObjectsSingleLevel(bucket, prefix)
       val matched = objects.filter { keyName =>
-        // keyName is the full object key
-        if (!keyName.startsWith(prefixOnly)) false
-        else {
-          val relativePart = keyName.substring(prefixOnly.length)
-          regex.findFirstIn(relativePart).isDefined
-        }
+        // Only consider the portion after the prefix
+        val relativePart = keyName.stripPrefix(prefix)
+        regex.findFirstIn(relativePart).isDefined
       }
-      // Return as fully qualified s3:// or s3a:// URIs
       Right(matched.map(k => s"s3://$bucket/$k"))
     } catch {
       case _: NoSuchKeyException | _: NoSuchBucketException =>
@@ -171,17 +155,18 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
   }
 
   /**
-   * Return the size of the S3 file (in bytes), or an error if not found or key is a "folder".
+   * Return the size of the S3 file (in bytes), or an error if not found.
    */
   override def getFileSize(url: String): Either[FileSystemError, Long] = {
-    if (!url.startsWith("s3://")) {
-      return Left(FileSystemError.Unsupported(s"Unsupported S3 URL: $url"))
+    val (bucket, key) = parseS3Url(url) match {
+      case Left(error)   => return Left(error)
+      case Right(values) => values
     }
-    val (bucket, key) = parseS3Url(url)
+
     try {
       val headReq = HeadObjectRequest.builder().bucket(bucket).key(key).build()
       val headResp = s3Client.headObject(headReq)
-      Right(headResp.contentLength()) // long
+      Right(headResp.contentLength())
     } catch {
       case _: NoSuchKeyException | _: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url))
@@ -192,88 +177,87 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
     }
   }
 
-  /**
-   * Clean up resources. In AWS SDK v2, the S3Client is safe to close, though it's often shared. We'll close it for
-   * completeness.
-   */
   override def stop(): Unit = {
     s3Client.close()
   }
 
   // --------------------------------------------------------------------------
-  // Internal helpers
+  // Private Helpers
   // --------------------------------------------------------------------------
 
   /**
-   * Attempt to interpret the "s3://bucket/key" URL. Return (bucket, key). We also handle "s3a://" by rewriting it as
-   * "s3://".
+   * If HEAD fails, we treat the path as a "folder" prefix and do a single-level listing. Returns Right(list-of-S3-URIs)
+   * or NotFound if empty.
    */
-  private def parseS3Url(url: String): (String, String) = {
-    val uri = new URI(url)
-    val bucket = uri.getHost // e.g. "my-bucket"
-    if (bucket == null) {
-      throw new DASSdkInvalidArgumentException(s"Invalid S3 URL, cannot parse bucket: $url")
-    }
-    // path => everything after "/"
-    val key = uri.getPath.stripPrefix("/")
-    (bucket, key)
-  }
-
-  /**
-   * Lists objects as if the path is a directory prefix. Returns the full object keys that match that prefix. If no
-   * objects are found, returns either an empty list or a NotFound error if you prefer.
-   */
-  private def listAsDirectory(bucket: String, prefix: String, url: String): Either[FileSystemError, List[String]] = {
-    val objectKeys = listObjectsRecursive(bucket, prefix)
+  private def listAsDirectorySingleLevel(
+      bucket: String,
+      prefix: String,
+      url: String): Either[FileSystemError, List[String]] = {
+    val objectKeys = listObjectsSingleLevel(bucket, prefix)
     if (objectKeys.isEmpty) {
       Left(FileSystemError.NotFound(url))
     } else {
-      // Return them as fully qualified S3 URIs
       val uris = objectKeys.map(k => s"s3://$bucket/$k")
       Right(uris)
     }
   }
 
   /**
-   * Recursively lists objects from S3 using ListObjectsV2. If you don't want recursion, remove the repeated calls and
-   * just do a single page or prefix listing.
+   * **Single-level** listing of objects under `prefix`, ignoring deeper subdirectories. We use `delimiter("/")` so that
+   * S3 will return only the objects in this folder and treat subfolders as common prefixes (which we omit).
    */
-  private def listObjectsRecursive(bucket: String, prefix: String): List[String] = {
+  private def listObjectsSingleLevel(bucket: String, prefix: String): List[String] = {
     var results = List.empty[String]
     var continuationToken: Option[String] = None
 
     do {
-      val reqBuilder = ListObjectsV2Request.builder().bucket(bucket)
-      if (prefix.nonEmpty) reqBuilder.prefix(prefix)
+      val reqBuilder = ListObjectsV2Request
+        .builder()
+        .bucket(bucket)
+        .prefix(prefix)
+        .delimiter("/")
+
       continuationToken.foreach(reqBuilder.continuationToken)
 
       val req = reqBuilder.build()
       val resp: ListObjectsV2Response = s3Client.listObjectsV2(req)
 
-      val pageKeys =
-        resp.contents().toArray.toList.map(_.asInstanceOf[software.amazon.awssdk.services.s3.model.S3Object])
-      results = results ++ pageKeys.map(_.key())
+      // Collect immediate objects (not subfolders)
+      val pageKeys = resp.contents().asScala.map(_.key()).toList
+      results = results ++ pageKeys
 
+      // Move to next page if needed
       continuationToken = Option(resp.nextContinuationToken()).filter(_.nonEmpty)
     } while (continuationToken.isDefined)
 
     results
   }
+
+  /**
+   * Parse "s3://bucket/key" into (bucket, key).
+   */
+  private def parseS3Url(url: String): Either[FileSystemError, (String, String)] = {
+    val uri = new URI(url)
+
+    if (uri.getScheme != "s3") {
+      return Left(FileSystemError.Unsupported(s"Unsupported URL scheme: $url"))
+    }
+
+    val bucket = uri.getHost
+    if (bucket == null) {
+      return Left(FileSystemError.InvalidUrl(url, s"Invalid S3 URL, cannot parse bucket"))
+    }
+    val key = uri.getPath.stripPrefix("/")
+    Right((bucket, key))
+  }
 }
 
 object S3FileSystem {
   def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): S3FileSystem = {
-
     val builder = S3Client.builder()
-
     options.get("aws_region").foreach(r => builder.region(Region.of(r)))
 
-    // You can also customize the S3 config, like disabling chunked encoding, path style, etc.
-    // builder.serviceConfiguration(S3Configuration.builder().build())
-
     // Credentials
-    // 1) If user specified keys, use them
-    // 2) Otherwise, use anonymous (or DefaultCredentialsProvider, if you prefer)
     val credentials =
       if (options.contains("aws_access_key")) {
         val creds = AwsBasicCredentials.create(
@@ -281,7 +265,6 @@ object S3FileSystem {
           options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("Missing AWS secret key")))
         StaticCredentialsProvider.create(creds)
       } else {
-        // Consider using DefaultCredentialsProvider.create() if you want to pick up environment or profile
         AnonymousCredentialsProvider.create()
       }
 

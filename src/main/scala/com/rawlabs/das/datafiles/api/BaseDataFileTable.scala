@@ -194,7 +194,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
         case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
         case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
-        case Left(FileSystemError.InvalidUrl(url)) => throw new DASSdkInvalidArgumentException(s"Invalid URL: $url")
+        case Left(FileSystemError.InvalidUrl(url, message)) =>
+          throw new DASSdkInvalidArgumentException(s"Invalid URL:$url, $message")
         case Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize)) =>
           throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
       }

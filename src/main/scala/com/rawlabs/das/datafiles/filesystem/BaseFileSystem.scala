@@ -79,15 +79,42 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) {
   def stop(): Unit
 
   /**
+   * Splits the URL into a prefix and an optional wildcard pattern. For example, given
+   * owner/repo/branch/path/data*.csv", it returns ("owner/repo/branch/path", Some("data*.csv")). It there is no
+   * wildcard, returns the original URL and None.
+   */
+  protected def splitWildcard(url: String): (String, Option[String]) = {
+    val lastSlash = url.lastIndexOf('/')
+    val (folder, candidate) = if (lastSlash < 0) {
+      "" -> url
+    } else {
+      url.substring(0, lastSlash) -> url.substring(lastSlash + 1)
+    }
+
+    if (candidate.contains("*") || candidate.contains("?"))
+      (folder, Some(candidate))
+    else
+      (url, None)
+
+  }
+
+  /**
    * Converts a simple glob (with *, ?) into a corresponding regex string. E.g. "*.csv" => ".*\.csv"
    *
    * This is simplistic and doesn't handle bracket expressions ([abc]) or other advanced globs.
    */
   protected def globToRegex(glob: String): String = {
+    // Escape all regex metacharacters except the glob-related (*, ?).
+    // We escape: \ ^ $ . + | { } ( ) [ ]
+
     glob
-      .replace(".", "\\.")
-      .replace("?", ".")
-      .replace("*", "[^/]*") // don't match slashes (don't cross directories)
+      // Escape all regex special characters except '*' and '?'
+      .replaceAll("([\\^\\$\\.\\+\\|\\(\\)\\{\\}\\[\\]\\\\])", """\\$1""")
+      // Convert '?' (glob) to '[^/]' (regex) avoid matching directory separators
+      .replace("?", "[^/]")
+      // Convert '*' (glob) to '[^/]*' (regex) avoid matching directory separators
+      .replace("*", "[^/]*")
+
   }
 
 }

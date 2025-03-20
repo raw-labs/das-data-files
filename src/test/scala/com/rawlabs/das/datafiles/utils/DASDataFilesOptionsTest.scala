@@ -37,12 +37,12 @@ class DASDataFilesOptionsTest extends AnyFlatSpec with Matchers {
 
     val path0 = parsed.pathConfig.head
     path0.uri.toString shouldBe "/path/to/data.csv"
-    path0.format shouldBe Some("csv")
+    path0.maybeFormat shouldBe Some("csv")
 
     val path1 = parsed.pathConfig(1)
     path1.maybeName shouldBe Some("myJsonTable")
     path1.uri.toString shouldBe "/another/path/data.json"
-    path1.format shouldBe Some("json")
+    path1.maybeFormat shouldBe Some("json")
   }
 
 }

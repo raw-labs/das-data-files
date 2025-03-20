@@ -82,7 +82,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk {
       }
 
       val unique = ensureUniqueName(name)
-      DataFilesTableConfig(new URI(url), unique, config.format, config.options, filesystem)
+      DataFilesTableConfig(new URI(url), unique, config.maybeFormat, config.options, filesystem)
     }
   }
 

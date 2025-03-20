@@ -18,6 +18,9 @@ import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 
+/**
+ * A table that reads CSV files.
+ */
 class CsvTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     extends BaseDataFileTable(config, sparkSession) {
 

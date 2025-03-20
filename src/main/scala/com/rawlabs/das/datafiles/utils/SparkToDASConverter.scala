@@ -1,3 +1,15 @@
+/*
+ * Copyright 2024 RAW Labs S.A.
+ *
+ * Use of this software is governed by the Business Source License
+ * included in the file licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with
+ * the Business Source License, use of this software will be governed
+ * by the Apache License, Version 2.0, included in the file
+ * licenses/APL.txt.
+ */
+
 package com.rawlabs.das.datafiles.utils
 
 import scala.jdk.CollectionConverters._
@@ -9,6 +21,9 @@ import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
 import com.rawlabs.protocol.das.v1.types._
 
+/**
+ * A utility class to help convert Spark DataFrames to DAS tables.
+ */
 trait SparkToDASConverter {
   // -------------------------------------------------------------------
   // qualifier pushdown logic

@@ -137,8 +137,8 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
         Left(FileSystemError.Unsupported(s"LocalFileSystem only supports file:// URLs or no scheme but got: $url"))
       }
     } catch {
-      case _: URISyntaxException =>
-        Left(FileSystemError.InvalidUrl(url))
+      case e: URISyntaxException =>
+        Left(FileSystemError.InvalidUrl(url, e.getMessage))
     }
   }
 
