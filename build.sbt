@@ -18,7 +18,9 @@ lazy val root = (project in file("."))
       "org.apache.hadoop" % "hadoop-aws" % "3.4.1" excludeAll (
         ExclusionRule(organization = "io.netty", name = "netty-handler"),
         ExclusionRule(organization = "org.apache.avro")),
-      "org.apache.hadoop" % "hadoop-common" % "3.4.1",
+      "org.apache.hadoop" % "hadoop-common" % "3.4.1"excludeAll (
+        ExclusionRule(organization = "io.netty", name = "netty-handler"),
+        ExclusionRule(organization = "org.apache.avro")),
       // for github filesystem
       "org.kohsuke" % "github-api" % "1.327" excludeAll (
         ExclusionRule(organization = "org.slf4j"),
