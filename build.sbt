@@ -29,6 +29,7 @@ lazy val root = (project in file("."))
       "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.2",
       "com.fasterxml.jackson.core" % "jackson-core" % "2.15.2",
       "com.fasterxml.jackson.core" % "jackson-annotations" % "2.15.2",
+      // hadoop-client-runtime-3.3.4 was pulling in a lot of old dependencies (pulled by spark)
       "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1",
 
       // Protobuf (CVE-2021-22569, CVE-2022-3509, CVE-2024-7254, etc.)
