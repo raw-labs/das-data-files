@@ -11,10 +11,13 @@ lazy val root = (project in file("."))
         ExclusionRule(organization = "com.fasterxml.jackson.databind"),
         ExclusionRule(organization = "com.fasterxml.jackson.core")),
       // spark hadoop dependencies
-      "org.apache.spark" %% "spark-sql" % "3.5.5",
+      "org.apache.spark" %% "spark-sql" % "3.5.5" exclude ("org.apache.hadoop", "hadoop-client-runtime"),
       "com.databricks" %% "spark-xml" % "0.18.0",
       "org.apache.hadoop" % "hadoop-aws" % "3.4.1"  exclude ("io.netty", "netty-handler"),
       "org.apache.hadoop" % "hadoop-common" % "3.4.1",
+      "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1",
+      "org.apache.avro" % "avro" % "1.11.4",
+
       // for github filesystem
       "org.kohsuke" % "github-api" % "1.327" excludeAll (
         ExclusionRule(organization = "org.slf4j"),
@@ -29,8 +32,8 @@ lazy val root = (project in file("."))
       "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.2",
       "com.fasterxml.jackson.core" % "jackson-core" % "2.15.2",
       "com.fasterxml.jackson.core" % "jackson-annotations" % "2.15.2",
-      // hadoop-client-runtime-3.3.4 was pulling in a lot of old dependencies (pulled by spark)
-      "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1" exclude ("org.apache.avro", "avro"),
+      // hadoop-client-runtime-3.3.4 was pulling in a lot of old dependencies (hadoop-client-runtime is pulled by spark)
+      "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1",
 
       // Protobuf (CVE-2021-22569, CVE-2022-3509, CVE-2024-7254, etc.)
       "com.google.protobuf" % "protobuf-java" % "3.25.5",
@@ -51,7 +54,7 @@ lazy val root = (project in file("."))
       "net.minidev" % "json-smart" % "2.4.9",
 
       // Apache Avro (CVE-2024-47561, CVE-2023-39410)
-      "org.apache.avro" % "avro" % "1.11.4",
+      "org.apache.avro" % "avro" % "1.12.0",
 
       // Apache Ivy (CVE-2022-46751)
-      "org.apache.ivy" % "ivy" % "2.5.2"))
+      "org.apache.ivy" % "ivy" % "2.5.3"))
