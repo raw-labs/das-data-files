@@ -8,6 +8,8 @@ libraryDependencies += "commons-io" % "commons-io" % "2.11.0"
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.0")
 
+addSbtPlugin("nl.gn0s1s" % "sbt-dotenv" % "3.1.1")
+
 addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.10.4")
 
 addSbtPlugin("de.heikoseeberger" % "sbt-header" % "5.10.0")

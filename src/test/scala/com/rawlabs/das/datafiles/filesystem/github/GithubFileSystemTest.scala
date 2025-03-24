@@ -99,6 +99,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
     verify(mockRepo).getFileContent("folder/data.csv", "main")
   }
+
   "GithubFileSystem.resolveWildcard" should "filter files to only match *.csv" in {
     val mockGitHub = mock[GitHub]
     val mockRepo = mock[GHRepository]

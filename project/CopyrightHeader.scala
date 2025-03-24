@@ -1,7 +1,7 @@
-import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport._
+import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.*
 import de.heikoseeberger.sbtheader.{CommentCreator, HeaderPlugin}
-import sbt.Keys._
-import sbt._
+import sbt.*
+import sbt.Keys.*
 
 object CopyrightHeader extends AutoPlugin {
 
