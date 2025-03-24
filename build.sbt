@@ -23,4 +23,35 @@ lazy val root = (project in file("."))
       // ScalaTest for unit tests
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",
       "org.scalatestplus" %% "mockito-5-12" % "3.2.19.0" % "test"),
-    dependencyOverrides ++= Seq("io.netty" % "netty-handler" % "4.1.118.Final"))
+    dependencyOverrides ++= Seq(
+      "io.netty" % "netty-handler" % "4.1.118.Final",
+
+      // Overrides because of security vulnerabilities
+      // Jackson (multiple CVEs: CVE-2022-42003, CVE-2022-42004, etc.)
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.2",
+      "com.fasterxml.jackson.core" % "jackson-core" % "2.15.2",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.15.2",
+
+      // Protobuf (CVE-2021-22569, CVE-2022-3509, CVE-2024-7254, etc.)
+      "com.google.protobuf" % "protobuf-java" % "3.25.5",
+
+      // Nimbus JOSE+JWT (CVE-2023-52428)
+      "com.nimbusds" % "nimbus-jose-jwt" % "9.37.2",
+
+      // Commons IO (CVE-2024-47554)
+      "commons-io" % "commons-io" % "2.14.0",
+
+      // dnsjava (CVE-2024-25638)
+      "dnsjava" % "dnsjava" % "3.6.0",
+
+      // Netty (CVE-2025-24970)
+      "io.netty" % "netty-handler" % "4.1.118.Final",
+
+      // json-smart (CVE-2021-31684, CVE-2023-1370)
+      "net.minidev" % "json-smart" % "2.4.9",
+
+      // Apache Avro (CVE-2024-47561, CVE-2023-39410)
+      "org.apache.avro" % "avro" % "1.11.4",
+
+      // Apache Ivy (CVE-2022-46751)
+      "org.apache.ivy" % "ivy" % "2.5.2"))
