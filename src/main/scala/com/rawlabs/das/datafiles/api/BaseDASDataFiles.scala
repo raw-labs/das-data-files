@@ -54,7 +54,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
 
   private val filesystems = {
     // Build a map of filesystems by scheme we only need one of each type
-    val oneOfEachScheme = dasOptions.pathConfig.map(x => x.uri.getScheme -> x.uri).toMap
+    val oneOfEachScheme = dasOptions.pathConfig.map(x => resolveScheme(x.uri) -> x.uri).toMap
 
     oneOfEachScheme.map { case (scheme, uri) =>
       scheme -> FileSystemFactory.build(uri, options)
@@ -66,7 +66,7 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
 
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
-    val filesystem = filesystems(config.uri.getScheme)
+    val filesystem = filesystems(resolveScheme(config.uri))
 
     val urls = filesystem.resolveWildcard(config.uri.toString) match {
       case Right(url) => url
@@ -157,6 +157,13 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
     }
     usedNames += finalName
     finalName
+  }
+
+  private def resolveScheme(uri: URI): String = {
+    uri.getScheme match {
+      case null   => "file"
+      case scheme => scheme
+    }
   }
 
 }
