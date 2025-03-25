@@ -43,7 +43,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
  
   path0_url 's3://bucket/path/data.csv',
    
-  path1_url 's3://bucket/path/files/*.csv',
+  path1_url 's3://bucket/path/files/*.csv'
 );
 ```
 
@@ -80,6 +80,7 @@ This allows you to create multiple “tables” for a single path definition in 
 ```sql
 path0_url 's3://my-bucket/data/*.csv'
 ```
+
 Would match all CSV files in the data/ folder.
 
 Wildcard resolution is single-level, filtering within a “directory” or prefix.
@@ -137,21 +138,21 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   path0_url 's3://bucket/path/*.csv',
   path0_header 'false',
    
-  path1_url 's3://bucket/path/data2.csv',
+  path1_url 's3://bucket/path/data2.csv'
 );
 ```
 
 ## DAS S3 JSON "json" Options
 
-| Config Key                            | Description                                                                                         | Example |
-|---------------------------------------|-----------------------------------------------------------------------------------------------------|---------|
-| path{i}_multiline                     | Whether a single record can span multiple lines (default: true).                                    |         |
-| path{i}_mode                          | The mode for parsing JSON files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |         |
-| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                              |         |
-| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                    |         |
-| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                        |         |
-| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (optional).                                             |         |
-| path{i}_column_name_of_corrupt_record | Name for field holding corrupt records (optional).                                                  |         |
+| Config Key                            | Description                                                                                                                           | Example |
+|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|---------|
+| path{i}_multiline                     | Whether if it is a normal json (a single record can span multiple lines), or if it is a json-lines file (default: true [normal json]) |         |
+| path{i}_mode                          | The mode for parsing JSON files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE).                                   |         |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                                |         |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                                                      |         |
+| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                                                          |         |
+| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (optional).                                                                               |         |
+| path{i}_column_name_of_corrupt_record | Name for field holding corrupt records (optional).                                                                                    |         |
 
 For example:
 
@@ -170,7 +171,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   path0_allow_comments 'true',
   path0_date_format 'yyyy-MM-d',
    
-  path1_url 'github://owner/repo/branch/files/*.json',
+  path1_url 'github://owner/repo/branch/files/*.json'
 );
 ```
 
@@ -203,21 +204,17 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   path0_row_tag 'artist',
    
   path1_url 's3://bucket/path/data2.xml',
-  path1_row_tag 'item',
+  path1_row_tag 'item'
 );
 ```
 
 ## DAS Parquet "parquet" Options
 
-| Config Key                    | Description                                                                                  | Example                           |
-|-------------------------------|----------------------------------------------------------------------------------------------|-----------------------------------|
-| paths                         | The number of paths to define.                                                               | paths '2'                         |
-| path{i}_url                   | The path or URL to the file.  http:// or https://                                            | path0_url 'https://host/data.csv' |
-| path{i}_name                  | (Optional) The path name as seen in queries. Defaults to a name derived from the file’s URL. | path0_name 'my_path'              |
-| path{i}_*                     | Specific option for path`i` e.g. for csv `path0_header`                                      | path0_header 'true'               |
-| path{i}_merge_schema          | Whether to merge schemas from different files when reading from a directory (optional).      |                                   |
-| path{i}_recursive_file_lookup | Whether to recursively search subdirectories for Parquet files (default false).              |                                   |
-| path{i}_path_glob_filter      | Glob pattern to filter which files to read.                                                  |                                   | 
+| Config Key                    | Description                                                                             | Example |
+|-------------------------------|-----------------------------------------------------------------------------------------|---------|
+| path{i}_merge_schema          | Whether to merge schemas from different files when reading from a directory (optional). |         |
+| path{i}_recursive_file_lookup | Whether to recursively search subdirectories for Parquet files (default false).         |         |
+| path{i}_path_glob_filter      | Glob pattern to filter which files to read.                                             |         | 
 
 For example:
 
