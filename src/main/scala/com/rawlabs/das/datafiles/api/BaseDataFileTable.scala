@@ -17,7 +17,7 @@ import scala.jdk.CollectionConverters._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
-import com.rawlabs.das.datafiles.utils.SparkToDASConverter
+import com.rawlabs.das.datafiles.utils.SparkToDASConverter._
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.das.sdk.{
   DASExecuteResult,
@@ -46,7 +46,6 @@ import com.typesafe.scalalogging.StrictLogging
  */
 abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     extends DASTable
-    with SparkToDASConverter
     with StrictLogging {
 
   private val tableName: String = config.name

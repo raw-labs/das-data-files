@@ -22,13 +22,13 @@ import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
 import com.rawlabs.protocol.das.v1.types._
 
 /**
- * A utility class to help convert Spark DataFrames to DAS tables.
+ * A utility object to help convert Spark DataFrames to DAS tables.
  */
-trait SparkToDASConverter {
+object SparkToDASConverter {
   // -------------------------------------------------------------------
   // qualifier pushdown logic
   // -------------------------------------------------------------------
-  protected def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
+  def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
 
     var result = df
 
@@ -111,7 +111,7 @@ trait SparkToDASConverter {
    *
    * Note: In your proto, you have `bool is_reversed` and `bool nulls_first`.
    */
-  protected def applySortKeys(df: DataFrame, sortKeys: Seq[SortKey]): DataFrame = {
+  def applySortKeys(df: DataFrame, sortKeys: Seq[SortKey]): DataFrame = {
     if (sortKeys.isEmpty) {
       df
     } else {
@@ -146,7 +146,7 @@ trait SparkToDASConverter {
    *   - MapType => (optionally) RecordType
    * Anything unrecognized falls back to a string type by default.
    */
-  protected def sparkTypeToDAS(
+  def sparkTypeToDAS(
       sparkType: org.apache.spark.sql.types.DataType,
       nullable: Boolean): com.rawlabs.protocol.das.v1.types.Type = {
 
@@ -348,7 +348,7 @@ trait SparkToDASConverter {
    *   - optional map => stored as a ValueRecord (or fallback)
    *   - decimal, binary, etc. if you need them
    */
-  protected def sparkValueToProtoValue(rawValue: Any, dasType: Type, colName: String): Value = {
+  def sparkValueToProtoValue(rawValue: Any, dasType: Type, colName: String): Value = {
 
     // 0) Null check
     if (rawValue == null) {
