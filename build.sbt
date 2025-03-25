@@ -11,7 +11,7 @@ lazy val root = (project in file("."))
         ExclusionRule(organization = "com.fasterxml.jackson.databind"),
         ExclusionRule(organization = "com.fasterxml.jackson.core")),
       // spark hadoop dependencies
-      "org.apache.spark" %% "spark-sql" % "3.5.5" ,
+      "org.apache.spark" %% "spark-sql" % "3.5.5" exclude ("org.apache.avro", "avro"),
       "com.databricks" %% "spark-xml" % "0.18.0",
       "org.apache.hadoop" % "hadoop-aws" % "3.4.1" exclude ("io.netty", "netty-handler"),
       "org.apache.hadoop" % "hadoop-common" % "3.4.1" exclude ("org.apache.avro", "avro"),
@@ -34,6 +34,7 @@ lazy val root = (project in file("."))
       "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1" exclude ("org.apache.avro", "avro"),
       "org.apache.avro" % "avro" % "1.11.4",
       "io.netty" % "netty-handler" % "4.1.118.Final",
+      "io.netty" % "netty-handler-proxy" % "4.1.118.Final",
       "org.apache.ivy" % "ivy" % "2.5.2"))
 
 Test / javaOptions ++= Seq(
