@@ -11,10 +11,10 @@ lazy val root = (project in file("."))
         ExclusionRule(organization = "com.fasterxml.jackson.databind"),
         ExclusionRule(organization = "com.fasterxml.jackson.core")),
       // spark hadoop dependencies
-      "org.apache.spark" %% "spark-sql" % "3.5.5" exclude ("org.apache.avro", "avro"),
+      "org.apache.spark" %% "spark-sql" % "3.5.5",
       "com.databricks" %% "spark-xml" % "0.18.0",
-      "org.apache.hadoop" % "hadoop-aws" % "3.4.1" exclude ("io.netty", "netty-handler"),
-      "org.apache.hadoop" % "hadoop-common" % "3.4.1" exclude ("org.apache.avro", "avro"),
+      "org.apache.hadoop" % "hadoop-aws" % "3.4.1",
+      "org.apache.hadoop" % "hadoop-common" % "3.4.1",
       // for github filesystem
       "org.kohsuke" % "github-api" % "1.327" excludeAll (
         ExclusionRule(organization = "org.slf4j"),
@@ -31,10 +31,10 @@ lazy val root = (project in file("."))
     dockerEnvVars += "HADOOP_HOME" -> "/usr/local/hadoop",
     // Override dependencies because of security vulnerabilities
     dependencyOverrides ++= Seq(
-      "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1" exclude ("org.apache.avro", "avro"),
+      "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1",
+      "software.amazon.awssdk" % "bundle" % "2.24.13",
       "org.apache.avro" % "avro" % "1.11.4",
       "io.netty" % "netty-handler" % "4.1.118.Final",
-      "io.netty" % "netty-handler-proxy" % "4.1.118.Final",
       "org.apache.ivy" % "ivy" % "2.5.2"))
 
 Test / javaOptions ++= Seq(
