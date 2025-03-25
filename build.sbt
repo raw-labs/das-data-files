@@ -13,7 +13,9 @@ lazy val root = (project in file("."))
       // spark hadoop dependencies
       "org.apache.spark" %% "spark-sql" % "3.5.5",
       "com.databricks" %% "spark-xml" % "0.18.0",
-      "org.apache.hadoop" % "hadoop-aws" % "3.4.1" exclude ("io.netty", "netty-handler"),
+      "org.apache.hadoop" % "hadoop-aws" % "3.4.1" excludeAll (ExclusionRule(
+        organization = "io.netty",
+        name = "netty-handler")),
       "org.apache.hadoop" % "hadoop-common" % "3.4.1",
       // for github filesystem
       "org.kohsuke" % "github-api" % "1.327" excludeAll (
@@ -35,8 +37,5 @@ lazy val root = (project in file("."))
       // "com.google.protobuf" % "protobuf-java" % "3.25.5",
 
       "org.apache.avro" % "avro" % "1.11.4",
-
       "io.netty" % "netty-handler" % "4.1.118.Final",
-
-      "org.apache.ivy" % "ivy" % "2.5.2",
-    ))
+      "org.apache.ivy" % "ivy" % "2.5.2"))
