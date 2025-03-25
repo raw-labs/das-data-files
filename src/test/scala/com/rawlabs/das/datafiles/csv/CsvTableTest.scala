@@ -30,11 +30,7 @@ import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SimpleQual, SortKey}
 import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueString}
 
-class CsvTableTest
-    extends AnyFlatSpec
-    with Matchers
-    with SparkTestContext
-    with BeforeAndAfterEach {
+class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterEach {
 
   // A small CSV file content for testing
   private val csvContent =

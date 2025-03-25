@@ -12,18 +12,19 @@
 
 package com.rawlabs.das.datafiles.json
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.datafiles.api.DataFilesTableConfig
-import com.rawlabs.das.datafiles.filesystem.FileCacheManager
-import com.rawlabs.protocol.das.v1.query.Qual
+import java.io.File
+import java.net.URI
+
 import org.apache.commons.io.FileUtils
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.File
-import java.net.URI
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.datafiles.api.DataFilesTableConfig
+import com.rawlabs.das.datafiles.filesystem.FileCacheManager
+import com.rawlabs.protocol.das.v1.query.Qual
 
 class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterAll {
 
@@ -124,7 +125,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
 
     result.hasNext shouldBe false
   }
-  
+
   it should "allow comments in JSON if allow_comments=true" in {
     val withComments =
       """[
@@ -145,7 +146,7 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJsonComments",
       uri = new URI("file://mocked.com/comments.json"),
       format = Some("json"),
-      options = Map( "allow_comments" -> "true"),
+      options = Map("allow_comments" -> "true"),
       fileCacheManager = mockCacheManager)
 
     val table = new JsonTable(config, spark)

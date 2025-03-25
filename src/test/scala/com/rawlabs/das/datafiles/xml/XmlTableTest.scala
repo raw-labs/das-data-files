@@ -58,8 +58,7 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       name = "testXml",
       format = Some("xml"),
       options = Map("row_tag" -> "row"),
-      fileCacheManager = mockCacheManager
-    )
+      fileCacheManager = mockCacheManager)
 
     val table = new XmlTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
@@ -104,13 +103,8 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       uri = new URI("file://mocked/attrs.xml"),
       name = "testXmlAttrs",
       format = Some("xml"),
-      options = Map(
-        "row_tag" -> "person",
-        "attribute_prefix" -> "@",
-        "root_tag" -> "people"
-      ),
-      fileCacheManager = mockCacheManager
-    )
+      options = Map("row_tag" -> "person", "attribute_prefix" -> "@", "root_tag" -> "people"),
+      fileCacheManager = mockCacheManager)
 
     val table = new XmlTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
@@ -144,12 +138,8 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       uri = new URI("file://mocked/empty.xml"),
       name = "testXmlEmptyAsNull",
       format = Some("xml"),
-      options = Map(
-        "row_tag" -> "item",
-        "treat_empty_values_as_nulls" -> "true"
-      ),
-      fileCacheManager = mockCacheManager
-    )
+      options = Map("row_tag" -> "item", "treat_empty_values_as_nulls" -> "true"),
+      fileCacheManager = mockCacheManager)
 
     val table = new XmlTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
@@ -179,12 +169,8 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       uri = new URI("file://mocked/spaces.xml"),
       name = "testXmlSpaces",
       format = Some("xml"),
-      options = Map(
-        "row_tag" -> "thing",
-        "ignore_surrounding_spaces" -> "true"
-      ),
-      fileCacheManager = mockCacheManager
-    )
+      options = Map("row_tag" -> "thing", "ignore_surrounding_spaces" -> "true"),
+      fileCacheManager = mockCacheManager)
 
     val table = new XmlTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
