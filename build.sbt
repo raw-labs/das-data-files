@@ -39,3 +39,10 @@ lazy val root = (project in file("."))
       "org.apache.avro" % "avro" % "1.11.4",
       "io.netty" % "netty-handler" % "4.1.118.Final",
       "org.apache.ivy" % "ivy" % "2.5.2"))
+
+Test / javaOptions ++= Seq(
+  "--add-opens=java.base/java.io=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+)
+
