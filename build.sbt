@@ -33,7 +33,7 @@ lazy val root = (project in file("."))
       "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1" exclude ("org.apache.avro", "avro"),
 
       // Protobuf (CVE-2021-22569, CVE-2022-3509, CVE-2024-7254, etc.)
-      "com.google.protobuf" % "protobuf-java" % "3.25.5",
+      "com.google.protobuf" % "protobuf-java" % "3.25.5"
 
       // Nimbus JOSE+JWT (CVE-2023-52428)
 //      "com.nimbusds" % "nimbus-jose-jwt" % "9.37.2",
@@ -54,5 +54,5 @@ lazy val root = (project in file("."))
 //      "org.apache.avro" % "avro" % "1.12.0",
 //
 //      // Apache Ivy (CVE-2022-46751)
-//      "org.apache.ivy" % "ivy" % "2.5.3")
-  )
+//      "org.apache.ivy" % "ivy" % "2.5.3"
+    ))

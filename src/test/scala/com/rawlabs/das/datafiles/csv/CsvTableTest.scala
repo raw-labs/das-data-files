@@ -32,13 +32,13 @@ import com.rawlabs.protocol.das.v1.types.{Value, ValueInt, ValueNull, ValueStrin
 
 class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with BeforeAndAfterEach {
 
-  // A small CSV file content for testing
+  // A small CSV content for a baseline test
   private val csvContent =
-    """id,name
-      |1,Alice
-      |2,Bob
-      |3,
-      |4,alice
+    """id,name,date
+      |1,Alice,2025-01-01
+      |2,Bob,2025-01-02
+      |3,,2025-01-03
+      |4,alice,2025-01-04
       |""".stripMargin
 
   // We'll create a local temp CSV file that the "HTTP" mock will return
