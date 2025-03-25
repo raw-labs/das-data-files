@@ -360,8 +360,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     // Create a config that includes "ignore_leading_white_space" -> "true"
     val config = baseConfig.copy(
       uri = new URI("file://mocked.com/leading_ws.csv"),
-      options = baseConfig.options ++ Map("ignore_leading_white_space" -> "true")
-    )
+      options = baseConfig.options ++ Map("ignore_leading_white_space" -> "true"))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/leading_ws.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 
@@ -389,8 +388,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
 
     val config = baseConfig.copy(
       uri = new URI("file://mocked.com/trailing_ws.csv"),
-      options = baseConfig.options ++ Map("ignore_trailing_whiteSpace" -> "true")
-    )
+      options = baseConfig.options ++ Map("ignore_trailing_whiteSpace" -> "true"))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/trailing_ws.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 
@@ -420,8 +418,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     // Suppose "NULL" text in CSV is actually null
     val config = baseConfig.copy(
       uri = new URI("file://mocked.com/null_val.csv"),
-      options = baseConfig.options ++ Map("null_value" -> "NULL")
-    )
+      options = baseConfig.options ++ Map("null_value" -> "NULL"))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/null_val.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 
@@ -450,8 +447,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     // Suppose "NaNSTR" is recognized as NaN
     val config = baseConfig.copy(
       uri = new URI("file://mocked.com/nan_val.csv"),
-      options = baseConfig.options ++ Map("nan_value" -> "NaNSTR", "inferSchema" -> "true")
-    )
+      options = baseConfig.options ++ Map("nan_value" -> "NaNSTR", "inferSchema" -> "true"))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/nan_val.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 
@@ -480,11 +476,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
 
     val config = baseConfig.copy(
       uri = new URI("file://mocked.com/pos_inf.csv"),
-      options = baseConfig.options ++ Map(
-        "positive_inf" -> "POS_INF",
-        "inferSchema" -> "true"
-      )
-    )
+      options = baseConfig.options ++ Map("positive_inf" -> "POS_INF", "inferSchema" -> "true"))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/pos_inf.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 
@@ -515,11 +507,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
 
     val config = baseConfig.copy(
       uri = new URI("file://mocked.com/neg_inf.csv"),
-      options = baseConfig.options ++ Map(
-        "negative_inf" -> "-INFSTR",
-        "inferSchema" -> "true"
-      )
-    )
+      options = baseConfig.options ++ Map("negative_inf" -> "-INFSTR", "inferSchema" -> "true"))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/neg_inf.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 
@@ -540,7 +528,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     // sample doesn't see certain columns. For demonstration, let's create a CSV
     // with some rows missing columns, etc.
     val content =
-    """colA,colB
+      """colA,colB
       |10,
       |20,hello
       |30,
@@ -556,8 +544,7 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
       options = baseConfig.options ++ Map(
         "inferSchema" -> "true",
         "sampling_ratio" -> "0.3" // Only 30% of rows => might see "colB" sometimes
-      )
-    )
+      ))
     when(mockCacheManager.getLocalPathForUrl("file://mocked.com/sampling_ratio.csv"))
       .thenReturn(Right(f.getAbsolutePath))
 

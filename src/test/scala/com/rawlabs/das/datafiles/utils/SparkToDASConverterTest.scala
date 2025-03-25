@@ -12,15 +12,15 @@
 
 package com.rawlabs.das.datafiles.utils
 
-import org.apache.spark.sql.{Row, SparkSession}
-import org.apache.spark.sql.{types => sparkTypes}
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.{SparkSession, types => sparkTypes}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.protocol.das.v1.query._
 import com.rawlabs.protocol.das.v1.types.Value.ValueCase
 import com.rawlabs.protocol.das.v1.{types => dasTypes}
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 
 /**
  * Unit tests for SparkToDASConverter object methods: 1) applyQuals 2) applySortKeys 3) sparkTypeToDAS 4)
@@ -166,7 +166,6 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers {
     dasMap.hasRecord shouldBe true
     dasMap.getRecord.getAttsCount shouldBe 2 // "keys" and "values"
   }
-
 
   // --------------------------------------------------------------------------
   // 4) sparkValueToProtoValue
