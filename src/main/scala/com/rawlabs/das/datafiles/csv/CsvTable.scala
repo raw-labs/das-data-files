@@ -37,10 +37,19 @@ class CsvTable(config: DataFilesTableConfig, sparkSession: SparkSession)
           "delimiter" -> "delimiter", // The character used to separate fields (default: comma).
           "quote" -> "quote", // The character used for quoting strings (default: double quote).
           "escape" -> "escape", // The character used to escape quotes inside quoted fields.
+          "comment" -> "comment", // The character used to indicate a comment line.
           "multiline" -> "multiLine", // Whether a single record can span multiple lines.
           "mode" -> "mode", // How to handle corrupt lines: PERMISSIVE, DROPMALFORMED, or FAILFAST.
           "date_format" -> "dateFormat", // Custom date format to parse date columns.
-          "timestamp_format" -> "timestampFormat" // Custom timestamp format to parse timestamp columns.
+          "timestamp_format" -> "timestampFormat", // Custom timestamp format to parse timestamp columns.
+          "ignore_leading_white_space" -> "ignoreLeadingWhiteSpace", // Ignore leading whitespaces in CSV fields.
+          "ignore_trailing_whiteSpace" -> "ignoreTrailingWhiteSpace", // Ignore leading whitespaces in CSV fields.
+          "null_value" -> "nullValue", // The string representation of a null value.
+          "nan_value" -> "nanValue", // The string representation of a NaN value.
+          "positive_inf" -> "positiveInf", // The string representation of a positive infinity value.
+          "negative_inf" -> "negativeInf", // The string representation of a negative infinity value.
+          "sampling_ratio" -> "samplingRatio", // Fraction of input JSON objects used for schema inferring.
+          "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
         ))
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {

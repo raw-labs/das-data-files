@@ -15,6 +15,8 @@ package com.rawlabs.das.datafiles.json
 import java.io.File
 import java.net.URI
 
+import scala.jdk.CollectionConverters.CollectionHasAsScala
+
 import org.apache.commons.io.FileUtils
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
@@ -215,4 +217,77 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
     val fieldNames = row2.getColumnsList
     fieldNames.toString should include("_corrupt_data")
   }
+
+  it should "infer all primitive values as strings if primitives_as_string = true" in {
+    // We'll create a JSON lines file with int, float, boolean, etc.
+    val multiTypeJson =
+      """{"intVal":123, "floatVal":3.14, "boolVal":true}
+        |{"intVal":999, "floatVal":2.71828, "boolVal":false}""".stripMargin
+
+    val f = File.createTempFile("testData-primitives-", ".json")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, multiTypeJson, "UTF-8")
+
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/primitives.json"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val config = DataFilesTableConfig(
+      name = "testJsonPrimitivesAsString",
+      uri = new URI("file://mocked.com/primitives.json"),
+      format = Some("json"),
+      options = Map(
+        "multiLine" -> "false",
+        "primitives_as_string" -> "true" // Our new option
+      ),
+      fileCacheManager = mockCacheManager)
+
+    val table = new JsonTable(config, spark)
+    val result = table.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    rows.size shouldBe 2
+
+    // If primitives_as_string took effect, Spark sees "intVal", "floatVal", "boolVal" as strings
+    // e.g. "123", "3.14", "true"
+    val row1 = rows.head
+    row1.getColumnsList.asScala.map(x => (x.getName, x.getData.getString.getV)).toMap shouldBe Map(
+      "intVal" -> "123",
+      "floatVal" -> "3.14",
+      "boolVal" -> "true")
+  }
+
+  it should "allow unquoted field names if allow_unquoted_field_names = true" in {
+    // We'll create JSON lines with unquoted field names: e.g.  { foo:123 }
+    val unquotedJson =
+      """{ foo: 10, bar:true }
+        |{ foo: 20, bar:false }""".stripMargin
+
+    val f = File.createTempFile("testData-unquoted-", ".json")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, unquotedJson, "UTF-8")
+
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/unquoted.json"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val config = DataFilesTableConfig(
+      name = "testJsonUnquoted",
+      uri = new URI("file://mocked.com/unquoted.json"),
+      format = Some("json"),
+      options = Map("multiLine" -> "false", "allow_unquoted_field_names" -> "true"),
+      fileCacheManager = mockCacheManager)
+
+    val table = new JsonTable(config, spark)
+    val result = table.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+
+    rows.size shouldBe 2
+    // Now Spark should parse them as valid fields "foo", "bar" (both unquoted)
+    val row1 = rows.head
+    row1.getColumnsList.asScala.map { x =>
+      x.getName match {
+        case "foo" => x.getName -> x.getData.getLong.getV
+        case "bar" => x.getName -> x.getData.getBool.getV
+      }
+    }.toMap shouldBe Map("foo" -> 10, "bar" -> true)
+  }
+
 }

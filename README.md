@@ -109,16 +109,24 @@ different folders,
 
 ## DAS CSV "csv" Options
 
-| Config Key               | Description                                                                                        | Example                                     |
-|--------------------------|----------------------------------------------------------------------------------------------------|---------------------------------------------|
-| path{i}_header           | Whether the first line is a header row (default: true).                                            | path0_header 'true'                         |
-| path{i}_delimiter        | Field delimiter character (default: ,)                                                             | path0_delimiter ','                         |
-| path{i}_quote            | Quote character for enclosed fields (default: ").                                                  | path0_quote '"'                             |
-| path{i}_escape           | Escape character for quotes inside quoted fields (default: \\).                                    | path0_escape '\\'                           |
-| path{i}_multiline        | Whether a single record can span multiple lines (default: false).                                  | path0_delimiter ','                         |
-| path{i}_mode             | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | path0_mode 'PERMISSIVE'                     |
-| path{i}_date_format      | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | path0_date_format 'yyyy-MM-d'               |
-| path{i}_timestamp_format | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | path0_date_format 'yyyy-MM-dd''T''HH:mm:ss' |
+| Config Key                            | Description                                                                                        | Example                                     |
+|---------------------------------------|----------------------------------------------------------------------------------------------------|---------------------------------------------|
+| path{i}_header                        | Whether the first line is a header row (default: true).                                            | path0_header 'true'                         |
+| path{i}_delimiter                     | Field delimiter character (default: ,)                                                             | path0_delimiter ','                         |
+| path{i}_quote                         | Quote character for enclosed fields (default: ").                                                  | path0_quote '"'                             |
+| path{i}_escape                        | Escape character for quotes inside quoted fields (default: \\).                                    | path0_escape '\\'                           |
+| path{i}_multiline                     | Whether a single record can span multiple lines (default: false).                                  | path0_delimiter ','                         |
+| path{i}_mode                          | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | path0_mode 'PERMISSIVE'                     |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | path0_date_format 'yyyy-MM-d'               |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | path0_date_format 'yyyy-MM-dd''T''HH:mm:ss' |
+| path{i}_ignore_leading_white_space    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                             |
+| path{i}_ignore_trailing_whiteSpace    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                             |
+| path{i}_null_value                    | The string representation of a null value. (default: empty string "")                              | path0_null_value 'null'                     |
+| path{i}_nan_value                     | The string representation of a NaN value. (default NaN)                                            |                                             |
+| path{i}_positive_inf                  | The string representation of a positive infinity value. (default: Inf)                             |                                             |
+| path{i}_negative_inf                  | The string representation of a negative infinity value. (default -Inf)                             |                                             |
+| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1.0)                            | path0_sampling_ratio '0.1'                  |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)        |                                             |
 
 For example:
 
@@ -151,8 +159,10 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 | path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                                |         |
 | path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                                                      |         |
 | path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                                                          |         |
-| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (optional).                                                                               |         |
-| path{i}_column_name_of_corrupt_record | Name for field holding corrupt records (optional).                                                                                    |         |
+| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (default: false).                                                                         |         |
+| path{i}_allow_unquoted_field_names    | Allows unquoted JSON field names. (default: false)                                                                                    |         |
+| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1)                                                                 |         |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)                                           |         |
 
 For example:
 

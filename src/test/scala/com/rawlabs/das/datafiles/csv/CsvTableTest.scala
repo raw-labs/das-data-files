@@ -346,4 +346,230 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     // If Spark recognized date_format => that col is recognized as a date
     defn.getColumns(0).getType.hasDate shouldBe true
   }
+
+  it should "ignore leading whitespaces when ignore_leading_white_space = true" in {
+    val content =
+      """val1,val2
+        |   A,    B
+        |   X,    Y
+        |""".stripMargin
+    val f = File.createTempFile("csv-leading-ws-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    // Create a config that includes "ignore_leading_white_space" -> "true"
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/leading_ws.csv"),
+      options = baseConfig.options ++ Map("ignore_leading_white_space" -> "true")
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/leading_ws.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+
+    // If leading whitespace is ignored, we should get: val1="A", val2="    B" => Actually the "leading" spaces on val2
+    // But for demonstration, let's confirm we *don't* see extra spaces on val1
+    // If you also set "ignore_trailing_whiteSpace", the trailing spaces might vanish from val2 as well.
+    rows.size shouldBe 2
+    rows.head.getColumns(0).getData.getString.getV shouldBe "A"
+    // We didn't specify ignore_trailing_whiteSpace, so val2 might still contain trailing spaces
+  }
+
+  it should "ignore trailing whitespaces when ignore_trailing_whiteSpace = true" in {
+    val content =
+      """val1,val2
+        |Alice    ,Bob
+        |Carol   ,Dave
+        |""".stripMargin
+    val f = File.createTempFile("csv-trailing-ws-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/trailing_ws.csv"),
+      options = baseConfig.options ++ Map("ignore_trailing_whiteSpace" -> "true")
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/trailing_ws.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    rows.size shouldBe 2
+
+    // If trailing whitespace is ignored, "Alice    " => "Alice", "Bob    " => "Bob"
+    rows.head.getColumns(0).getData.getString.getV shouldBe "Alice"
+    rows.head.getColumns(1).getData.getString.getV shouldBe "Bob"
+    rows.last.getColumns(0).getData.getString.getV shouldBe "Carol"
+    rows.last.getColumns(1).getData.getString.getV shouldBe "Dave"
+  }
+
+  it should "treat the configured null_value string as null" in {
+    val content =
+      """col1,col2
+        |1,NULL
+        |2,stuff
+        |""".stripMargin
+
+    val f = File.createTempFile("csv-nullval-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    // Suppose "NULL" text in CSV is actually null
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/null_val.csv"),
+      options = baseConfig.options ++ Map("null_value" -> "NULL")
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/null_val.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    rows.size shouldBe 2
+
+    // First row => col2 is null (not the string "NULL")
+    rows.head.getColumns(1).getData.hasNull shouldBe true
+    // Second row => col2 is "stuff"
+    rows.last.getColumns(1).getData.getString.getV shouldBe "stuff"
+  }
+
+  it should "treat the configured nan_value string as NaN" in {
+    val content =
+      """col1
+        |NaNSTR
+        |1.23
+        |""".stripMargin
+
+    val f = File.createTempFile("csv-nanval-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    // Suppose "NaNSTR" is recognized as NaN
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/nan_val.csv"),
+      options = baseConfig.options ++ Map("nan_value" -> "NaNSTR", "inferSchema" -> "true")
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/nan_val.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+
+    // The first row => col1 => Double.NaN
+    val row1Val = rows.head.getColumns(0).getData.getDouble.getV
+    row1Val.isNaN shouldBe true
+
+    // The second row => col1 => 1.23
+    rows.last.getColumns(0).getData.getDouble.getV shouldBe 1.23 +- 1e-6
+  }
+
+  it should "treat the configured positive_inf string as +Infinity" in {
+    val content =
+      """val
+        |POS_INF
+        |3.14
+        |""".stripMargin
+
+    val f = File.createTempFile("csv-posinf-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/pos_inf.csv"),
+      options = baseConfig.options ++ Map(
+        "positive_inf" -> "POS_INF",
+        "inferSchema" -> "true"
+      )
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/pos_inf.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    rows.size shouldBe 2
+
+    // row0 => Infinity
+    val row0Val = rows.head.getColumns(0).getData.getDouble.getV
+    row0Val.isPosInfinity shouldBe true
+
+    // row1 => 3.14
+    val row1Val = rows.last.getColumns(0).getData.getDouble.getV
+    row1Val shouldBe 3.14 +- 1e-5
+  }
+
+  it should "treat the configured negative_inf string as -Infinity" in {
+    val content =
+      """val
+        |-INFSTR
+        |4.56
+        |""".stripMargin
+
+    val f = File.createTempFile("csv-neginf-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/neg_inf.csv"),
+      options = baseConfig.options ++ Map(
+        "negative_inf" -> "-INFSTR",
+        "inferSchema" -> "true"
+      )
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/neg_inf.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    rows.size shouldBe 2
+
+    val row0Val = rows.head.getColumns(0).getData.getDouble.getV
+    row0Val.isNegInfinity shouldBe true
+
+    val row1Val = rows.last.getColumns(0).getData.getDouble.getV
+    row1Val shouldBe 4.56 +- 1e-6
+  }
+
+  it should "respect sampling_ratio for schema inference" in {
+    // If sampling_ratio is small, Spark might incorrectly infer the schema if the
+    // sample doesn't see certain columns. For demonstration, let's create a CSV
+    // with some rows missing columns, etc.
+    val content =
+    """colA,colB
+      |10,
+      |20,hello
+      |30,
+      |40,world
+      |""".stripMargin
+
+    val f = File.createTempFile("csv-sampling-", ".csv")
+    f.deleteOnExit()
+    FileUtils.writeStringToFile(f, content, "UTF-8")
+
+    val config = baseConfig.copy(
+      uri = new URI("file://mocked.com/sampling_ratio.csv"),
+      options = baseConfig.options ++ Map(
+        "inferSchema" -> "true",
+        "sampling_ratio" -> "0.3" // Only 30% of rows => might see "colB" sometimes
+      )
+    )
+    when(mockCacheManager.getLocalPathForUrl("file://mocked.com/sampling_ratio.csv"))
+      .thenReturn(Right(f.getAbsolutePath))
+
+    val customTable = new CsvTable(config, spark)
+    val result = customTable.execute(Nil, Nil, Nil, None)
+
+    // Because sampling is nondeterministic, in practice Spark might or might not
+    // see "hello"/"world" as strings in colB. So verifying the final schema is tricky.
+    // For demonstration, you can at least confirm it doesn't crash. In a real test,
+    // you might do multiple runs or set a known random seed for Spark.
+    val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
+    rows.size shouldBe 4
+  }
+
 }

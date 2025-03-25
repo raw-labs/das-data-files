@@ -32,10 +32,8 @@ lazy val root = (project in file("."))
     // Override dependencies because of security vulnerabilities
     dependencyOverrides ++= Seq(
       "org.apache.hadoop" % "hadoop-client-runtime" % "3.4.1",
-      "software.amazon.awssdk" % "bundle" % "2.24.13",
       "org.apache.avro" % "avro" % "1.11.4",
-      "io.netty" % "netty-handler" % "4.1.118.Final",
-      "org.apache.ivy" % "ivy" % "2.5.2"))
+      "io.netty" % "netty-handler" % "4.1.118.Final"))
 
 Test / javaOptions ++= Seq(
   "--add-opens=java.base/java.io=ALL-UNNAMED",

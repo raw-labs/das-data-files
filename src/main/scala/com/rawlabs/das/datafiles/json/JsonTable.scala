@@ -36,6 +36,9 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
           "timestamp_format" -> "timestampFormat", // Custom timestamp format for parsing timestamps.
           "allow_comments" -> "allowComments", // Whether to allow comments in the JSON file.
           "drop_field_if_all_null" -> "dropFieldIfAllNull", // Whether to drop fields that are always null.
+          "primitives_as_string" -> "primitivesAsString", // Infers all primitive values as a string type.
+          "allow_unquoted_field_names" -> "allowUnquotedFieldNames", // Allows unquoted JSON field names.
+          "sampling_ratio" -> "samplingRatio", // Fraction of input JSON objects used for schema inferring.
           "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
         ))
 
