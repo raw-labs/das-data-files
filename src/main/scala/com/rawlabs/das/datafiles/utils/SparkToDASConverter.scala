@@ -28,13 +28,13 @@ import com.rawlabs.protocol.das.v1.types.Value.ValueCase
 import com.rawlabs.protocol.das.v1.types._
 
 /**
- * A utility object to help convert Spark DataFrames to DAS tables.
+ * Utility object for converting Spark DataFrames to DAS tables.
  *
  * This object provides functions to:
- *   - Apply filtering (qualifiers) to DataFrames.
- *   - Convert Spark values to DAS protocol values.
- *   - Convert Spark SQL types to DAS types.
- *   - Apply sort keys to DataFrames.
+ *   - Apply filter qualifiers to DataFrames.
+ *   - Convert Spark values into DAS protocol values.
+ *   - Map Spark SQL types to DAS types.
+ *   - Apply sorting based on DAS sort keys.
  */
 object SparkToDASConverter {
 
@@ -43,15 +43,16 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
 
   /**
-   * Applies a sequence of qualifiers to the provided DataFrame.
+   * Applies a sequence of DAS qualifiers to the given DataFrame.
    *
-   * This function iterates over a sequence of DAS qualifiers and applies them as filters on the Spark DataFrame. It
-   * supports SIMPLE_QUAL, IS_ALL_QUAL, and IS_ANY_QUAL qualifiers.
+   * Iterates over each qualifier and applies the corresponding Spark filter. Supported qualifier types are SIMPLE_QUAL,
+   * IS_ALL_QUAL, and IS_ANY_QUAL. If a qualifier cannot be applied (for example, if the operator is unsupported for
+   * filtering or the qualifier value list is empty), the method sets a flag indicating that not all qualifiers were
+   * fully applied.
    *
-   * @param df The input DataFrame to which the qualifiers will be applied.
-   * @param quals A sequence of qualifiers specifying filtering conditions.
-   * @return A tuple where the first element is the filtered DataFrame and the second is a Boolean flag indicating
-   *   whether all qualifiers were successfully applied.
+   * @param df The DataFrame to filter.
+   * @param quals A sequence of DAS qualifiers defining the filtering conditions.
+   * @return A tuple containing the filtered DataFrame and a Boolean flag that is true if all qualifiers were applied.
    */
   def applyQuals(df: DataFrame, quals: Seq[Qual]): (DataFrame, Boolean) = {
     var allApplied = true
@@ -72,13 +73,12 @@ object SparkToDASConverter {
         case QualCase.IS_ALL_QUAL =>
           val isAll = q.getIsAllQual
           val values = isAll.getValuesList.asScala.map(protoValueToSparkValue)
-          // If no values, then we cannot apply the filter.
+          // If no values are provided, then the qualifier cannot be applied.
           if (values.isEmpty) {
             allApplied = false
           } else {
-            val conditions = values
-              .map(value => buildFilterCondition(filterCol, isAll.getOperator, value))
-            // If any condition is not supported, mark as not fully applied.
+            val conditions = values.map(value => buildFilterCondition(filterCol, isAll.getOperator, value))
+            // If any condition is unsupported, mark the qualifier as not fully applied.
             if (conditions.contains(None)) {
               allApplied = false
             } else {
@@ -89,13 +89,12 @@ object SparkToDASConverter {
         case QualCase.IS_ANY_QUAL =>
           val isAny = q.getIsAnyQual
           val values = isAny.getValuesList.asScala.map(protoValueToSparkValue)
-          // If no values, then we cannot apply the filter.
+          // If no values are provided, then the qualifier cannot be applied.
           if (values.isEmpty) {
             allApplied = false
           } else {
-            val conditions = values
-              .map(value => buildFilterCondition(filterCol, isAny.getOperator, value))
-            // If any condition is not supported, mark as not fully applied.
+            val conditions = values.map(value => buildFilterCondition(filterCol, isAny.getOperator, value))
+            // If any condition is unsupported, mark the qualifier as not fully applied.
             if (conditions.contains(None)) {
               allApplied = false
             } else {
@@ -111,15 +110,15 @@ object SparkToDASConverter {
   }
 
   /**
-   * Builds a Spark filter condition based on the column, operator, and typed value.
+   * Constructs a Spark filter condition from a given column, operator, and value.
    *
-   * This helper function maps a DAS operator to a corresponding Spark SQL Column condition.
+   * Maps a DAS operator (e.g., EQUALS, LESS_THAN) to a corresponding Spark SQL condition. For operators that are not
+   * meaningful for filtering (e.g., arithmetic or logical operators), this method returns None.
    *
-   * @param filterCol The Spark Column on which the filter will be applied.
-   * @param op The operator to use for comparison (e.g., EQUALS, LESS_THAN).
-   * @param typedValue The value to compare against, converted to a native Scala/Java type.
-   * @return An Option containing a SparkColumn representing the filter condition, or None if the operator does not
-   *   support filtering.
+   * @param filterCol The Spark column on which the condition will be applied.
+   * @param op The DAS operator used for comparison.
+   * @param typedValue The value to compare against, in a native Scala/Java type.
+   * @return Some(SparkColumn) representing the filter condition, or None if the operator is unsupported.
    */
   private def buildFilterCondition(filterCol: SparkColumn, op: Operator, typedValue: Any): Option[SparkColumn] = {
     op match {
@@ -147,7 +146,7 @@ object SparkToDASConverter {
         Some(lower(filterCol).like(typedValue.toString.toLowerCase))
       case Operator.NOT_ILIKE =>
         Some(not(lower(filterCol).like(typedValue.toString.toLowerCase)))
-      // These operators are supported by Spark but do not make sense to use as filters.
+      // Unsupported operators for filtering.
       case Operator.PLUS         => None
       case Operator.MINUS        => None
       case Operator.TIMES        => None
@@ -164,21 +163,21 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
 
   /**
-   * Applies sorting to a DataFrame based on the provided sort keys.
+   * Applies sorting to a DataFrame based on a sequence of DAS sort keys.
    *
-   * For each SortKey, this function constructs a Spark Column with ascending or descending order, as well as optional
-   * null ordering (nulls first/last).
+   * For each sort key, a Spark Column is constructed to specify the ordering (ascending or descending) along with the
+   * desired null ordering (nulls first or last).
    *
    * @param df The DataFrame to be sorted.
-   * @param sortKeys A sequence of sort keys defining the column name, sort order, and null ordering.
-   * @return The DataFrame sorted according to the specified sort keys.
+   * @param sortKeys A sequence of sort keys defining the sort order for each column.
+   * @return The sorted DataFrame.
    */
   def applySortKeys(df: DataFrame, sortKeys: Seq[SortKey]): DataFrame = {
     if (sortKeys.isEmpty) {
       df
     } else {
       val sortCols: Seq[SparkColumn] = sortKeys.map { sk =>
-        // Determine sort order and null handling based on the sort key attributes.
+        // Choose the appropriate sort function based on the sort key attributes.
         if (sk.getIsReversed && sk.getNullsFirst) {
           df.col(sk.getName).desc_nulls_first
         } else if (sk.getIsReversed && !sk.getNullsFirst) {
@@ -198,18 +197,17 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
 
   /**
-   * Converts a DAS protocol Value to a corresponding Spark native value.
+   * Converts a DAS protocol Value into its corresponding native Spark value.
    *
-   * Supports various value cases such as:
-   *   - NULL
-   *   - BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, DECIMAL, BOOL, STRING
-   *   - BINARY: converts to a byte array
-   *   - DATE: converts to java.sql.Date
-   *   - TIME: converts to java.sql.Time
-   *   - TIMESTAMP: converts to java.sql.Timestamp
-   *   - INTERVAL: converts to a Spark CalendarInterval
-   *   - RECORD: converts to a Map[String, Any]
-   *   - LIST: converts to a Seq[Any]
+   * Handles conversion for the following DAS value cases:
+   *   - NULL, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, DECIMAL, BOOL, STRING
+   *   - BINARY: converted to a byte array.
+   *   - DATE: converted to a java.sql.Date.
+   *   - TIME: converted to a java.sql.Time.
+   *   - TIMESTAMP: converted to a java.sql.Timestamp.
+   *   - INTERVAL: converted to a Spark CalendarInterval.
+   *   - RECORD: converted to a Map[String, Any].
+   *   - LIST: converted to a Seq[Any].
    *
    * @param value The DAS protocol Value to convert.
    * @return A native Scala/Java value suitable for use in Spark DataFrames.
@@ -237,7 +235,7 @@ object SparkToDASConverter {
         java.sql.Time.valueOf(localTime)
       case ValueCase.TIMESTAMP =>
         val tsVal = value.getTimestamp
-        // Construct a LocalDateTime from the timestamp components.
+        // Construct a LocalDateTime from timestamp components.
         val localDateTime = LocalDateTime.of(
           tsVal.getYear,
           tsVal.getMonth,
@@ -246,22 +244,20 @@ object SparkToDASConverter {
           tsVal.getMinute,
           tsVal.getSecond,
           tsVal.getNano)
-        // Convert LocalDateTime to java.sql.Timestamp.
         java.sql.Timestamp.valueOf(localDateTime)
       case ValueCase.INTERVAL =>
         val intervalVal = value.getInterval
-        // Convert years and months to a total month count.
+        // Convert years and months into total months.
         val totalMonths = intervalVal.getYears * 12 + intervalVal.getMonths
         // Days are used directly.
         val days = intervalVal.getDays
         // Convert hours, minutes, seconds, and microseconds to total microseconds.
         val totalMicros = {
-          val hoursMicros = intervalVal.getHours.toLong * 3_600_000_000L // 3600 sec/hr * 1,000,000 µs/sec
-          val minutesMicros = intervalVal.getMinutes.toLong * 60_000_000L // 60 sec/min * 1,000,000 µs/sec
+          val hoursMicros = intervalVal.getHours.toLong * 3_600_000_000L
+          val minutesMicros = intervalVal.getMinutes.toLong * 60_000_000L
           val secondsMicros = intervalVal.getSeconds.toLong * 1_000_000L
           hoursMicros + minutesMicros + secondsMicros + intervalVal.getMicros
         }
-        // Build and return a Spark CalendarInterval.
         new CalendarInterval(totalMonths, days, totalMicros)
       case ValueCase.RECORD =>
         val record = value.getRecord.getAttsList.asScala
@@ -281,20 +277,20 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
 
   /**
-   * Converts a Spark SQL DataType to a corresponding DAS type.
+   * Converts a Spark SQL DataType into a corresponding DAS type.
    *
-   * Supports:
-   *   - Basic primitives: Byte, Short, Int, Long, Float, Double, Boolean, String
-   *   - DecimalType (converted to DAS Decimal)
-   *   - DateType (converted to DAS Date)
-   *   - TimestampType (converted to DAS Timestamp)
-   *   - BinaryType (converted to DAS Binary)
-   *   - ArrayType (converted to DAS ListType)
-   *   - StructType (converted to DAS RecordType)
-   *   - MapType (converted to a DAS RecordType with "keys" and "values" fields)
+   * Supported mappings include:
+   *   - Basic primitives: Byte, Short, Int, Long, Float, Double, Boolean, String.
+   *   - DecimalType mapped to DAS Decimal.
+   *   - DateType mapped to DAS Date.
+   *   - TimestampType mapped to DAS Timestamp.
+   *   - BinaryType mapped to DAS Binary.
+   *   - ArrayType mapped to DAS ListType.
+   *   - StructType mapped to DAS RecordType.
+   *   - MapType mapped to a DAS RecordType with "keys" and "values" fields.
    *
    * @param sparkType The Spark SQL DataType to convert.
-   * @param nullable Indicates if the field is nullable.
+   * @param nullable Indicates whether the field is nullable.
    * @return The corresponding DAS type.
    * @throws DASSdkInvalidArgumentException if the Spark type is unsupported.
    */
@@ -306,151 +302,76 @@ object SparkToDASConverter {
 
     sparkType match {
       case sparkTypes.ByteType =>
-        DasType
-          .newBuilder()
-          .setByte(ByteType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setByte(ByteType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.ShortType =>
-        DasType
-          .newBuilder()
-          .setShort(ShortType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setShort(ShortType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.IntegerType =>
-        DasType
-          .newBuilder()
-          .setInt(IntType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setInt(IntType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.LongType =>
-        DasType
-          .newBuilder()
-          .setLong(LongType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setLong(LongType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.FloatType =>
-        DasType
-          .newBuilder()
-          .setFloat(FloatType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setFloat(FloatType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.DoubleType =>
-        DasType
-          .newBuilder()
-          .setDouble(DoubleType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setDouble(DoubleType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.BooleanType =>
-        DasType
-          .newBuilder()
-          .setBool(BoolType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setBool(BoolType.newBuilder().setNullable(nullable)).build()
       case _: sparkTypes.DecimalType =>
-        DasType
-          .newBuilder()
-          .setDecimal(DecimalType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setDecimal(DecimalType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.StringType =>
-        DasType
-          .newBuilder()
-          .setString(StringType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setString(StringType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.DateType =>
-        DasType
-          .newBuilder()
-          .setDate(DateType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setDate(DateType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.TimestampType =>
-        DasType
-          .newBuilder()
-          .setTimestamp(TimestampType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setTimestamp(TimestampType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.BinaryType =>
-        DasType
-          .newBuilder()
-          .setBinary(BinaryType.newBuilder().setNullable(nullable))
-          .build()
+        DasType.newBuilder().setBinary(BinaryType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.ArrayType(elementType, elementContainsNull) =>
         val elementDasType = sparkTypeToDAS(elementType, elementContainsNull)
-        DasType
-          .newBuilder()
-          .setList(
-            ListType
-              .newBuilder()
-              .setInnerType(elementDasType)
-              .setNullable(nullable))
-          .build()
+        DasType.newBuilder().setList(ListType.newBuilder().setInnerType(elementDasType).setNullable(nullable)).build()
       case sparkTypes.StructType(fields) =>
         val attsBuilder = RecordType.newBuilder().setNullable(nullable)
         fields.foreach { field =>
           val dasFieldType = sparkTypeToDAS(field.dataType, field.nullable)
-          attsBuilder.addAtts(
-            AttrType
-              .newBuilder()
-              .setName(field.name)
-              .setTipe(dasFieldType))
+          attsBuilder.addAtts(AttrType.newBuilder().setName(field.name).setTipe(dasFieldType))
         }
-        DasType
-          .newBuilder()
-          .setRecord(attsBuilder.build())
-          .build()
+        DasType.newBuilder().setRecord(attsBuilder.build()).build()
       case sparkTypes.MapType(keyType, valueType, valueContainsNull) =>
         val mapAsRecord = RecordType.newBuilder().setNullable(nullable)
         val keysType = sparkTypeToDAS(keyType, nullable = false)
-        val keysListType = DasType
-          .newBuilder()
-          .setList(
-            ListType
-              .newBuilder()
-              .setInnerType(keysType)
-              .setNullable(true))
-          .build()
-        mapAsRecord.addAtts(
-          AttrType
-            .newBuilder()
-            .setName("keys")
-            .setTipe(keysListType))
+        val keysListType =
+          DasType.newBuilder().setList(ListType.newBuilder().setInnerType(keysType).setNullable(true)).build()
+        mapAsRecord.addAtts(AttrType.newBuilder().setName("keys").setTipe(keysListType))
         val valsType = sparkTypeToDAS(valueType, valueContainsNull)
-        val valsListType = DasType
-          .newBuilder()
-          .setList(
-            ListType
-              .newBuilder()
-              .setInnerType(valsType)
-              .setNullable(true))
-          .build()
-        mapAsRecord.addAtts(
-          AttrType
-            .newBuilder()
-            .setName("values")
-            .setTipe(valsListType))
-        DasType
-          .newBuilder()
-          .setRecord(mapAsRecord.build())
-          .build()
+        val valsListType =
+          DasType.newBuilder().setList(ListType.newBuilder().setInnerType(valsType).setNullable(true)).build()
+        mapAsRecord.addAtts(AttrType.newBuilder().setName("values").setTipe(valsListType))
+        DasType.newBuilder().setRecord(mapAsRecord.build()).build()
       case other =>
         throw new DASSdkInvalidArgumentException(s"Unsupported Spark type: ${other.typeName}")
     }
   }
 
   /**
-   * Recursively converts a raw Spark value into a DAS protocol Value, guided by the specified DAS type.
+   * Recursively converts a raw Spark value into a DAS protocol Value, based on the provided DAS type.
    *
-   * This version uses pattern matching on the DAS type's type case. It handles conversion for:
-   *   - Primitive types (String, Int, Long, Bool, Double, Float)
-   *   - Arrays/Lists (converted to ValueList)
-   *   - Structs/Records (converted to ValueRecord)
-   *   - Decimal and Binary types
-   *   - Timestamp, Time, and Interval types
+   * This implementation uses pattern matching on the DAS type's case and supports conversion for:
+   *   - Primitive types (String, Byte, Short, Int, Long, Bool, Double, Float).
+   *   - Temporal types: Timestamp, Date, and Time.
+   *   - Interval types: Converts a Spark CalendarInterval into a DAS interval.
+   *   - Collection types: Lists (converted to ValueList).
+   *   - Record types: Structs (converted to ValueRecord) or Map[String, _] values.
+   *   - Decimal and Binary types.
    *
-   * @param rawValue The raw Spark value to be converted.
-   * @param dasType The DAS type definition that guides the conversion.
-   * @param colName The name of the column (used for generating error messages).
-   * @return The DAS protocol Value representing the raw value.
-   * @throws DASSdkInvalidArgumentException if the conversion fails or is unsupported.
+   * @param rawValue The raw Spark value to convert.
+   * @param dasType The DAS type definition guiding the conversion.
+   * @param colName The name of the column (used for error messages).
+   * @return The corresponding DAS protocol Value.
+   * @throws DASSdkInvalidArgumentException if the conversion fails or if the value type is unsupported.
    */
   def sparkValueToProtoValue(rawValue: Any, dasType: Type, colName: String): Value = {
 
     if (rawValue == null) {
-      return Value
-        .newBuilder()
-        .setNull(ValueNull.newBuilder().build())
-        .build()
+      return Value.newBuilder().setNull(ValueNull.newBuilder().build()).build()
     }
 
     dasType.getTypeCase match {
@@ -458,10 +379,7 @@ object SparkToDASConverter {
       // Primitive types
       // ---------------------------
       case TypeCase.STRING =>
-        Value
-          .newBuilder()
-          .setString(ValueString.newBuilder().setV(rawValue.toString))
-          .build()
+        Value.newBuilder().setString(ValueString.newBuilder().setV(rawValue.toString)).build()
 
       case TypeCase.BYTE =>
         val byteVal = rawValue match {
@@ -473,25 +391,19 @@ object SparkToDASConverter {
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to byte ($colName)")
         }
-        Value
-          .newBuilder()
-          .setByte(ValueByte.newBuilder().setV(byteVal))
-          .build()
+        Value.newBuilder().setByte(ValueByte.newBuilder().setV(byteVal)).build()
 
       case TypeCase.SHORT =>
-        val shortVAl = rawValue match {
+        val shortVal = rawValue match {
           case b: Short  => b
           case i: Int    => i.toShort
           case b: Byte   => b.toShort
           case l: Long   => l.toShort
           case s: String => s.toShort
           case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to byte ($colName)")
+            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to short ($colName)")
         }
-        Value
-          .newBuilder()
-          .setShort(ValueShort.newBuilder().setV(shortVAl))
-          .build()
+        Value.newBuilder().setShort(ValueShort.newBuilder().setV(shortVal)).build()
 
       case TypeCase.INT =>
         val intVal = rawValue match {
@@ -503,10 +415,7 @@ object SparkToDASConverter {
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to int ($colName)")
         }
-        Value
-          .newBuilder()
-          .setInt(ValueInt.newBuilder().setV(intVal))
-          .build()
+        Value.newBuilder().setInt(ValueInt.newBuilder().setV(intVal)).build()
 
       case TypeCase.LONG =>
         val longVal = rawValue match {
@@ -518,10 +427,7 @@ object SparkToDASConverter {
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to long ($colName)")
         }
-        Value
-          .newBuilder()
-          .setLong(ValueLong.newBuilder().setV(longVal))
-          .build()
+        Value.newBuilder().setLong(ValueLong.newBuilder().setV(longVal)).build()
 
       case TypeCase.BOOL =>
         val boolVal = rawValue match {
@@ -530,10 +436,7 @@ object SparkToDASConverter {
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to bool ($colName)")
         }
-        Value
-          .newBuilder()
-          .setBool(ValueBool.newBuilder().setV(boolVal))
-          .build()
+        Value.newBuilder().setBool(ValueBool.newBuilder().setV(boolVal)).build()
 
       case TypeCase.DOUBLE =>
         val dblVal = rawValue match {
@@ -543,10 +446,7 @@ object SparkToDASConverter {
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to double ($colName)")
         }
-        Value
-          .newBuilder()
-          .setDouble(ValueDouble.newBuilder().setV(dblVal))
-          .build()
+        Value.newBuilder().setDouble(ValueDouble.newBuilder().setV(dblVal)).build()
 
       case TypeCase.FLOAT =>
         val fltVal = rawValue match {
@@ -556,13 +456,10 @@ object SparkToDASConverter {
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to float ($colName)")
         }
-        Value
-          .newBuilder()
-          .setFloat(ValueFloat.newBuilder().setV(fltVal))
-          .build()
+        Value.newBuilder().setFloat(ValueFloat.newBuilder().setV(fltVal)).build()
 
       // ---------------------------
-      // Temporals
+      // Temporal types
       // ---------------------------
       case TypeCase.TIMESTAMP =>
         rawValue match {
@@ -625,7 +522,7 @@ object SparkToDASConverter {
       case TypeCase.INTERVAL =>
         rawValue match {
           case interval: CalendarInterval =>
-            // Decompose the CalendarInterval into its parts.
+            // Decompose the CalendarInterval into its components.
             val totalMonths = interval.months
             val days = interval.days
             val microsTotal = interval.microseconds
@@ -652,7 +549,7 @@ object SparkToDASConverter {
                   .build())
               .build()
           case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to time ($colName)")
+            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to interval ($colName)")
         }
 
       // ---------------------------
@@ -660,20 +557,14 @@ object SparkToDASConverter {
       // ---------------------------
       case TypeCase.DECIMAL =>
         val decimalStr = rawValue.toString
-        Value
-          .newBuilder()
-          .setDecimal(ValueDecimal.newBuilder().setV(decimalStr))
-          .build()
+        Value.newBuilder().setDecimal(ValueDecimal.newBuilder().setV(decimalStr)).build()
 
       case TypeCase.BINARY =>
         rawValue match {
           case bytes: Array[Byte] =>
             Value
               .newBuilder()
-              .setBinary(
-                ValueBinary
-                  .newBuilder()
-                  .setV(com.google.protobuf.ByteString.copyFrom(bytes)))
+              .setBinary(ValueBinary.newBuilder().setV(com.google.protobuf.ByteString.copyFrom(bytes)))
               .build()
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to binary ($colName)")
@@ -696,10 +587,7 @@ object SparkToDASConverter {
           val itemValue = sparkValueToProtoValue(elem, innerType, colName + "_elem")
           listBuilder.addValues(itemValue)
         }
-        Value
-          .newBuilder()
-          .setList(listBuilder.build())
-          .build()
+        Value.newBuilder().setList(listBuilder.build()).build()
 
       case TypeCase.RECORD =>
         rawValue match {
@@ -715,10 +603,7 @@ object SparkToDASConverter {
               val nestedVal = sparkValueToProtoValue(childValue, fieldType, s"$colName.$fieldName")
               recordBuilder.addAtts(ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal))
             }
-            Value
-              .newBuilder()
-              .setRecord(recordBuilder.build())
-              .build()
+            Value.newBuilder().setRecord(recordBuilder.build()).build()
 
           case map: Map[_, _] =>
             val realMap =
@@ -746,17 +631,14 @@ object SparkToDASConverter {
                       .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance)))
               }
             }
-            Value
-              .newBuilder()
-              .setRecord(recordBuilder.build())
-              .build()
+            Value.newBuilder().setRecord(recordBuilder.build()).build()
 
           case other =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $other to record type for col=$colName")
         }
 
       case TypeCase.ANY =>
-        throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to interval ($colName)")
+        throw new DASSdkInvalidArgumentException(s"Unsupported conversion for type ANY in column $colName")
 
       case TypeCase.TYPE_NOT_SET =>
         throw new AssertionError("Type not set")
