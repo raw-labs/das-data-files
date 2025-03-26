@@ -51,13 +51,39 @@ object SparkToDASConverter {
             case None            => allApplied = false
           }
         case QualCase.IS_ALL_QUAL =>
-          // maybe we can  create a list of conditions, then reduce them with &&, then filter:
-          // val finalCondition = conditions.collect{case Some(condition) => condition}.reduce(_ && _)
-          // result = result.filter(finalCondition)
-          allApplied = false
+          val isAll = q.getIsAllQual
+          val values = isAll.getValuesList.asScala.map(protoValueToSparkValue)
+          // if no values, then we can't apply the filter
+          if (values.isEmpty) {
+            allApplied = false
+          } else {
+            val conditions = values
+              .map(value => buildFilterCondition(filterCol, isAll.getOperator, value))
+            // If any of the conditions are None, then we can't apply the filter
+            if (conditions.contains(None)) {
+              allApplied = false
+            } else {
+              val finalCondition = conditions.map(_.get).reduce(_ && _)
+              result = result.filter(finalCondition)
+            }
+          }
         case QualCase.IS_ANY_QUAL =>
-          // Maybe   create a list of conditions, then reduce them with ||, then filter:
-          allApplied = false
+          val isAny = q.getIsAnyQual
+          val values = isAny.getValuesList.asScala.map(protoValueToSparkValue)
+          // if no values, then we can't apply the filter
+          if (values.isEmpty) {
+            allApplied = false
+          } else {
+            val conditions = values
+              .map(value => buildFilterCondition(filterCol, isAny.getOperator, value))
+            // If any of the conditions are None, then we can't apply the filter
+            if (conditions.contains(None)) {
+              allApplied = false
+            } else {
+              val finalCondition = conditions.map(_.get).reduce(_ || _)
+              result = result.filter(finalCondition)
+            }
+          }
         case QualCase.QUAL_NOT_SET =>
           throw new AssertionError("Qual not set")
       }
