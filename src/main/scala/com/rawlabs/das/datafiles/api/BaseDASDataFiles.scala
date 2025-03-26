@@ -24,11 +24,11 @@ import com.rawlabs.das.sdk.scala.{DASFunction, DASSdk, DASTable}
 import com.rawlabs.das.sdk.{
   DASSdkInvalidArgumentException,
   DASSdkPermissionDeniedException,
-  DASSdkUnauthenticatedException
+  DASSdkUnauthenticatedException,
+  DASSettings
 }
 import com.rawlabs.protocol.das.v1.functions.FunctionDefinition
 import com.rawlabs.protocol.das.v1.tables.TableDefinition
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 case class DataFilesTableConfig(
@@ -41,10 +41,13 @@ case class DataFilesTableConfig(
 /**
  * The main plugin class that registers one table per file.
  */
-abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk with StrictLogging {
+abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings: DASSettings)
+    extends DASSdk
+    with StrictLogging {
 
-  import BaseDASDataFiles._
-
+  private val maxTables = settings.getInt("raw.das.data-files.max-tables")
+  private val fileCacheExpiration = settings.getInt("raw.das.data-files.file-cache-expiration")
+  private val cleanupCachePeriod = settings.getInt("raw.das.data-files.cleanup-cache-period")
   private val dasOptions = new DASDataFilesOptions(options)
 
   // Keep track of used names so we ensure uniqueness
@@ -165,14 +168,4 @@ abstract class BaseDASDataFiles(options: Map[String, String]) extends DASSdk wit
       case scheme => scheme
     }
   }
-
-}
-
-object BaseDASDataFiles {
-
-  private val config = ConfigFactory.load()
-  private val maxTables = config.getInt("raw.das.data-files.max-tables")
-  private val fileCacheExpiration = config.getInt("raw.das.data-files.file-cache-expiration")
-  private val cleanupCachePeriod = config.getInt("raw.das.data-files.cleanup-cache-period")
-
 }

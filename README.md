@@ -18,7 +18,7 @@ This is the list of DAS types released in this DAS server:
 | Config Key       | Description                                                                                         | Example                               |
 |------------------|-----------------------------------------------------------------------------------------------------|---------------------------------------|
 | paths            | The number of paths to define.                                                                      | paths '2'                             |
-| path{i}_url      | Full URI or wildcard pointing to the file/folder. Required for each path index i.                   | path0_url 's3://bucket/path/file.csv' |
+| path{i}_url      | Full URL or wildcard pointing to the file/folder. Required for each path index i.                   | path0_url 's3://bucket/path/file.csv' |
 | path{i}_name     | (Human-friendly table name override for path i. If omitted, the name is derived from the file name. | path0_name 'my_Table'                 |
 | path{i}_*        | Specific option for path`i` e.g. for csv `path0_header`                                             | path0_header 'true'                   |
 | aws_access_key   | The aws access key for s3 buckets urls (optional) .                                                 | aws_access_key 'my-key'               |

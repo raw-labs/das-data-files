@@ -26,7 +26,8 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
   private val downloadPath = new File(downloadFolder)
   downloadPath.mkdirs()
 
-  val name: String
+  // The name of the filesystem, e.g. "S3", "HTTP", "Local"
+  def name: String
 
   def supportsUrl(url: String): Boolean
 
@@ -53,7 +54,7 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
 
   /**
    * Gets a local path (on disk) for the given `url`. In some file systems this might require downloading; in others, it
-   * can be a no-op.
+   * can be a no-op. Default implementation downloads the file to the local cache.
    */
   def getLocalUrl(url: String): Either[FileSystemError, String] = {
 

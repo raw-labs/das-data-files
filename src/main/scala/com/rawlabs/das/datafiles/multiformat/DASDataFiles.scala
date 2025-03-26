@@ -23,7 +23,7 @@ import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 /**
  * The main plugin class that registers one table per file.
  */
-class DASDataFiles(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASDataFiles(options: Map[String, String])(implicit settings: DASSettings) extends BaseDASDataFiles(options) {
 
   // Build a list of our tables
   val tables: Map[String, BaseDataFileTable] = tableConfig.map { config =>

@@ -19,7 +19,7 @@ import com.rawlabs.das.sdk.scala.{DASSdk, DASSdkBuilder}
 /**
  * The main plugin class that registers one table per file.
  */
-class DASCsv(options: Map[String, String]) extends BaseDASDataFiles(options) {
+class DASCsv(options: Map[String, String])(implicit settings: DASSettings) extends BaseDASDataFiles(options) {
 
   // Build a list of our tables
   val tables: Map[String, BaseDataFileTable] = tableConfig.map { config =>
@@ -29,7 +29,6 @@ class DASCsv(options: Map[String, String]) extends BaseDASDataFiles(options) {
 }
 
 class DASCsvBuilder extends DASSdkBuilder {
-  // This must match your "type" field in the config for the plugin
   override def dasType: String = "csv"
 
   override def build(options: Map[String, String])(implicit settings: DASSettings): DASSdk = {

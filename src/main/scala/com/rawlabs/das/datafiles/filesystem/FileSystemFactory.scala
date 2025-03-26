@@ -17,15 +17,9 @@ import java.net.URI
 import com.rawlabs.das.datafiles.filesystem.github.GithubFileSystem
 import com.rawlabs.das.datafiles.filesystem.local.LocalFileSystem
 import com.rawlabs.das.datafiles.filesystem.s3.S3FileSystem
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
-import com.typesafe.config.ConfigFactory
+import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 object FileSystemFactory {
-
-  private val config = ConfigFactory.load()
-  private val cacheFolder = config.getString("raw.das.data-files.cache-dir")
-  private val allowLocal = config.getBoolean("raw.das.data-files.allow-local-files")
-  private val maxDownloadSize = config.getLong("raw.das.data-files.max-download-size")
 
   /**
    * Build the appropriate DASFileSystem based on the URI scheme.
@@ -34,14 +28,15 @@ object FileSystemFactory {
    * @param options Additional configuration for the FS (credentials, tokens, etc.).
    * @return A DASFileSystem instance (S3, GitHub, Local, etc.).
    */
-  def build(uri: URI, options: Map[String, String]): BaseFileSystem = {
+  def build(uri: URI, options: Map[String, String])(implicit config: DASSettings): BaseFileSystem = {
+    val cacheFolder = config.getString("raw.das.data-files.cache-dir")
+    val allowLocal = config.getBoolean("raw.das.data-files.allow-local-files")
+    val maxDownloadSize = config.getInt("raw.das.data-files.max-download-size")
     uri.getScheme match {
       case "s3" =>
-        // Use your existing S3 builder. (S3FileSystem.build takes a Map[String, String])
         S3FileSystem.build(options, cacheFolder, maxDownloadSize)
 
       case "github" =>
-        // Use your existing GitHub builder. (GithubFileSystem.build also takes a Map)
         GithubFileSystem.build(options, cacheFolder, maxDownloadSize)
 
       case "file" | null =>
