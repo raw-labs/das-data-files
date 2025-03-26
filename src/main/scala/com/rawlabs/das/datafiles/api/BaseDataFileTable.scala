@@ -55,7 +55,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
   protected val sparkOptions: Map[String, String]
 
-  protected lazy val sparkSchema: StructType =
+  private lazy val sparkSchema: StructType =
     inferDataframe(acquireUrl())
 
   /**
@@ -118,8 +118,6 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     val colTypesMap: Map[String, Type] = columns.toMap
 
     new DASExecuteResult {
-      private var cleanedUp = false
-
       // Delete the file if needed when the iterator is exhausted
       override def hasNext: Boolean = {
         sparkIter.hasNext
@@ -156,7 +154,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   override def delete(rowId: Value): Unit =
     throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
-  protected def inferDataframe(resolvedUrl: String): StructType = {
+  private def inferDataframe(resolvedUrl: String): StructType = {
     sparkSession.read
       .option("inferSchema", "true")
       .options(sparkOptions)
@@ -165,7 +163,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
       .schema
   }
 
-  protected def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
+  private def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
     sparkSession.read
       .schema(schema)
       .options(sparkOptions)
