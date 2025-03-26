@@ -12,13 +12,18 @@
 
 package com.rawlabs.das.datafiles.utils
 
+import java.time.{LocalDate, LocalDateTime, LocalTime}
+
 import scala.jdk.CollectionConverters._
 
 import org.apache.spark.sql.functions.{col, lower, not}
 import org.apache.spark.sql.{Column => SparkColumn, DataFrame, Row, types => sparkTypes}
+import org.apache.spark.unsafe.types.CalendarInterval
 
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.protocol.das.v1.query.Qual.QualCase
 import com.rawlabs.protocol.das.v1.query.{Operator, Qual, SortKey}
+import com.rawlabs.protocol.das.v1.types.Value.ValueCase
 import com.rawlabs.protocol.das.v1.types._
 
 /**
@@ -28,80 +33,78 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
   // qualifier pushdown logic
   // -------------------------------------------------------------------
-  def applyQuals(df: DataFrame, quals: Seq[Qual]): DataFrame = {
-
+  def applyQuals(df: DataFrame, quals: Seq[Qual]): (DataFrame, Boolean) = {
+    var allApplied = true
     var result = df
 
     for (q <- quals) {
-      if (q.hasSimpleQual) {
-        val sq = q.getSimpleQual
-        val op = sq.getOperator
-        val colName = q.getName
-        val valProto = sq.getValue
+      val colName = q.getName
+      val filterCol = col(colName)
 
-        val filterCol = col(colName)
+      q.getQualCase match {
+        case QualCase.SIMPLE_QUAL =>
+          val simple = q.getSimpleQual
+          val typedValue: Any = protoValueToSparkValue(simple.getValue)
 
-        // Convert the proto Value into a native Scala type
-        val typedValue: Any = {
-          if (valProto.hasNull) {
-            null
-          } else if (valProto.hasString) {
-            valProto.getString.getV
-          } else if (valProto.hasInt) {
-            valProto.getInt.getV
-          } else if (valProto.hasLong) {
-            valProto.getLong.getV
-          } else if (valProto.hasBool) {
-            valProto.getBool.getV
-          } else if (valProto.hasDouble) {
-            valProto.getDouble.getV
-          } else if (valProto.hasFloat) {
-            valProto.getFloat.getV
-          } else {
-            throw new DASSdkInvalidArgumentException(s"Unsupported filter type on col=$colName in base class.")
+          buildFilterCondition(filterCol, simple.getOperator, typedValue) match {
+            case Some(condition) => result = result.filter(condition)
+            case None            => allApplied = false
           }
-        }
-
-        // Build the Spark filter expression based on the operator
-        val condition = op match {
-          case Operator.EQUALS if valProto.hasNull     => filterCol.isNull
-          case Operator.NOT_EQUALS if valProto.hasNull => filterCol.isNotNull
-          case Operator.EQUALS                         => filterCol === typedValue
-          case Operator.NOT_EQUALS                     => filterCol =!= typedValue
-          case Operator.LESS_THAN                      => filterCol < typedValue
-          case Operator.LESS_THAN_OR_EQUAL             => filterCol <= typedValue
-          case Operator.GREATER_THAN                   => filterCol > typedValue
-          case Operator.GREATER_THAN_OR_EQUAL          => filterCol >= typedValue
-          case Operator.LIKE =>
-            if (!valProto.hasString) {
-              throw new DASSdkInvalidArgumentException("LIKE operator requires a string value")
-            }
-            filterCol.like(typedValue.toString)
-          case Operator.NOT_LIKE =>
-            if (!valProto.hasString) {
-              throw new DASSdkInvalidArgumentException("NOT LIKE operator requires a string value")
-            }
-            not(filterCol.like(typedValue.toString))
-          case Operator.ILIKE =>
-            if (!valProto.hasString) {
-              throw new DASSdkInvalidArgumentException("ILIKE operator requires a string value")
-            }
-            lower(filterCol).like(typedValue.toString.toLowerCase)
-          case Operator.NOT_ILIKE =>
-            if (!valProto.hasString) {
-              throw new DASSdkInvalidArgumentException("NOT ILIKE operator requires a string value")
-            }
-            not(lower(filterCol).like(typedValue.toString.toLowerCase))
-          case other =>
-            throw new DASSdkInvalidArgumentException(s"Operator $other not supported in base class.")
-        }
-
-        result = result.filter(condition)
+        case QualCase.IS_ALL_QUAL =>
+          // maybe we can  create a list of conditions, then reduce them with &&, then filter:
+          // val finalCondition = conditions.collect{case Some(condition) => condition}.reduce(_ && _)
+          // result = result.filter(finalCondition)
+          allApplied = false
+        case QualCase.IS_ANY_QUAL =>
+          // Maybe   create a list of conditions, then reduce them with ||, then filter:
+          allApplied = false
+        case QualCase.QUAL_NOT_SET =>
+          throw new AssertionError("Qual not set")
       }
+
     }
-    result
+    (result, allApplied)
   }
 
+  private def buildFilterCondition(filterCol: SparkColumn, op: Operator, typedValue: Any): Option[SparkColumn] = {
+    op match {
+      case Operator.EQUALS if typedValue == null =>
+        Some(filterCol.isNull)
+      case Operator.NOT_EQUALS if typedValue == null =>
+        Some(filterCol.isNotNull)
+      case Operator.EQUALS =>
+        Some(filterCol === typedValue)
+      case Operator.NOT_EQUALS =>
+        Some(filterCol =!= typedValue)
+      case Operator.LESS_THAN =>
+        Some(filterCol < typedValue)
+      case Operator.LESS_THAN_OR_EQUAL =>
+        Some(filterCol <= typedValue)
+      case Operator.GREATER_THAN =>
+        Some(filterCol > typedValue)
+      case Operator.GREATER_THAN_OR_EQUAL =>
+        Some(filterCol >= typedValue)
+      case Operator.LIKE =>
+        Some(filterCol.like(typedValue.toString))
+      case Operator.NOT_LIKE =>
+        Some(not(filterCol.like(typedValue.toString)))
+      case Operator.ILIKE =>
+        Some(lower(filterCol).like(typedValue.toString.toLowerCase))
+      case Operator.NOT_ILIKE =>
+        Some(not(lower(filterCol).like(typedValue.toString.toLowerCase)))
+      // These operators are supported by spark, but does it make sense to filter by them?
+      case Operator.PLUS  => None
+      case Operator.MINUS => None
+      case Operator.TIMES => None
+      case Operator.DIV   => None
+      case Operator.MOD   => None
+      case Operator.OR    => None
+      case Operator.AND   => None
+      // assert here ?
+      case Operator.UNRECOGNIZED => None
+
+    }
+  }
   // -------------------------------------------------------------------
   // apply sort keys
   // -------------------------------------------------------------------
@@ -130,6 +133,72 @@ object SparkToDASConverter {
       }
       df.orderBy(sortCols: _*)
     }
+  }
+
+  def protoValueToSparkValue(value: Value): Any = {
+    value.getValueCase match {
+      case ValueCase.NULL    => null
+      case ValueCase.BYTE    => value.getByte.getV
+      case ValueCase.SHORT   => value.getShort.getV
+      case ValueCase.INT     => value.getInt.getV
+      case ValueCase.LONG    => value.getLong.getV
+      case ValueCase.FLOAT   => value.getFloat.getV
+      case ValueCase.DOUBLE  => value.getDouble.getV
+      case ValueCase.DECIMAL => value.getDecimal.getV
+      case ValueCase.BOOL    => value.getBool.getV
+      case ValueCase.STRING  => value.getString.getV
+      case ValueCase.BINARY  => value.getBinary.getV.toByteArray
+      case ValueCase.DATE =>
+        val dValue = value.getDate
+        val localDate = LocalDate.of(dValue.getYear, dValue.getMonth, dValue.getDay)
+        java.sql.Date.valueOf(localDate)
+      case ValueCase.TIME =>
+        val tValue = value.getTime
+        val localTime = LocalTime.of(tValue.getHour, tValue.getMinute, tValue.getSecond)
+        java.sql.Time.valueOf(localTime)
+      case ValueCase.TIMESTAMP =>
+        val tsVal = value.getTimestamp
+        // Construct a LocalDateTime
+        val localDateTime = LocalDateTime.of(
+          tsVal.getYear,
+          tsVal.getMonth,
+          tsVal.getDay,
+          tsVal.getHour,
+          tsVal.getMinute,
+          tsVal.getSecond,
+          tsVal.getNano)
+        // Convert to java.sql.Timestamp
+        java.sql.Timestamp.valueOf(localDateTime)
+      case ValueCase.INTERVAL =>
+        val intervalVal = value.getInterval
+        // 1. Convert years/months to a total month count
+        val totalMonths = intervalVal.getYears * 12 + intervalVal.getMonths
+
+        // 2. Days is stored as is
+        val days = intervalVal.getDays
+
+        // 3. Convert hours, minutes, seconds, and micros to total microseconds
+        val totalMicros = {
+          val hoursMicros = intervalVal.getHours.toLong * 3_600_000_000L // 3600 seconds/hr * 1,000,000 µs/s
+          val minutesMicros = intervalVal.getMinutes.toLong * 60_000_000L // 60 seconds/min * 1,000,000 µs/s
+          val secondsMicros = intervalVal.getSeconds.toLong * 1_000_000L
+          // Add the leftover microseconds
+          hoursMicros + minutesMicros + secondsMicros + intervalVal.getMicros
+        }
+
+        // 4. Build the Spark CalendarInterval
+        new CalendarInterval(totalMonths, days, totalMicros)
+      case ValueCase.RECORD =>
+        val record = value.getRecord.getAttsList.asScala
+        record.map { attr =>
+          attr.getName -> protoValueToSparkValue(attr.getValue)
+        }.toMap
+      case ValueCase.LIST =>
+        val list = value.getList.getValuesList.asScala
+        list.map(protoValueToSparkValue)
+      case ValueCase.VALUE_NOT_SET => throw new AssertionError("Value not set")
+    }
+
   }
 
   // -------------------------------------------------------------------

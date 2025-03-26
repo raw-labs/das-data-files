@@ -58,7 +58,7 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers {
           .setValue(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(2))))
       .build()
 
-    val filtered = SparkToDASConverter.applyQuals(df, Seq(qual))
+    val (filtered, allApplied) = SparkToDASConverter.applyQuals(df, Seq(qual))
     val rows = filtered.collect()
     rows.length shouldBe 1
     rows.head.getInt(0) shouldBe 2
@@ -80,7 +80,7 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers {
           .setValue(dasTypes.Value.newBuilder().setNull(dasTypes.ValueNull.newBuilder().build())))
       .build()
 
-    val filtered = SparkToDASConverter.applyQuals(df, Seq(qual))
+    val (filtered, allApplied) = SparkToDASConverter.applyQuals(df, Seq(qual))
     val rows = filtered.collect()
     rows.length shouldBe 1
     rows.head.getInt(0) shouldBe 2
@@ -102,7 +102,7 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers {
           .setValue(dasTypes.Value.newBuilder().setString(dasTypes.ValueString.newBuilder().setV("%@domain.com"))))
       .build()
 
-    val filtered = SparkToDASConverter.applyQuals(df, Seq(qual))
+    val (filtered, allApplied) = SparkToDASConverter.applyQuals(df, Seq(qual))
     val rows = filtered.collect()
     rows.map(_.getInt(0)).sorted shouldBe Array(1, 2)
   }

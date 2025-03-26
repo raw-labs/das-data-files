@@ -99,7 +99,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
     logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
     val df = loadDataframe(executionUrl, sparkSchema)
-    val filteredDF = applyQuals(df, quals)
+    val (filteredDF, allApplied) = applyQuals(df, quals)
 
     val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
     val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
@@ -107,9 +107,10 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     // applySortKeys *before* limit
     val dfSorted = applySortKeys(dfSelected, sortKeys)
 
-    val dfLimited = maybeLimit match {
-      case Some(l) => dfSorted.limit(l.toInt)
-      case None    => dfSorted
+    // apply the limit only if all quals were applied and a limit was requested
+    val dfLimited = (maybeLimit, allApplied) match {
+      case (Some(l), true) => dfSorted.limit(l.toInt)
+      case _               => dfSorted
     }
 
     val sparkIter = dfLimited.toLocalIterator().asScala
