@@ -44,7 +44,8 @@ class XmlTable(config: DataFilesTableConfig, sparkSession: SparkSession)
         "sampling_ratio" -> "samplingRatio", // Ratio of rows to use for schema inference (between 0 and 1).
         "mode" -> "mode", // Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.
         "date_format" -> "dateFormat", // Custom date format for parsing date fields.
-        "timestamp_format" -> "timestampFormat" // Custom timestamp format for parsing timestamp fields.
+        "timestamp_format" -> "timestampFormat", // Custom timestamp format for parsing timestamp fields.
+        "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
       ))
   }
 

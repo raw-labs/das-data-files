@@ -15,16 +15,16 @@ This is the list of DAS types released in this DAS server:
 
 ## Global Options
 
-| Config Key       | Description                                                                                         | Example                               |
-|------------------|-----------------------------------------------------------------------------------------------------|---------------------------------------|
-| paths            | The number of paths to define.                                                                      | paths '2'                             |
-| path{i}_url      | Full URL or wildcard pointing to the file/folder. Required for each path index i.                   | path0_url 's3://bucket/path/file.csv' |
-| path{i}_name     | (Human-friendly table name override for path i. If omitted, the name is derived from the file name. | path0_name 'my_Table'                 |
-| path{i}_*        | Specific option for path`i` e.g. for csv `path0_header`                                             | path0_header 'true'                   |
-| aws_access_key   | The aws access key for s3 buckets urls (optional) .                                                 | aws_access_key 'my-key'               |
-| aws_secret_key   | The aws secret key for s3 buckets urls (optional) .                                                 | aws_secret_key 'my-secret'            |
-| aws_region       | the aws region (optional).                                                                          | aws_region 'eu-west-1'                |
-| github_api_token | The github api-token for  github urls (optional).                                                   | github_api_token 'token'              |
+| Config Key       | Description                                                                                        | Example                               |
+|------------------|----------------------------------------------------------------------------------------------------|---------------------------------------|
+| paths            | The number of paths to define.                                                                     | paths '2'                             |
+| path{i}_url      | Full URL or wildcard pointing to the file/folder. Required for each path index i.                  | path0_url 's3://bucket/path/file.csv' |
+| path{i}_name     | Human-friendly table name override for path i. If omitted, the name is derived from the file name. | path0_name 'my_Table'                 |
+| path{i}_*        | Specific option for path`i` e.g. for csv `path0_header`                                            | path0_header 'true'                   |
+| aws_access_key   | The aws access key for s3 buckets urls (optional).                                                 | aws_access_key 'my-key'               |
+| aws_secret_key   | The aws secret key for s3 buckets urls (optional). Has to be defined together with aws_secret_key. | aws_secret_key 'my-secret'            |
+| aws_region       | The aws region (optional).                                                                         | aws_region 'eu-west-1'                |
+| github_api_token | The github api-token for github urls (optional).                                                   | github_api_token 'token'              |
 
 For example:
 
@@ -34,16 +34,14 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   das_url 'host.docker.internal:50051',
   das_type 'csv',
   
-  -- s3 credentials (optional) 
-  aws_access_key 'my_key',
-  aws_secret_key 'my_secret',
-  aws_region     'eu-west-1',
+  -- github credentials (optional)
+  github_api_token 'token'
   
   paths '2',
  
-  path0_url 's3://bucket/path/data.csv',
+  path0_url 'github://owner/repo/branch/path1/data.csv',
    
-  path1_url 's3://bucket/path/files/*.csv'
+  path1_url 'github://owner/repo/branch/path2/*.csv'
 );
 ```
 
@@ -56,20 +54,20 @@ You can also use wildcard patterns (e.g. *.csv) to match multiple files at once.
 
 **Local Files**
 
-* file:// (e.g. file:///home/user/data.csv)
+* `file://` (e.g. `file:///home/user/data.csv`)
 * No scheme: If the URL has no scheme, it is treated as local (e.g. /home/user/data.csv).
-* Note: Local file access is only permitted if raw.das.data-files.allow-local-files is true. Otherwise, a
+* **Note:** Local file access is only permitted if raw.das.data-files.allow-local-files is true. Otherwise, a
   DASSdkInvalidArgumentException will be thrown.
 
 **Amazon S3**
 
-* s3://bucket/key
+* `s3://bucket/key` 
 * The plugin uses the AWS SDK to list and download objects. If you do not provide aws_access_key and aws_secret_key, the
   code attempts anonymous credentials (which usually only work for public buckets).
 
 **GitHub**
 
-* github://owner/repo/branch/path/to/file_or_folder
+* `github://owner/repo/branch/path/to/file_or_folder`
 * Private repos require a github_api_token.
 
 ### Wildcard Resolution
@@ -109,24 +107,24 @@ different folders,
 
 ## DAS CSV "csv" Options
 
-| Config Key                            | Description                                                                                        | Example                                     |
-|---------------------------------------|----------------------------------------------------------------------------------------------------|---------------------------------------------|
-| path{i}_header                        | Whether the first line is a header row (default: true).                                            | path0_header 'true'                         |
-| path{i}_delimiter                     | Field delimiter character (default: ,)                                                             | path0_delimiter ','                         |
-| path{i}_quote                         | Quote character for enclosed fields (default: ").                                                  | path0_quote '"'                             |
-| path{i}_escape                        | Escape character for quotes inside quoted fields (default: \\).                                    | path0_escape '\\'                           |
-| path{i}_multiline                     | Whether a single record can span multiple lines (default: false).                                  | path0_delimiter ','                         |
-| path{i}_mode                          | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | path0_mode 'PERMISSIVE'                     |
-| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | path0_date_format 'yyyy-MM-d'               |
-| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | path0_date_format 'yyyy-MM-dd''T''HH:mm:ss' |
-| path{i}_ignore_leading_white_space    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                             |
-| path{i}_ignore_trailing_whiteSpace    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                             |
-| path{i}_null_value                    | The string representation of a null value. (default: empty string "")                              | path0_null_value 'null'                     |
-| path{i}_nan_value                     | The string representation of a NaN value. (default NaN)                                            |                                             |
-| path{i}_positive_inf                  | The string representation of a positive infinity value. (default: Inf)                             |                                             |
-| path{i}_negative_inf                  | The string representation of a negative infinity value. (default -Inf)                             |                                             |
-| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1.0)                            | path0_sampling_ratio '0.1'                  |
-| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)        |                                             |
+| Config Key                            | Description                                                                                        | Example                                          |
+|---------------------------------------|----------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| path{i}_header                        | Whether the first line is a header row (default: true).                                            | path0_header 'true'                              |
+| path{i}_delimiter                     | Field delimiter character (default: ,)                                                             | path0_delimiter ','                              |
+| path{i}_quote                         | Quote character for enclosed fields (default: ").                                                  | path0_quote '"'                                  |
+| path{i}_escape                        | Escape character for quotes inside quoted fields (default: \\).                                    | path0_escape '\\'                                |
+| path{i}_multiline                     | Whether a single record can span multiple lines (default: false).                                  | path0_multiline 'false'                          |
+| path{i}_mode                          | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | path0_mode 'PERMISSIVE'                          |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | path0_date_format 'yyyy-MM-d'                    |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | path0_timestamp_format 'yyyy-MM-dd''T''HH:mm:ss' |
+| path{i}_ignore_leading_white_space    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                                  |
+| path{i}_ignore_trailing_whiteSpace    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                                  |
+| path{i}_null_value                    | The string representation of a null value. (default: empty string "")                              | path0_null_value 'null'                          |
+| path{i}_nan_value                     | The string representation of a NaN value. (default NaN)                                            |                                                  |
+| path{i}_positive_inf                  | The string representation of a positive infinity value. (default: Inf)                             |                                                  |
+| path{i}_negative_inf                  | The string representation of a negative infinity value. (default -Inf)                             |                                                  |
+| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1.0)                            | path0_sampling_ratio '0.1'                       |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)        |                                                  |
 
 For example:
 
@@ -144,25 +142,28 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   paths '2',
  
   path0_url 's3://bucket/path/*.csv',
-  path0_header 'false',
+  path0_header 'true',
+  path0_demiliter ',',
+  path0_null_value 'null',
    
-  path1_url 's3://bucket/path/data2.csv'
+  path1_url 's3://bucket/path/data2.csv',
+    path1_header 'false',
 );
 ```
 
-## DAS S3 JSON "json" Options
+## DAS JSON "json" Options
 
-| Config Key                            | Description                                                                                                                           | Example |
-|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|---------|
-| path{i}_multiline                     | Whether if it is a normal json (a single record can span multiple lines), or if it is a json-lines file (default: true [normal json]) |         |
-| path{i}_mode                          | The mode for parsing JSON files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE).                                   |         |
-| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                                |         |
-| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional)..                                                                      |         |
-| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                                                          |         |
-| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (default: false).                                                                         |         |
-| path{i}_allow_unquoted_field_names    | Allows unquoted JSON field names. (default: false)                                                                                    |         |
-| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1)                                                                 |         |
-| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)                                           |         |
+| Config Key                            | Description                                                                                                                                   | Example |
+|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|---------|
+| path{i}_multiline                     | Whether the JSON file is formatted as normal JSON (a single record may span multiple lines) or as JSON-lines (default: true for normal JSON). |         |
+| path{i}_mode                          | The mode for parsing JSON files: PERMISSIVE, DROPMALFORMED, or FAILFAST (default: PERMISSIVE).                                                |         |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                                        |         |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                                                               |         |
+| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                                                                  |         |
+| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (default: false).                                                                                 |         |
+| path{i}_allow_unquoted_field_names    | Allows unquoted JSON field names. (default: false)                                                                                            |         |
+| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1)                                                                         |         |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)                                                   |         |
 
 For example:
 
@@ -187,18 +188,19 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 
 ## DAS XML "xml" Options
 
-| Config Key                          | Description                                                                                                                | Example           |
-|-------------------------------------|----------------------------------------------------------------------------------------------------------------------------|-------------------|
-| path{i}_row_tag                     | The tag for each row in the XML document (mandatory).                                                                      | path0_row 'myTag' |
-| path{i}_root_tag                    | The tag for the root element in the XML document (optional).                                                               |                   |
-| path{i}_attribute_prefix            | Tag used to represent the element's text value when it has attributes (optional).                                          |                   | 
-| path{i}_values_tag                  | Tag used to represent the element's text value when it has attributes (optional).                                          |                   |
-| path{i}_sampling_ratio              | Ratio of rows to use for schema inference (between 0 and 1) (optional).                                                    |                   |
-| path{i}_treat_empty_values_as_nulls | Whether to treat empty string values as null (optional).                                                                   |                   |
-| path{i}_charset                     | Character encoding of the XML file (default: UTF-8).                                                                       |                   |
-| path{i}_mode                        | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). |                   |
-| path{i}_dateFormat                  | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                     |                   |
-| path{i}_timestampFormat             | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                                            |                   |
+| Config Key                            | Description                                                                                 | Example           |
+|---------------------------------------|---------------------------------------------------------------------------------------------|-------------------|
+| path{i}_row_tag                       | The tag for each row in the XML document (mandatory).                                       | path0_row 'myTag' |
+| path{i}_root_tag                      | The tag for the root element in the XML document (optional).                                |                   |
+| path{i}_attribute_prefix              | Tag used to represent the element's text value when it has attributes (optional).           |                   | 
+| path{i}_values_tag                    | Tag used to represent the element's text value when it has attributes (optional).           |                   |
+| path{i}_sampling_ratio                | Ratio of rows to use for schema inference (between 0 and 1) (optional).                     |                   |
+| path{i}_treat_empty_values_as_nulls   | Whether to treat empty string values as null (optional).                                    |                   |
+| path{i}_charset                       | Character encoding of the XML file (default: UTF-8).                                        |                   |
+| path{i}_mode                          | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST (default: PERMISSIVE).          |                   |
+| path{i}_dateFormat                    | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                      |                   |
+| path{i}_timestampFormat               | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                             |                   |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional) |                   |
 
 For example:
 
@@ -244,30 +246,47 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 );
 ```
 
-## How to Build & Run
+## How to use
 
-1: Build the Project
+### Prerequisites
 
-Use sbt:
+You need to have [sbt](https://www.scala-sbt.org/) installed to build the project.
 
-```bash
-sbt "project docker" "docker:publishLocal"
-```
-
-This creates a Docker image, typically named das-datafiles.
-
-2: Run the Docker Image
+You can install sbt using [sdkman](https://sdkman.io/):
 
 ```bash
-docker run -p 50051:50051 <image_id>
+$ sdk install sbt
 ```
 
-Where `<image_id>` is from the docker images list (the ID of your freshly built image). This starts the DAS plugin
-server on port 50051.
+### Running the server
 
-Query the DAS
+You can run the server with the following command:
 
-In your environment that supports the Data Access Service (e.g., raw-labs CLI or platform), you can query the tables you
-defined. Example:
+```bash
+$ sbt run
+```
 
+### Docker
 
+To run the server in a docker container you need to follow these steps:
+
+First, you need to build the project:
+
+```bash
+$ sbt "docker:publishLocal"
+```
+
+Then you can run the image with the following command:
+
+```bash
+$ docker run -p 50051:50051 <image_id>
+```
+
+... where `<image_id>` is the id of the image created in the previous step.
+This will start the server, typically on port 50051.
+
+You can find the image id by looking at the sbt output or by running:
+
+```bash
+$ docker images
+```
