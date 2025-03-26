@@ -467,6 +467,7 @@ object SparkToDASConverter {
         val byteVal = rawValue match {
           case b: Byte   => b
           case i: Int    => i.toByte
+          case s: Short  => s.toByte
           case l: Long   => l.toByte
           case s: String => s.toByte
           case _ =>
@@ -481,6 +482,7 @@ object SparkToDASConverter {
         val shortVAl = rawValue match {
           case b: Short  => b
           case i: Int    => i.toShort
+          case b: Byte   => b.toShort
           case l: Long   => l.toShort
           case s: String => s.toShort
           case _ =>
@@ -490,10 +492,13 @@ object SparkToDASConverter {
           .newBuilder()
           .setShort(ValueShort.newBuilder().setV(shortVAl))
           .build()
+
       case TypeCase.INT =>
         val intVal = rawValue match {
           case i: Int    => i
           case l: Long   => l.toInt
+          case b: Byte   => b.toInt
+          case s: Short  => s.toInt
           case s: String => s.toInt
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to int ($colName)")
@@ -507,6 +512,8 @@ object SparkToDASConverter {
         val longVal = rawValue match {
           case l: Long   => l
           case i: Int    => i.toLong
+          case b: Byte   => b.toLong
+          case s: Short  => s.toLong
           case s: String => s.toLong
           case _ =>
             throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to long ($colName)")
@@ -754,7 +761,5 @@ object SparkToDASConverter {
       case TypeCase.TYPE_NOT_SET =>
         throw new AssertionError("Type not set")
     }
-
   }
-
 }
