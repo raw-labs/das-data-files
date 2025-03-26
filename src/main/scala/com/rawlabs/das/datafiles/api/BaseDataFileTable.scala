@@ -14,6 +14,7 @@ package com.rawlabs.das.datafiles.api
 
 import scala.jdk.CollectionConverters._
 
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
@@ -54,22 +55,17 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
   protected val sparkOptions: Map[String, String]
 
+  protected lazy val sparkSchema: StructType =
+    inferDataframe(acquireUrl())
+
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
    */
-  private lazy val columns: Seq[(String, Type)] = {
-    val executionUrl = acquireUrl()
-    try {
-      val dfSchema = loadDataFrame(executionUrl).schema
-      dfSchema.fields.toIndexedSeq.map { field =>
-        val dasType = sparkTypeToDAS(field.dataType, field.nullable)
-        (field.name, dasType)
-      }
-    } finally {
-      // deletes the file if needed (github)
-      releaseFile(executionUrl)
+  private lazy val columns: Seq[(String, Type)] =
+    sparkSchema.fields.toIndexedSeq.map { field =>
+      val dasType = sparkTypeToDAS(field.dataType, field.nullable)
+      (field.name, dasType)
     }
-  }
 
   // Build the TableDefinition from the columns that we got from the dataframe schema
   lazy val tableDefinition: TableDefinition = {
@@ -102,7 +98,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     val executionUrl = acquireUrl()
 
     logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
-    val df = loadDataFrame(executionUrl)
+    val df = loadDataframe(executionUrl, sparkSchema)
     val filteredDF = applyQuals(df, quals)
 
     val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
@@ -126,12 +122,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
       // Delete the file if needed when the iterator is exhausted
       override def hasNext: Boolean = {
-        val hn = sparkIter.hasNext
-        if (!hn && !cleanedUp) {
-          releaseFile(executionUrl)
-          cleanedUp = true
-        }
-        hn
+        sparkIter.hasNext
       }
 
       override def next(): ProtoRow = {
@@ -150,12 +141,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         rowBuilder.build()
       }
       // Delete the file if needed when the iterator is exhausted
-      override def close(): Unit = {
-        if (!cleanedUp) {
-          releaseFile(executionUrl)
-          cleanedUp = true
-        }
-      }
+      override def close(): Unit = {}
     }
 
   }
@@ -170,8 +156,18 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   override def delete(rowId: Value): Unit =
     throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
-  protected def loadDataFrame(resolvedUrl: String): DataFrame = {
+  protected def inferDataframe(resolvedUrl: String): StructType = {
     sparkSession.read
+      .option("inferSchema", "true")
+      .options(sparkOptions)
+      .format(format)
+      .load(resolvedUrl)
+      .schema
+  }
+
+  protected def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
+    sparkSession.read
+      .schema(schema)
       .options(sparkOptions)
       .format(format)
       .load(resolvedUrl)
@@ -198,10 +194,6 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
           throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
       }
     }
-  }
-
-  private def releaseFile(resolved: String): Unit = {
-    logger.debug("Releasing file: {}", resolved)
   }
 
   // Helper to remap options from our custom keys to Spark keys

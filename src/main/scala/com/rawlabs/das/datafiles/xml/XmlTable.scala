@@ -31,7 +31,7 @@ class XmlTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     config.options.getOrElse("row_tag", throw new IllegalArgumentException("row_tag is required for xml tables"))
 
   override protected val sparkOptions: Map[String, String] = {
-    Map("inferSchema" -> "true", "rowTag" -> rowTag) ++
+    Map("rowTag" -> rowTag) ++
     // Map our custom configuration keys to the corresponding Spark options.
     remapOptions(
       Map(

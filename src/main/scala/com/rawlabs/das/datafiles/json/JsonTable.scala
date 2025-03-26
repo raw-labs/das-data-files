@@ -27,7 +27,7 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   private val multiLine = config.options.getOrElse("multiLine", "true")
 
   override protected val sparkOptions: Map[String, String] =
-    Map("inferSchema" -> "true", "multiLine" -> multiLine) ++
+    Map("multiLine" -> multiLine) ++
       // Map our custom configuration keys to the corresponding Spark options.
       remapOptions(
         Map(
@@ -48,15 +48,4 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     DASTable.TableEstimate(expectedNumberOfRows = 10000, avgRowWidthBytes = 100)
   }
 
-  /**
-   * Override to read JSON with Spark, parse any relevant options from the `options` map.
-   */
-  override protected def loadDataFrame(resolvedUrl: String): DataFrame = {
-    sparkSession.read
-      .option("inferSchema", "true")
-      .option("multiLine", multiLine)
-      .options(sparkOptions)
-      .format(format)
-      .load(resolvedUrl)
-  }
 }

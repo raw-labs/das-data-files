@@ -30,7 +30,7 @@ class CsvTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   private val header = config.options.getOrElse("header", "true")
 
   override protected val sparkOptions: Map[String, String] =
-    Map("inferSchema" -> "true", "header" -> header) ++
+    Map( "header" -> header) ++
       // Map our custom configuration keys to the corresponding Spark options.
       remapOptions(
         Map(
