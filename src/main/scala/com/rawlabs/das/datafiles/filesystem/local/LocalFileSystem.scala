@@ -18,7 +18,8 @@ import java.nio.file._
 
 import scala.jdk.CollectionConverters._
 
-import com.rawlabs.das.datafiles.filesystem.{BaseFileSystem, FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.{FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 
 class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
     extends BaseFileSystem(downloadFolder, maxDownloadSize) {

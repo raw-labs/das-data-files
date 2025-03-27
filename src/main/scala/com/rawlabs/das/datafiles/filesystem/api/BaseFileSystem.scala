@@ -10,13 +10,14 @@
  * licenses/APL.txt.
  */
 
-package com.rawlabs.das.datafiles.filesystem
+package com.rawlabs.das.datafiles.filesystem.api
+
+import com.rawlabs.das.datafiles.filesystem.FileSystemError
+import com.typesafe.scalalogging.StrictLogging
 
 import java.io.{File, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
-
-import com.typesafe.scalalogging.StrictLogging
 
 /**
  * Base class for "DAS" filesystem abstractions.
