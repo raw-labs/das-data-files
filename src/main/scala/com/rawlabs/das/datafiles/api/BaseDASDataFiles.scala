@@ -45,9 +45,9 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
     extends DASSdk
     with StrictLogging {
 
-  private val maxTables = settings.getInt("raw.das.data-files.max-tables")
-  private val fileCacheExpiration = settings.getInt("raw.das.data-files.file-cache-expiration")
-  private val cleanupCachePeriod = settings.getInt("raw.das.data-files.cleanup-cache-period")
+  private val maxTables = settings.getInt("das.data-files.max-tables")
+  private val fileCacheExpiration = settings.getInt("das.data-files.file-cache-expiration")
+  private val cleanupCachePeriod = settings.getInt("das.data-files.cleanup-cache-period")
   private val dasOptions = new DASDataFilesOptions(options)
 
   // Keep track of used names so we ensure uniqueness

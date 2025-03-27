@@ -12,12 +12,12 @@
 
 package com.rawlabs.das.datafiles.filesystem.api
 
-import com.rawlabs.das.datafiles.filesystem.FileSystemError
-import com.typesafe.scalalogging.StrictLogging
-
 import java.io.{File, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
+
+import com.rawlabs.das.datafiles.filesystem.FileSystemError
+import com.typesafe.scalalogging.StrictLogging
 
 /**
  * Base class for "DAS" filesystem abstractions.
@@ -30,6 +30,9 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
   // The name of the filesystem, e.g. "S3", "HTTP", "Local"
   def name: String
 
+  /**
+   * Returns true if this filesystem can handle the given URL.
+   */
   def supportsUrl(url: String): Boolean
 
   /**
@@ -60,17 +63,18 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
   def getLocalUrl(url: String): Either[FileSystemError, String] = {
 
     // check the file size first
-    getFileSize(url) match {
+    val fileSize = getFileSize(url) match {
       case Left(err) => return Left(err)
       case Right(actualSize) if actualSize > maxLocalFileSize =>
         logger.warn(s"File $url is too large ($actualSize bytes), downloading aborted")
         return Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize))
-      case _ => // File size is OK
+      case Right(size) =>
+        size
     }
 
     val uniqueName = UUID.randomUUID().toString
     val outFile = new File(downloadFolder, uniqueName)
-    logger.debug(s"Downloading $url to $outFile")
+    logger.info(s"Downloading $url, size=$fileSize to $outFile")
     val inputStream = open(url) match {
       case Right(is) => is
       case Left(err) => return Left(err)
@@ -119,7 +123,7 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
 
     glob
       // Escape all regex special characters except '*' and '?'
-      .replaceAll("([\\^\\$\\.\\+\\|\\(\\)\\{\\}\\[\\]\\\\])", """\\$1""")
+      .replaceAll("""([\^\$\.\+\|\(\)\{\}\[\]\\])""", """\\$1""")
       // Convert '?' (glob) to '[^/]' (regex) avoid matching directory separators
       .replace("?", "[^/]")
       // Convert '*' (glob) to '[^/]*' (regex) avoid matching directory separators

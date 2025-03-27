@@ -12,9 +12,9 @@
 
 package com.rawlabs.das.datafiles.filesystem
 
-import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
-
 import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService, ScheduledThreadPoolExecutor, TimeUnit}
+
+import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 import com.typesafe.scalalogging.StrictLogging
 
 /**

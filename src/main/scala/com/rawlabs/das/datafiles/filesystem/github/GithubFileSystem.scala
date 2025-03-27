@@ -19,7 +19,7 @@ import scala.jdk.CollectionConverters._
 
 import org.kohsuke.github._
 
-import com.rawlabs.das.datafiles.filesystem.{FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 
 class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSize: Long = 100L * 1024L * 1024L)

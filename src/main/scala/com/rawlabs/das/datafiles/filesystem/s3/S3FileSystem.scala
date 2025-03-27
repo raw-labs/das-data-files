@@ -17,7 +17,7 @@ import java.net.URI
 
 import scala.jdk.CollectionConverters._
 
-import com.rawlabs.das.datafiles.filesystem.{FileSystemError}
+import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 

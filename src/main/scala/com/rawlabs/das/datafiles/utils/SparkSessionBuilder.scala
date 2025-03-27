@@ -21,17 +21,25 @@ import com.typesafe.config.ConfigFactory
 
 object SparkSessionBuilder {
 
+  // Loading common spark configuration from a subtree of the main config file
+  private val sparkConfig: Map[String, String] = {
+    val conf = ConfigFactory.load().getConfig("das.data-files.spark-config")
+    conf
+      .entrySet()
+      .asScala
+      .map { entry =>
+        val key = entry.getKey
+        key -> conf.getString(key)
+      }
+      .toMap
+  }
+
   def build(appName: String, options: Map[String, String]): SparkSession = {
     val builder = SparkSession
       .builder()
       .appName(appName)
 
-    // Loading common spark configuration from the config file
-    val sparkConfig = ConfigFactory.load().getConfig("raw.das.data-files.spark-config")
-    sparkConfig.entrySet().asScala.foreach { entry =>
-      val key = entry.getKey
-      builder.config(key, sparkConfig.getString(key))
-    }
+    builder.config(sparkConfig)
 
     // Creating a new session and applying the configuration for this das (s3 config for now)
     val newSession = builder
