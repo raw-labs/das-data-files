@@ -374,274 +374,279 @@ object SparkToDASConverter {
       return Value.newBuilder().setNull(ValueNull.newBuilder().build()).build()
     }
 
-    dasType.getTypeCase match {
-      // ---------------------------
-      // Primitive types
-      // ---------------------------
-      case TypeCase.STRING =>
-        Value.newBuilder().setString(ValueString.newBuilder().setV(rawValue.toString)).build()
+    try {
+      dasType.getTypeCase match {
+        // ---------------------------
+        // Primitive types
+        // ---------------------------
+        case TypeCase.STRING =>
+          Value.newBuilder().setString(ValueString.newBuilder().setV(rawValue.toString)).build()
 
-      case TypeCase.BYTE =>
-        val byteVal = rawValue match {
-          case b: Byte   => b
-          case i: Int    => i.toByte
-          case s: Short  => s.toByte
-          case l: Long   => l.toByte
-          case s: String => s.toByte
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to byte ($colName)")
-        }
-        Value.newBuilder().setByte(ValueByte.newBuilder().setV(byteVal)).build()
+        case TypeCase.BYTE =>
+          val byteVal = rawValue match {
+            case b: Byte   => b
+            case i: Int    => i.toByte
+            case s: Short  => s.toByte
+            case l: Long   => l.toByte
+            case s: String => s.toByte
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setByte(ValueByte.newBuilder().setV(byteVal)).build()
 
-      case TypeCase.SHORT =>
-        val shortVal = rawValue match {
-          case b: Short  => b
-          case i: Int    => i.toShort
-          case b: Byte   => b.toShort
-          case l: Long   => l.toShort
-          case s: String => s.toShort
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to short ($colName)")
-        }
-        Value.newBuilder().setShort(ValueShort.newBuilder().setV(shortVal)).build()
+        case TypeCase.SHORT =>
+          val shortVal = rawValue match {
+            case b: Short  => b
+            case i: Int    => i.toShort
+            case b: Byte   => b.toShort
+            case l: Long   => l.toShort
+            case s: String => s.toShort
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setShort(ValueShort.newBuilder().setV(shortVal)).build()
 
-      case TypeCase.INT =>
-        val intVal = rawValue match {
-          case i: Int    => i
-          case l: Long   => l.toInt
-          case b: Byte   => b.toInt
-          case s: Short  => s.toInt
-          case s: String => s.toInt
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to int ($colName)")
-        }
-        Value.newBuilder().setInt(ValueInt.newBuilder().setV(intVal)).build()
+        case TypeCase.INT =>
+          val intVal = rawValue match {
+            case i: Int    => i
+            case l: Long   => l.toInt
+            case b: Byte   => b.toInt
+            case s: Short  => s.toInt
+            case s: String => s.toInt
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setInt(ValueInt.newBuilder().setV(intVal)).build()
 
-      case TypeCase.LONG =>
-        val longVal = rawValue match {
-          case l: Long   => l
-          case i: Int    => i.toLong
-          case b: Byte   => b.toLong
-          case s: Short  => s.toLong
-          case s: String => s.toLong
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to long ($colName)")
-        }
-        Value.newBuilder().setLong(ValueLong.newBuilder().setV(longVal)).build()
+        case TypeCase.LONG =>
+          val longVal = rawValue match {
+            case l: Long   => l
+            case i: Int    => i.toLong
+            case b: Byte   => b.toLong
+            case s: Short  => s.toLong
+            case s: String => s.toLong
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setLong(ValueLong.newBuilder().setV(longVal)).build()
 
-      case TypeCase.BOOL =>
-        val boolVal = rawValue match {
-          case b: Boolean => b
-          case s: String  => s.toBoolean
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to bool ($colName)")
-        }
-        Value.newBuilder().setBool(ValueBool.newBuilder().setV(boolVal)).build()
+        case TypeCase.BOOL =>
+          val boolVal = rawValue match {
+            case b: Boolean => b
+            case s: String  => s.toBoolean
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setBool(ValueBool.newBuilder().setV(boolVal)).build()
 
-      case TypeCase.DOUBLE =>
-        val dblVal = rawValue match {
-          case d: Double => d
-          case f: Float  => f.toDouble
-          case s: String => s.toDouble
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to double ($colName)")
-        }
-        Value.newBuilder().setDouble(ValueDouble.newBuilder().setV(dblVal)).build()
+        case TypeCase.DOUBLE =>
+          val dblVal = rawValue match {
+            case d: Double => d
+            case f: Float  => f.toDouble
+            case s: String => s.toDouble
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setDouble(ValueDouble.newBuilder().setV(dblVal)).build()
 
-      case TypeCase.FLOAT =>
-        val fltVal = rawValue match {
-          case f: Float  => f
-          case d: Double => d.toFloat
-          case s: String => s.toFloat
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to float ($colName)")
-        }
-        Value.newBuilder().setFloat(ValueFloat.newBuilder().setV(fltVal)).build()
+        case TypeCase.FLOAT =>
+          val fltVal = rawValue match {
+            case f: Float  => f
+            case d: Double => d.toFloat
+            case s: String => s.toFloat
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
+          Value.newBuilder().setFloat(ValueFloat.newBuilder().setV(fltVal)).build()
 
-      // ---------------------------
-      // Temporal types
-      // ---------------------------
-      case TypeCase.TIMESTAMP =>
-        rawValue match {
-          case ts: java.sql.Timestamp =>
-            val ldt = ts.toLocalDateTime
-            Value
-              .newBuilder()
-              .setTimestamp(
-                ValueTimestamp
-                  .newBuilder()
-                  .setYear(ldt.getYear)
-                  .setMonth(ldt.getMonthValue)
-                  .setDay(ldt.getDayOfMonth)
-                  .setHour(ldt.getHour)
-                  .setMinute(ldt.getMinute)
-                  .setSecond(ldt.getSecond)
-                  .setNano(ldt.getNano)
-                  .build())
-              .build()
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to timestamp ($colName)")
-        }
+        // ---------------------------
+        // Temporal types
+        // ---------------------------
+        case TypeCase.TIMESTAMP =>
+          rawValue match {
+            case ts: java.sql.Timestamp =>
+              val ldt = ts.toLocalDateTime
+              Value
+                .newBuilder()
+                .setTimestamp(
+                  ValueTimestamp
+                    .newBuilder()
+                    .setYear(ldt.getYear)
+                    .setMonth(ldt.getMonthValue)
+                    .setDay(ldt.getDayOfMonth)
+                    .setHour(ldt.getHour)
+                    .setMinute(ldt.getMinute)
+                    .setSecond(ldt.getSecond)
+                    .setNano(ldt.getNano)
+                    .build())
+                .build()
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
 
-      case TypeCase.DATE =>
-        rawValue match {
-          case d: java.sql.Date =>
-            val ld = d.toLocalDate
-            Value
-              .newBuilder()
-              .setDate(
-                ValueDate
-                  .newBuilder()
-                  .setYear(ld.getYear)
-                  .setMonth(ld.getMonthValue)
-                  .setDay(ld.getDayOfMonth)
-                  .build())
-              .build()
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to date ($colName)")
-        }
+        case TypeCase.DATE =>
+          rawValue match {
+            case d: java.sql.Date =>
+              val ld = d.toLocalDate
+              Value
+                .newBuilder()
+                .setDate(
+                  ValueDate
+                    .newBuilder()
+                    .setYear(ld.getYear)
+                    .setMonth(ld.getMonthValue)
+                    .setDay(ld.getDayOfMonth)
+                    .build())
+                .build()
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
 
-      case TypeCase.TIME =>
-        rawValue match {
-          case t: java.sql.Time =>
-            val lt = t.toLocalTime
-            Value
-              .newBuilder()
-              .setTime(
-                ValueTime
-                  .newBuilder()
-                  .setHour(lt.getHour)
-                  .setMinute(lt.getMinute)
-                  .setSecond(lt.getSecond)
-                  .build())
-              .build()
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to time ($colName)")
-        }
+        case TypeCase.TIME =>
+          rawValue match {
+            case t: java.sql.Time =>
+              val lt = t.toLocalTime
+              Value
+                .newBuilder()
+                .setTime(
+                  ValueTime
+                    .newBuilder()
+                    .setHour(lt.getHour)
+                    .setMinute(lt.getMinute)
+                    .setSecond(lt.getSecond)
+                    .build())
+                .build()
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
 
-      case TypeCase.INTERVAL =>
-        rawValue match {
-          case interval: CalendarInterval =>
-            // Decompose the CalendarInterval into its components.
-            val totalMonths = interval.months
-            val days = interval.days
-            val microsTotal = interval.microseconds
-            val years = totalMonths / 12
-            val months = totalMonths % 12
-            val hours = (microsTotal / 3600000000L).toInt
-            val remAfterHours = microsTotal % 3600000000L
-            val minutes = (remAfterHours / 60000000L).toInt
-            val remAfterMinutes = remAfterHours % 60000000L
-            val seconds = (remAfterMinutes / 1000000L).toInt
-            val micros = (remAfterMinutes % 1000000L).toInt
-            Value
-              .newBuilder()
-              .setInterval(
-                ValueInterval
-                  .newBuilder()
-                  .setYears(years)
-                  .setMonths(months)
-                  .setDays(days)
-                  .setHours(hours)
-                  .setMinutes(minutes)
-                  .setSeconds(seconds)
-                  .setMicros(micros)
-                  .build())
-              .build()
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to interval ($colName)")
-        }
+        case TypeCase.INTERVAL =>
+          rawValue match {
+            case interval: CalendarInterval =>
+              // Decompose the CalendarInterval into its components.
+              val totalMonths = interval.months
+              val days = interval.days
+              val microsTotal = interval.microseconds
+              val years = totalMonths / 12
+              val months = totalMonths % 12
+              val hours = (microsTotal / 3600000000L).toInt
+              val remAfterHours = microsTotal % 3600000000L
+              val minutes = (remAfterHours / 60000000L).toInt
+              val remAfterMinutes = remAfterHours % 60000000L
+              val seconds = (remAfterMinutes / 1000000L).toInt
+              val micros = (remAfterMinutes % 1000000L).toInt
+              Value
+                .newBuilder()
+                .setInterval(
+                  ValueInterval
+                    .newBuilder()
+                    .setYears(years)
+                    .setMonths(months)
+                    .setDays(days)
+                    .setHours(hours)
+                    .setMinutes(minutes)
+                    .setSeconds(seconds)
+                    .setMicros(micros)
+                    .build())
+                .build()
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
 
-      // ---------------------------
-      // Other types
-      // ---------------------------
-      case TypeCase.DECIMAL =>
-        val decimalStr = rawValue.toString
-        Value.newBuilder().setDecimal(ValueDecimal.newBuilder().setV(decimalStr)).build()
+        // ---------------------------
+        // Other types
+        // ---------------------------
+        case TypeCase.DECIMAL =>
+          val decimalStr = rawValue.toString
+          Value.newBuilder().setDecimal(ValueDecimal.newBuilder().setV(decimalStr)).build()
 
-      case TypeCase.BINARY =>
-        rawValue match {
-          case bytes: Array[Byte] =>
-            Value
-              .newBuilder()
-              .setBinary(ValueBinary.newBuilder().setV(com.google.protobuf.ByteString.copyFrom(bytes)))
-              .build()
-          case _ =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to binary ($colName)")
-        }
+        case TypeCase.BINARY =>
+          rawValue match {
+            case bytes: Array[Byte] =>
+              Value
+                .newBuilder()
+                .setBinary(ValueBinary.newBuilder().setV(com.google.protobuf.ByteString.copyFrom(bytes)))
+                .build()
+            case _ =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)")
+          }
 
-      // ---------------------------
-      // Collection types
-      // ---------------------------
-      case TypeCase.LIST =>
-        val innerType = dasType.getList.getInnerType
-        val seq = rawValue match {
-          case s: Seq[_]         => s
-          case arr: Array[_]     => arr.toSeq
-          case iter: Iterable[_] => iter.toSeq
-          case other =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $other to list type for col=$colName")
-        }
-        val listBuilder = ValueList.newBuilder()
-        seq.foreach { elem =>
-          val itemValue = sparkValueToProtoValue(elem, innerType, colName + "_elem")
-          listBuilder.addValues(itemValue)
-        }
-        Value.newBuilder().setList(listBuilder.build()).build()
+        // ---------------------------
+        // Collection types
+        // ---------------------------
+        case TypeCase.LIST =>
+          val innerType = dasType.getList.getInnerType
+          val seq = rawValue match {
+            case s: Seq[_]         => s
+            case arr: Array[_]     => arr.toSeq
+            case iter: Iterable[_] => iter.toSeq
+            case other =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $other to list type for col=$colName")
+          }
+          val listBuilder = ValueList.newBuilder()
+          seq.foreach { elem =>
+            val itemValue = sparkValueToProtoValue(elem, innerType, colName + "_elem")
+            listBuilder.addValues(itemValue)
+          }
+          Value.newBuilder().setList(listBuilder.build()).build()
 
-      case TypeCase.RECORD =>
-        rawValue match {
-          case row: Row =>
-            val recordBuilder = ValueRecord.newBuilder()
-            val structInfo = dasType.getRecord
-            val fieldDefs = structInfo.getAttsList.asScala
-            fieldDefs.foreach { att =>
-              val fieldName = att.getName
-              val fieldType = att.getTipe
-              val idx = row.schema.fieldIndex(fieldName)
-              val childValue = row.get(idx)
-              val nestedVal = sparkValueToProtoValue(childValue, fieldType, s"$colName.$fieldName")
-              recordBuilder.addAtts(ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal))
-            }
-            Value.newBuilder().setRecord(recordBuilder.build()).build()
-
-          case map: Map[_, _] =>
-            val realMap =
-              try {
-                map.asInstanceOf[Map[String, _]]
-              } catch {
-                case _: ClassCastException =>
-                  throw new DASSdkInvalidArgumentException(s"Cannot convert $map to map[String, _] for col=$colName")
+        case TypeCase.RECORD =>
+          rawValue match {
+            case row: Row =>
+              val recordBuilder = ValueRecord.newBuilder()
+              val structInfo = dasType.getRecord
+              val fieldDefs = structInfo.getAttsList.asScala
+              fieldDefs.foreach { att =>
+                val fieldName = att.getName
+                val fieldType = att.getTipe
+                val idx = row.schema.fieldIndex(fieldName)
+                val childValue = row.get(idx)
+                val nestedVal = sparkValueToProtoValue(childValue, fieldType, s"$colName.$fieldName")
+                recordBuilder.addAtts(ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal))
               }
-            val recordBuilder = ValueRecord.newBuilder()
-            val structInfo = dasType.getRecord
-            val fieldDefs = structInfo.getAttsList.asScala
-            fieldDefs.foreach { att =>
-              val fieldName = att.getName
-              val fieldType = att.getTipe
-              realMap.get(fieldName) match {
-                case Some(v) =>
-                  val nestedVal = sparkValueToProtoValue(v, fieldType, s"$colName.$fieldName")
-                  recordBuilder.addAtts(ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal))
-                case None =>
-                  recordBuilder.addAtts(
-                    ValueRecordAttr
-                      .newBuilder()
-                      .setName(fieldName)
-                      .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance)))
+              Value.newBuilder().setRecord(recordBuilder.build()).build()
+
+            case map: Map[_, _] =>
+              val realMap =
+                try {
+                  map.asInstanceOf[Map[String, _]]
+                } catch {
+                  case _: ClassCastException =>
+                    throw new DASSdkInvalidArgumentException(s"Cannot convert $map to map[String, _] for col=$colName")
+                }
+              val recordBuilder = ValueRecord.newBuilder()
+              val structInfo = dasType.getRecord
+              val fieldDefs = structInfo.getAttsList.asScala
+              fieldDefs.foreach { att =>
+                val fieldName = att.getName
+                val fieldType = att.getTipe
+                realMap.get(fieldName) match {
+                  case Some(v) =>
+                    val nestedVal = sparkValueToProtoValue(v, fieldType, s"$colName.$fieldName")
+                    recordBuilder.addAtts(ValueRecordAttr.newBuilder().setName(fieldName).setValue(nestedVal))
+                  case None =>
+                    recordBuilder.addAtts(
+                      ValueRecordAttr
+                        .newBuilder()
+                        .setName(fieldName)
+                        .setValue(Value.newBuilder().setNull(ValueNull.getDefaultInstance)))
+                }
               }
-            }
-            Value.newBuilder().setRecord(recordBuilder.build()).build()
+              Value.newBuilder().setRecord(recordBuilder.build()).build()
 
-          case other =>
-            throw new DASSdkInvalidArgumentException(s"Cannot convert $other to record type for col=$colName")
-        }
+            case other =>
+              throw new DASSdkInvalidArgumentException(s"Cannot convert $other to record type for col=$colName")
+          }
 
-      case TypeCase.ANY =>
-        throw new DASSdkInvalidArgumentException(s"Unsupported conversion for type ANY in column $colName")
+        case TypeCase.ANY =>
+          throw new DASSdkInvalidArgumentException(s"Unsupported conversion for type ANY in column $colName")
 
-      case TypeCase.TYPE_NOT_SET =>
-        throw new AssertionError("Type not set")
+        case TypeCase.TYPE_NOT_SET =>
+          throw new AssertionError("Type not set")
+      }
+    } catch {
+      case e: NumberFormatException =>
+        throw new DASSdkInvalidArgumentException(s"Cannot convert $rawValue to ${dasType.getTypeCase} ($colName)", e)
     }
   }
 }
