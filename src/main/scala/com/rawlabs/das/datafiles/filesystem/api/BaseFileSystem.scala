@@ -25,7 +25,6 @@ import com.typesafe.scalalogging.StrictLogging
 abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) extends StrictLogging {
 
   private val downloadPath = new File(downloadFolder)
-  downloadPath.mkdirs()
 
   // The name of the filesystem, e.g. "S3", "HTTP", "Local"
   def name: String
@@ -62,28 +61,41 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
    */
   def getLocalUrl(url: String): Either[FileSystemError, String] = {
 
-    // check the file size first
-    val fileSize = getFileSize(url) match {
-      case Left(err) => return Left(err)
-      case Right(actualSize) if actualSize > maxLocalFileSize =>
-        logger.warn(s"File $url is too large ($actualSize bytes), downloading aborted")
-        return Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize))
-      case Right(size) =>
-        size
-    }
-
-    val uniqueName = UUID.randomUUID().toString
-    val outFile = new File(downloadFolder, uniqueName)
-    logger.info(s"Downloading $url, size=$fileSize to $outFile")
-    val inputStream = open(url) match {
-      case Right(is) => is
-      case Left(err) => return Left(err)
-    }
     try {
-      Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
-      Right(outFile.getAbsolutePath)
-    } finally {
-      inputStream.close()
+      // Ensure the download folder exists
+      if (!downloadPath.exists()) {
+        downloadPath.mkdirs()
+      } else if (!downloadPath.isDirectory) {
+        return Left(FileSystemError.Unsupported(s"Download folder ($downloadFolder) is not a directory"))
+      }
+
+      // get the file size first
+      val fileSize = getFileSize(url) match {
+        case Left(err) => return Left(err)
+        case Right(actualSize) if actualSize > maxLocalFileSize =>
+          logger.warn(s"File $url is too large ($actualSize bytes), downloading aborted")
+          return Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize))
+        case Right(size) =>
+          size
+      }
+
+      val uniqueName = UUID.randomUUID().toString
+      val outFile = new File(downloadFolder, uniqueName)
+      logger.info(s"Downloading $url, size=$fileSize to $outFile")
+      val inputStream = open(url) match {
+        case Right(is) => is
+        case Left(err) => return Left(err)
+      }
+      try {
+        Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
+        Right(outFile.getAbsolutePath)
+      } finally {
+        inputStream.close()
+      }
+    } catch {
+      case e: java.nio.file.AccessDeniedException =>
+        logger.error(s"Permission denied while getting local url for $url", e)
+        Left(FileSystemError.PermissionDenied(e.getMessage))
     }
   }
 

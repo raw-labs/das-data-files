@@ -142,18 +142,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
       // Delete the file if needed when the iterator is exhausted
       override def close(): Unit = {}
     }
-
   }
-
-  // Mark read-only
-  override def insert(row: ProtoRow): ProtoRow =
-    throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
-
-  override def update(rowId: Value, newRow: ProtoRow): ProtoRow =
-    throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
-
-  override def delete(rowId: Value): Unit =
-    throw new DASSdkInvalidArgumentException(s"DataFile table '$tableName' is read-only.")
 
   private def inferDataframe(resolvedUrl: String): StructType = {
     sparkSession.read

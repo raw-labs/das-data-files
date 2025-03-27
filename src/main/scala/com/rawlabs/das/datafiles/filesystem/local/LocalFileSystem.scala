@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.filesystem.local
 
-import java.io.{File, FileInputStream, InputStream}
+import java.io.{File, FileInputStream, FileNotFoundException, InputStream}
 import java.net.{URI, URISyntaxException}
 import java.nio.file._
+import java.util.regex.PatternSyntaxException
 
 import scala.jdk.CollectionConverters._
 
@@ -52,50 +53,73 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
   }
 
   override def open(url: String): Either[FileSystemError, InputStream] = {
-    val file = fileFromUrl(url) match {
-      case Left(err) => return Left(err)
-      case Right(f)  => f
-    }
+    try {
+      val file = fileFromUrl(url) match {
+        case Left(err) => return Left(err)
+        case Right(f)  => f
+      }
 
-    if (!file.exists()) {
-      Left(FileSystemError.NotFound(url))
-    } else if (file.isDirectory) {
-      Left(FileSystemError.Unsupported(s"Cannot open directory ($url) as file"))
-    } else {
-      Right(new FileInputStream(file))
+      if (!file.exists()) {
+        Left(FileSystemError.NotFound(url))
+      } else if (file.isDirectory) {
+        Left(FileSystemError.Unsupported(s"Cannot open directory ($url) as file"))
+      } else {
+        Right(new FileInputStream(file))
+      }
+    } catch {
+      case e: FileNotFoundException if e.getMessage.contains("Permission denied") =>
+        // FileInputStream throws an FileNotFound if it cannot open the file
+        logger.error(s"Permission denied for ($url)", e)
+        Left(FileSystemError.PermissionDenied("Permission denied for ($url)"))
     }
   }
 
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
-    val uri = new URI(url)
-    val path = Paths.get(uri) // This can handle file:// or no scheme
-    val pathString = path.toString
+    try {
+      val file = fileFromUrl(url) match {
+        case Left(err) => return Left(err)
+        case Right(f)  => f
+      }
 
-    // If the path doesn't contain any glob symbol, treat it as normal:
-    if (!containsGlob(pathString)) {
-      // Return the normal listing
-      list(url)
-    } else {
-      // We have a glob => separate directory from the pattern
-      val (dirPath, pattern) = splitDirAndPattern(path)
+      val path = file.toPath
+      val pathString = path.toString
 
-      if (!Files.isDirectory(dirPath)) {
-        // If "dirPath" is not a directory, we can't do a glob listing:
-        Right(Nil)
+      // If the path doesn't contain any glob symbol, treat it as normal:
+      if (!containsGlob(pathString)) {
+        // Return the normal listing
+        list(url)
       } else {
-        val matcher = FileSystems.getDefault.getPathMatcher("glob:" + pattern)
-        val stream: DirectoryStream[Path] = Files.newDirectoryStream(dirPath)
-        try {
-          val matched = stream.asScala
-            .filter(p => matcher.matches(p.getFileName))
-            .map(_.toUri.toString)
-            .toList
+        // We have a glob => separate directory from the pattern
+        val (dirPath, pattern) = splitDirAndPattern(path)
 
-          Right(matched)
-        } finally {
-          stream.close()
+        if (!Files.isDirectory(dirPath)) {
+          // If "dirPath" is not a directory, we can't do a glob listing:
+          Right(Nil)
+        } else {
+          val matcher = FileSystems.getDefault.getPathMatcher("glob:" + pattern)
+          val stream: DirectoryStream[Path] = Files.newDirectoryStream(dirPath)
+          try {
+            val matched = stream.asScala
+              .filter(p => matcher.matches(p.getFileName))
+              .map(_.toUri.toString)
+              .toList
+
+            Right(matched)
+          } finally {
+            stream.close()
+          }
         }
       }
+    } catch {
+      case e: PatternSyntaxException =>
+        logger.error(s"Error in glob pattern ($url)", e)
+        Left(FileSystemError.Unsupported("Error in glob pattern: " + e.getMessage))
+      case e: UnsupportedOperationException =>
+        logger.error(s"Unsupported operation for ($url)", e)
+        Left(FileSystemError.Unsupported(e.getMessage))
+      case e: FileNotFoundException =>
+        logger.error(s"file not found for ($url)", e)
+        Left(FileSystemError.NotFound(url))
     }
   }
 
@@ -136,7 +160,9 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
   private def fileFromUrl(url: String): Either[FileSystemError, File] = {
     try {
       val uri = new URI(url)
-      if (uri.getScheme == null || uri.getScheme == "file") {
+      if (uri.getScheme == null) {
+        Right(new File(url))
+      } else if (uri.getScheme == "file") {
         Right(new File(uri))
       } else {
         Left(FileSystemError.Unsupported(s"LocalFileSystem only supports file:// URLs or no scheme but got: $url"))
