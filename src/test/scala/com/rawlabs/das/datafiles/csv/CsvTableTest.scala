@@ -114,15 +114,15 @@ class CsvTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
   }
 
   it should "throw on insert/update/delete" in {
-    an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
+    an[com.rawlabs.das.sdk.DASSdkUnsupportedException] should be thrownBy {
       table.insert(com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
     }
-    an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
+    an[com.rawlabs.das.sdk.DASSdkUnsupportedException] should be thrownBy {
       table.update(
         com.rawlabs.protocol.das.v1.types.Value.newBuilder().setInt(ValueInt.newBuilder().setV(1)).build(),
         com.rawlabs.protocol.das.v1.tables.Row.getDefaultInstance)
     }
-    an[com.rawlabs.das.sdk.DASSdkInvalidArgumentException] should be thrownBy {
+    an[com.rawlabs.das.sdk.DASSdkUnsupportedException] should be thrownBy {
       table.delete(com.rawlabs.protocol.das.v1.types.Value.newBuilder().setInt(ValueInt.newBuilder().setV(1)).build())
     }
   }
