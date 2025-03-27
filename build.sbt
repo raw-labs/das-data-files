@@ -40,3 +40,9 @@ Test / javaOptions ++= Seq(
   "--add-opens=java.base/java.io=ALL-UNNAMED",
   "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
   "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED")
+
+run / javaOptions ++= Seq(
+  "--add-opens=java.base/java.io=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+)

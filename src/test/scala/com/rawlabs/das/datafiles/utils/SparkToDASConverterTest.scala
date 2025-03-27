@@ -12,30 +12,26 @@
 
 package com.rawlabs.das.datafiles.utils
 
-import com.rawlabs.das.datafiles.SparkTestContext
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
-import com.rawlabs.protocol.das.v1.query._
-import com.rawlabs.protocol.das.v1.types.Value.ValueCase
-import com.rawlabs.protocol.das.v1.{types => dasTypes}
+import java.sql.{Date, Time, Timestamp}
+import java.time.{LocalDate, LocalDateTime, LocalTime}
+
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.{types => sparkTypes}
 import org.apache.spark.unsafe.types.CalendarInterval
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.sql.{Date, Time, Timestamp}
-import java.time.{LocalDate, LocalDateTime, LocalTime}
+import com.rawlabs.das.datafiles.SparkTestContext
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.protocol.das.v1.query._
+import com.rawlabs.protocol.das.v1.types.Value.ValueCase
+import com.rawlabs.protocol.das.v1.{types => dasTypes}
 
 /**
- * Unit tests for SparkToDASConverter object methods:
- *  1) applyQuals
- *  2) applySortKeys
- *  3) sparkTypeToDAS
- *  4) sparkValueToProtoValue
- *  5) protoValueToSparkValue
+ * Unit tests for SparkToDASConverter object methods: 1) applyQuals 2) applySortKeys 3) sparkTypeToDAS 4)
+ * sparkValueToProtoValue 5) protoValueToSparkValue
  */
 class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestContext {
-
 
   // --------------------------------------------------------------------------
   // 1) applyQuals
@@ -110,12 +106,15 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
     import spark.implicits._
     val df = Seq((1, "A"), (2, "B")).toDF("id", "letter")
     // Create a qualifier with operator PLUS which is unsupported for filtering.
-    val qual = Qual.newBuilder().setName("id")
+    val qual = Qual
+      .newBuilder()
+      .setName("id")
       .setSimpleQual(
-        SimpleQual.newBuilder()
+        SimpleQual
+          .newBuilder()
           .setOperator(Operator.PLUS)
-          .setValue(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(1)))
-      ).build()
+          .setValue(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(1))))
+      .build()
     val (filtered, allApplied) = SparkToDASConverter.applyQuals(df, Seq(qual))
     // Expect no filtering is applied, but allApplied is false
     filtered.count() shouldBe df.count()
@@ -125,12 +124,16 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   it should "mark qualifier as not fully applied for IS_ALL_QUAL with empty value list" in {
     import spark.implicits._
     val df = Seq((1, "A"), (2, "B")).toDF("id", "letter")
-    val qual = Qual.newBuilder().setName("id")
+    val qual = Qual
+      .newBuilder()
+      .setName("id")
       .setIsAllQual(
-        IsAllQual.newBuilder()
+        IsAllQual
+          .newBuilder()
           .setOperator(Operator.EQUALS)
-        // No values added: empty list
-      ).build()
+          // No values added: empty list
+      )
+      .build()
     val (filtered, allApplied) = SparkToDASConverter.applyQuals(df, Seq(qual))
     filtered.count() shouldBe df.count()
     allApplied shouldBe false
@@ -139,12 +142,16 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   it should "mark qualifier as not fully applied for IS_ANY_QUAL with empty value list" in {
     import spark.implicits._
     val df = Seq((1, "A"), (2, "B")).toDF("id", "letter")
-    val qual = Qual.newBuilder().setName("id")
+    val qual = Qual
+      .newBuilder()
+      .setName("id")
       .setIsAnyQual(
-        IsAnyQual.newBuilder()
+        IsAnyQual
+          .newBuilder()
           .setOperator(Operator.EQUALS)
-        // No values added: empty list
-      ).build()
+          // No values added: empty list
+      )
+      .build()
     val (filtered, allApplied) = SparkToDASConverter.applyQuals(df, Seq(qual))
     filtered.count() shouldBe df.count()
     allApplied shouldBe false
@@ -154,7 +161,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
     import spark.implicits._
     val df = Seq((1, "A"), (2, "B"), (3, "C")).toDF("id", "letter")
     // Qualifier: id equals 2 or 3
-    val isAnyQual = IsAnyQual.newBuilder()
+    val isAnyQual = IsAnyQual
+      .newBuilder()
       .setOperator(Operator.EQUALS)
       .addValues(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(2)))
       .addValues(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(3)))
@@ -171,7 +179,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
     import spark.implicits._
     val df = Seq((1, "A"), (2, "B"), (3, "C")).toDF("id", "letter")
     // Qualifier: id equals 2 and id equals 3 (impossible to satisfy simultaneously)
-    val isAllQual = IsAllQual.newBuilder()
+    val isAllQual = IsAllQual
+      .newBuilder()
       .setOperator(Operator.EQUALS)
       .addValues(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(2)))
       .addValues(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(3)))
@@ -209,12 +218,7 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
 
   it should "sort rows by multiple sort keys" in {
     import spark.implicits._
-    val df = Seq(
-      (1, "B", 100),
-      (2, "A", 200),
-      (3, "B", 150),
-      (4, "A", 50)
-    ).toDF("id", "group", "value")
+    val df = Seq((1, "B", 100), (2, "A", 200), (3, "B", 150), (4, "A", 50)).toDF("id", "group", "value")
     // First sort by group ascending, then by value descending
     val sortKey1 = SortKey.newBuilder().setName("group").setIsReversed(false).setNullsFirst(false).build()
     val sortKey2 = SortKey.newBuilder().setName("value").setIsReversed(true).setNullsFirst(false).build()
@@ -225,8 +229,7 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
       (2, "A", 200),
       (4, "A", 50),
       (3, "B", 150),
-      (1, "B", 100)
-    )
+      (1, "B", 100))
   }
 
   // --------------------------------------------------------------------------
@@ -339,14 +342,22 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert a Map to ValueRecord with missing fields set to null" in {
-    val recordType = dasTypes.Type.newBuilder().setRecord(
-      dasTypes.RecordType.newBuilder()
-        .addAtts(
-          dasTypes.AttrType.newBuilder().setName("id").setTipe(dasTypes.Type.newBuilder().setInt(dasTypes.IntType.newBuilder().setNullable(true))))
-        .addAtts(
-          dasTypes.AttrType.newBuilder().setName("name").setTipe(dasTypes.Type.newBuilder().setString(dasTypes.StringType.newBuilder().setNullable(true))))
-        .setNullable(true)
-    ).build()
+    val recordType = dasTypes.Type
+      .newBuilder()
+      .setRecord(
+        dasTypes.RecordType
+          .newBuilder()
+          .addAtts(
+            dasTypes.AttrType
+              .newBuilder()
+              .setName("id")
+              .setTipe(dasTypes.Type.newBuilder().setInt(dasTypes.IntType.newBuilder().setNullable(true))))
+          .addAtts(dasTypes.AttrType
+            .newBuilder()
+            .setName("name")
+            .setTipe(dasTypes.Type.newBuilder().setString(dasTypes.StringType.newBuilder().setNullable(true))))
+          .setNullable(true))
+      .build()
     val mapVal: Map[String, Any] = Map("id" -> 42) // "name" missing
     val protoVal = SparkToDASConverter.sparkValueToProtoValue(mapVal, recordType, "mapCol")
     val record = protoVal.getRecord
@@ -383,7 +394,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   behavior of "SparkToDASConverter.protoValueToSparkValue"
 
   it should "convert DAS int value to Spark int" in {
-    val dasInt = dasTypes.Value.newBuilder()
+    val dasInt = dasTypes.Value
+      .newBuilder()
       .setInt(dasTypes.ValueInt.newBuilder().setV(100))
       .build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasInt)
@@ -391,7 +403,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS boolean value to Spark boolean" in {
-    val dasBool = dasTypes.Value.newBuilder()
+    val dasBool = dasTypes.Value
+      .newBuilder()
       .setBool(dasTypes.ValueBool.newBuilder().setV(true))
       .build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasBool)
@@ -399,7 +412,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS string value to Spark string" in {
-    val dasStr = dasTypes.Value.newBuilder()
+    val dasStr = dasTypes.Value
+      .newBuilder()
       .setString(dasTypes.ValueString.newBuilder().setV("test"))
       .build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasStr)
@@ -407,7 +421,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS date value to Spark Date" in {
-    val dasDate = dasTypes.Value.newBuilder()
+    val dasDate = dasTypes.Value
+      .newBuilder()
       .setDate(dasTypes.ValueDate.newBuilder().setYear(2025).setMonth(5).setDay(15))
       .build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasDate)
@@ -416,7 +431,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS time value to Spark Time" in {
-    val dasTime = dasTypes.Value.newBuilder()
+    val dasTime = dasTypes.Value
+      .newBuilder()
       .setTime(dasTypes.ValueTime.newBuilder().setHour(12).setMinute(30).setSecond(45))
       .build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasTime)
@@ -425,9 +441,11 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS timestamp value to Spark Timestamp" in {
-    val dasTimestamp = dasTypes.Value.newBuilder()
+    val dasTimestamp = dasTypes.Value
+      .newBuilder()
       .setTimestamp(
-        dasTypes.ValueTimestamp.newBuilder()
+        dasTypes.ValueTimestamp
+          .newBuilder()
           .setYear(2025)
           .setMonth(4)
           .setDay(20)
@@ -443,9 +461,11 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS interval value to CalendarInterval" in {
-    val dasInterval = dasTypes.Value.newBuilder()
+    val dasInterval = dasTypes.Value
+      .newBuilder()
       .setInterval(
-        dasTypes.ValueInterval.newBuilder()
+        dasTypes.ValueInterval
+          .newBuilder()
           .setYears(2)
           .setMonths(3)
           .setDays(10)
@@ -456,7 +476,7 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
       .build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasInterval)
     val interval = sparkVal.asInstanceOf[CalendarInterval]
-    val expectedMonths = 2 * 12 + 3  // 27
+    val expectedMonths = 2 * 12 + 3 // 27
     val expectedDays = 10
     val expectedMicros = 5L * 3600000000L + 30L * 60000000L + 20L * 1000000L + 500000L
     interval.months shouldBe expectedMonths
@@ -465,13 +485,18 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
   }
 
   it should "convert DAS record value to Map" in {
-    val rec = dasTypes.ValueRecord.newBuilder()
-      .addAtts(dasTypes.ValueRecordAttr.newBuilder()
-        .setName("a")
-        .setValue(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(5))))
-      .addAtts(dasTypes.ValueRecordAttr.newBuilder()
-        .setName("b")
-        .setValue(dasTypes.Value.newBuilder().setString(dasTypes.ValueString.newBuilder().setV("test"))))
+    val rec = dasTypes.ValueRecord
+      .newBuilder()
+      .addAtts(
+        dasTypes.ValueRecordAttr
+          .newBuilder()
+          .setName("a")
+          .setValue(dasTypes.Value.newBuilder().setInt(dasTypes.ValueInt.newBuilder().setV(5))))
+      .addAtts(
+        dasTypes.ValueRecordAttr
+          .newBuilder()
+          .setName("b")
+          .setValue(dasTypes.Value.newBuilder().setString(dasTypes.ValueString.newBuilder().setV("test"))))
       .build()
     val dasRecVal = dasTypes.Value.newBuilder().setRecord(rec).build()
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasRecVal)
