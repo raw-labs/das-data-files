@@ -119,7 +119,6 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     val colTypesMap: Map[String, Type] = columns.toMap
 
     new DASExecuteResult {
-      // Delete the file if needed when the iterator is exhausted
       override def hasNext: Boolean = {
         sparkIter.hasNext
       }
@@ -139,7 +138,6 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         }
         rowBuilder.build()
       }
-      // Delete the file if needed when the iterator is exhausted
       override def close(): Unit = {}
     }
   }

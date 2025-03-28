@@ -13,7 +13,7 @@ lazy val root = (project in file("."))
     repoNameSetting := "das-data-files",
     libraryDependencies ++= Seq(
       // DAS
-      "com.raw-labs" %% "das-server-scala" % "0.6.0" % "compile->compile;test->test" excludeAll (commonExclusions *),
+      "com.raw-labs" %% "das-server-scala" % "0.6.2" % "compile->compile;test->test" excludeAll (commonExclusions *),
       // spark hadoop dependencies
       "org.apache.spark" %% "spark-sql" % "3.5.5",
       "com.databricks" %% "spark-xml" % "0.18.0",

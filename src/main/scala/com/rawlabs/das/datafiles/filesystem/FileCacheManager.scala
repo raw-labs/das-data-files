@@ -32,8 +32,8 @@ case class CacheEntry(localPath: String, timestampMillis: Long)
  */
 class FileCacheManager(
     fileSystems: Seq[BaseFileSystem], // a list of FSes (S3, GitHub, local, etc.)
-    cacheTtlMillis: Int, // how long to consider a cached entry "fresh",
-    intervalMillis: Int // how often to clean up the cache
+    cacheTtlMillis: Long, // how long to consider a cached entry "fresh",
+    intervalMillis: Long // how often to clean up the cache
 ) extends StrictLogging {
 
   // Thread-safe map: url -> CacheEntry

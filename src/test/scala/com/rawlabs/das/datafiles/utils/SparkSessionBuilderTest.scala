@@ -16,8 +16,11 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
+import com.rawlabs.das.sdk.DASSettings
+
 class SparkSessionBuilderTest extends AnyFlatSpec with Matchers {
 
+  implicit val settings: DASSettings = new DASSettings()
   it should "set anonymous credentials when aws_access_key is not provided" in {
     val sparkSess = SparkSessionBuilder.build("testApp", Map.empty)
     sparkSess.conf.get("fs.s3a.aws.credentials.provider") shouldBe

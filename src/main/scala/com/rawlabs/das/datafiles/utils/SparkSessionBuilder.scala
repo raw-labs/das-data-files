@@ -16,28 +16,27 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 import org.apache.spark.sql.SparkSession
 
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 import com.typesafe.config.ConfigFactory
 
 object SparkSessionBuilder {
 
-  // Loading common spark configuration from a subtree of the main config file
-  private val sparkConfig: Map[String, String] = {
-    val conf = ConfigFactory.load().getConfig("das.data-files.spark-config")
-    conf
+  def build(appName: String, options: Map[String, String])(implicit settings: DASSettings): SparkSession = {
+
+    val builder = SparkSession
+      .builder()
+      .appName(appName)
+
+    val conf = settings.getConfigSubTree("das.data-files").get.asScala.head.getValue.atKey("spark-config")
+
+    val sparkConfig = conf
       .entrySet()
       .asScala
       .map { entry =>
         val key = entry.getKey
-        key -> conf.getString(key)
+        key.stripPrefix("spark-config.") -> conf.getString(key)
       }
       .toMap
-  }
-
-  def build(appName: String, options: Map[String, String]): SparkSession = {
-    val builder = SparkSession
-      .builder()
-      .appName(appName)
 
     builder.config(sparkConfig)
 

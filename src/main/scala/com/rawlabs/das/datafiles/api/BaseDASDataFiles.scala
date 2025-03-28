@@ -46,8 +46,8 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
     with StrictLogging {
 
   private val maxTables = settings.getInt("das.data-files.max-tables")
-  private val fileCacheExpiration = settings.getInt("das.data-files.file-cache-expiration")
-  private val cleanupCachePeriod = settings.getInt("das.data-files.cleanup-cache-period")
+  private val fileCacheExpiration = settings.getDuration("das.data-files.file-cache-expiration")
+  private val cleanupCachePeriod = settings.getDuration("das.data-files.cleanup-cache-period")
   private val dasOptions = new DASDataFilesOptions(options)
 
   // Keep track of used names so we ensure uniqueness
@@ -65,7 +65,7 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
   }
 
   private val fileCacheManager: FileCacheManager =
-    new FileCacheManager(filesystems.values.toSeq, fileCacheExpiration, cleanupCachePeriod)
+    new FileCacheManager(filesystems.values.toSeq, fileCacheExpiration.toMillis, cleanupCachePeriod.toMillis)
 
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>
@@ -79,7 +79,11 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
       case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
       case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
       case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
-      case _                                           => throw new DASSdkInvalidArgumentException("Unexpected error")
+      case Left(FileSystemError.InvalidUrl(url, message)) =>
+        throw new DASSdkInvalidArgumentException(s"Invalid URL $url: $message")
+      case Left(FileSystemError.FileTooLarge(url, actualSize, maxFileSize)) =>
+        throw new AssertionError(s"Not downloading but got a file too large: $url ($actualSize > $maxFileSize)")
+
     }
 
     if (urls.length > 1) logger.debug("Multiple URLs found: {}", urls.mkString(", "))
