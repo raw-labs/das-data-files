@@ -116,7 +116,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     val fs = new S3FileSystem(mockClient, "/tmp/test-cache")
     val result = fs.open("s3://bucket/missing.txt")
 
-    result shouldBe Left(FileSystemError.NotFound("s3://bucket/missing.txt"))
+    result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.NotFound]
     verify(mockClient).getObject(any[GetObjectRequest])
   }
 

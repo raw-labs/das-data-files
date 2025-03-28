@@ -36,7 +36,7 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
     }
 
     if (!file.exists()) {
-      Left(FileSystemError.NotFound(url))
+      Left(FileSystemError.NotFound(url, s"File not found $url"))
     } else if (file.isDirectory) {
       // Directory => list immediate children (files only)
       val files = file
@@ -60,7 +60,7 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
       }
 
       if (!file.exists()) {
-        Left(FileSystemError.NotFound(url))
+        Left(FileSystemError.NotFound(url, s"File not found $url"))
       } else if (file.isDirectory) {
         Left(FileSystemError.Unsupported(s"Cannot open directory ($url) as file"))
       } else {
@@ -119,7 +119,7 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
         Left(FileSystemError.Unsupported(e.getMessage))
       case e: FileNotFoundException =>
         logger.error(s"file not found for ($url)", e)
-        Left(FileSystemError.NotFound(url))
+        Left(FileSystemError.NotFound(url, s"File not found $url: ${e.getMessage}"))
     }
   }
 
@@ -142,7 +142,7 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
     }
 
     if (!file.exists()) {
-      Left(FileSystemError.NotFound(url))
+      Left(FileSystemError.NotFound(url, s"File not found $url"))
     } else if (file.isDirectory) {
       Left(FileSystemError.Unsupported(s"Cannot get size of a directory ($url)"))
     } else {

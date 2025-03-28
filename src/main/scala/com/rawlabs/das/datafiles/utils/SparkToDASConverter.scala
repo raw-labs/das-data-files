@@ -290,7 +290,7 @@ object SparkToDASConverter {
    *   - MapType mapped to a DAS RecordType with "keys" and "values" fields.
    *
    * @param sparkType The Spark SQL DataType to convert.
-   * @param nullable Indicates whether the field is nullable.
+   * @param nullable Indicates whether the type is nullable.
    * @return The corresponding DAS type.
    * @throws DASSdkInvalidArgumentException if the Spark type is unsupported.
    */
@@ -327,7 +327,10 @@ object SparkToDASConverter {
         DasType.newBuilder().setBinary(BinaryType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.ArrayType(elementType, elementContainsNull) =>
         val elementDasType = sparkTypeToDAS(elementType, elementContainsNull)
-        DasType.newBuilder().setList(ListType.newBuilder().setInnerType(elementDasType).setNullable(nullable)).build()
+        DasType
+          .newBuilder()
+          .setList(ListType.newBuilder().setInnerType(elementDasType).setNullable(elementContainsNull))
+          .build()
       case sparkTypes.StructType(fields) =>
         val attsBuilder = RecordType.newBuilder().setNullable(nullable)
         fields.foreach { field =>
@@ -337,13 +340,17 @@ object SparkToDASConverter {
         DasType.newBuilder().setRecord(attsBuilder.build()).build()
       case sparkTypes.MapType(keyType, valueType, valueContainsNull) =>
         val mapAsRecord = RecordType.newBuilder().setNullable(nullable)
+
         val keysType = sparkTypeToDAS(keyType, nullable = false)
         val keysListType =
-          DasType.newBuilder().setList(ListType.newBuilder().setInnerType(keysType).setNullable(true)).build()
+          DasType.newBuilder().setList(ListType.newBuilder().setInnerType(keysType).setNullable(false)).build()
         mapAsRecord.addAtts(AttrType.newBuilder().setName("keys").setTipe(keysListType))
         val valsType = sparkTypeToDAS(valueType, valueContainsNull)
         val valsListType =
-          DasType.newBuilder().setList(ListType.newBuilder().setInnerType(valsType).setNullable(true)).build()
+          DasType
+            .newBuilder()
+            .setList(ListType.newBuilder().setInnerType(valsType).setNullable(valueContainsNull))
+            .build()
         mapAsRecord.addAtts(AttrType.newBuilder().setName("values").setTipe(valsListType))
         DasType.newBuilder().setRecord(mapAsRecord.build()).build()
       case other =>

@@ -168,8 +168,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     } else {
       config.fileCacheManager.getLocalPathForUrl(config.uri.toString) match {
         case Right(url) => url
-        case Left(FileSystemError.NotFound(_)) =>
-          throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
+        case Left(FileSystemError.NotFound(_, message)) =>
+          throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}: $message")
         case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
         case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
         case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)

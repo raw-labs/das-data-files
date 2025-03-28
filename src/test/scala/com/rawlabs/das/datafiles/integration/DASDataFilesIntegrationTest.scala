@@ -103,7 +103,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       "aws_access_key" -> "INVALID_ACCESS",
       "aws_secret_key" -> "INVALID_SECRET",
       "paths" -> "1",
-      "path0_url" -> "s3://my-private-bucket/secret-data.csv",
+      "path0_url" -> "s3://rawlabs-private-test-data/winter_olympics.csv",
       "path0_format" -> "csv")
 
     // We expect some sort of authentication/permission error:
@@ -115,7 +115,20 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
   }
 
   it should "fail if missing credentials for a private bucket" in {
-    val config = Map("paths" -> "1", "path0_url" -> "s3://my-private-bucket/secret-data.csv", "path0_format" -> "csv")
+    val config =
+      Map("paths" -> "1", "path0_url" -> "s3://rawlabs-private-test-data/winter_olympics.csv", "path0_format" -> "csv")
+
+    // We expect some sort of authentication/permission error:
+    intercept[DASSdkPermissionDeniedException] {
+      new DASDataFiles(config).tables.head._2
+        .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
+        .hasNext
+    }
+  }
+
+  it should "fail if missing credentials for a private bucket with wildcard" in {
+    val config =
+      Map("paths" -> "1", "path0_url" -> "s3://rawlabs-private-test-data/*_olympics.csv", "path0_format" -> "csv")
 
     // We expect some sort of authentication/permission error:
     intercept[DASSdkPermissionDeniedException] {
@@ -220,10 +233,11 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         "path0_url" -> "github://raw-labs/raw/master/docs/public/static/rql2DocsGenerated.json",
         "path0_format" -> "csv")
 
-    intercept[DASSdkUnauthenticatedException] {
+    val e = intercept[DASSdkInvalidArgumentException] {
       // or DASSdkUnauthenticatedException / whichever your code throws
       new DASDataFiles(config).tables
     }
+    assert(e.getMessage.contains("Repository raw-labs/raw does not exist or requires credentials"))
   }
 
   it should "fail if GitHub token is invalid for a private repo" in {

@@ -63,12 +63,10 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       Right(files)
     } catch {
       case e: GHFileNotFoundException =>
-        Left(FileSystemError.NotFound(s"File not found: $url"))
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url))
-      case e: HttpException if e.getResponseCode == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 403 =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
@@ -95,15 +93,13 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       val fileContent = repo.getFileContent(file.path, file.branch)
       // Use the file’s download URL to open a stream.
       val downloadUrl = fileContent.getDownloadUrl
-      val inputStream = new URI(downloadUrl.toString).toURL.openStream()
+      val inputStream = new URI(downloadUrl).toURL.openStream()
       Right(inputStream)
     } catch {
-      case _: GHFileNotFoundException => Left(FileSystemError.NotFound(s"File not found: $url"))
+      case e: GHFileNotFoundException => Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url))
-      case e: HttpException if e.getResponseCode == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 403 =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
@@ -152,12 +148,11 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.Unsupported(s"Path refers to a directory, cannot get size: $url"))
       }
     } catch {
-      case _: GHFileNotFoundException => Left(FileSystemError.NotFound(s"File not found: $url"))
+      case e: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url))
-      case e: HttpException if e.getResponseCode == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 403 =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
@@ -184,9 +179,18 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       val repo = githubClient.getRepository(s"${file.owner}/${file.repo}")
       Right((repo, file))
     } catch {
-      case e: GHFileNotFoundException =>
+      case _: GHFileNotFoundException =>
         // when its not authorized, it throws a GHFileNotFoundException
-        Left(FileSystemError.Unauthorized(s"Did not find repository: ${file.owner}/${file.repo}"))
+        Left(FileSystemError.NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
+      case e: HttpException if e.getResponseCode == 404 =>
+        Left(FileSystemError.NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
+      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
+        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 429 =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        logger.error(s"Error getting repository ${file.owner}/${file.repo}", e)
+        throw e
     }
   }
 

@@ -73,8 +73,8 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
 
     val urls = filesystem.resolveWildcard(config.uri.toString) match {
       case Right(url) => url
-      case Left(FileSystemError.NotFound(_)) =>
-        throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
+      case Left(FileSystemError.NotFound(url, message)) =>
+        throw new DASSdkInvalidArgumentException(message)
       case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
       case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
       case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
@@ -84,6 +84,10 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
       case Left(FileSystemError.FileTooLarge(url, actualSize, maxFileSize)) =>
         throw new AssertionError(s"Not downloading but got a file too large: $url ($actualSize > $maxFileSize)")
 
+    }
+
+    if (urls.isEmpty) {
+      throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}")
     }
 
     if (urls.length > 1) logger.debug("Multiple URLs found: {}", urls.mkString(", "))

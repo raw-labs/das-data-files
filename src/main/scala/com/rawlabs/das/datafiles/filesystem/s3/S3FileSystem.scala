@@ -69,9 +69,9 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
     } catch {
       case _: NoSuchKeyException =>
         // Not a single object => treat as a prefix (like "directory") but only depth=1
-        listAsDirectorySingleLevel(bucket, key, url)
-      case _: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url))
+        listAsDirectorySingleLevel(bucket, key)
+      case e: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
       case e: LimitExceededException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
       case e: TooManyRequestsException =>
@@ -103,8 +103,10 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       val response: ResponseInputStream[_] = s3Client.getObject(getReq)
       Right(new BufferedInputStream(response))
     } catch {
-      case _: NoSuchKeyException | _: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url))
+      case e: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
+      case e: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
       case e: LimitExceededException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
       case e: TooManyRequestsException =>
@@ -126,6 +128,7 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
    * single-level prefix and filter by pattern.
    */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
+
     try {
       val (bucket, fullPath) = parseS3Url(url) match {
         case Left(error)   => return Left(error)
@@ -133,19 +136,19 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       }
 
       val (prefix, maybePattern) = splitWildcard(fullPath)
-
       if (maybePattern.isEmpty) return list(url)
 
       val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
-
       // Single-level listing for the prefix
       val objects = listObjectsSingleLevel(bucket, prefix)
       val matched = objects.filter(regex.matches)
 
       Right(matched.map(k => s"s3://$bucket/$k"))
     } catch {
-      case _: NoSuchKeyException | _: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url))
+      case e: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
+      case e: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
       case e: LimitExceededException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
       case e: TooManyRequestsException =>
@@ -154,9 +157,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
-      case e: S3Exception if e.statusCode() == 301 =>
-        // If the wrong credentials are used, I am getting a 301 Moved Permanently
-        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
       case NonFatal(e) =>
@@ -179,12 +179,20 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       val headResp = s3Client.headObject(headReq)
       Right(headResp.contentLength())
     } catch {
-      case _: NoSuchKeyException | _: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url))
+      case e: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
+      case e: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
+      case e: LimitExceededException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case e: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 403 =>
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+      case _: AccessDeniedException =>
+        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
       case NonFatal(e) =>
         logger.error(s"Error getting s3 url size $url", e)
         throw e
@@ -203,17 +211,12 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
    * If HEAD fails, we treat the path as a "folder" prefix and do a single-level listing. Returns Right(list-of-S3-URIs)
    * or NotFound if empty.
    */
-  private def listAsDirectorySingleLevel(
-      bucket: String,
-      prefix: String,
-      url: String): Either[FileSystemError, List[String]] = {
+  private def listAsDirectorySingleLevel(bucket: String, prefix: String): Either[FileSystemError, List[String]] = {
     val objectKeys = listObjectsSingleLevel(bucket, prefix)
-    if (objectKeys.isEmpty) {
-      Left(FileSystemError.NotFound(url))
-    } else {
-      val uris = objectKeys.map(k => s"s3://$bucket/$k")
-      Right(uris)
-    }
+
+    val uris = objectKeys.map(k => s"s3://$bucket/$k")
+    Right(uris)
+
   }
 
   /**
