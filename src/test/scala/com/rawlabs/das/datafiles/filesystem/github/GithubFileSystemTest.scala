@@ -142,7 +142,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     verify(mockRepo).getDirectoryContent("folder", "main")
   }
 
-  it should "fall back to normal listing if there's no wildcard in the URL" in {
+  it should "fall back return url if there's no wildcard in the URL and it is a file" in {
     val mockGitHub = mock[GitHub]
     val mockRepo = mock[GHRepository]
     when(mockGitHub.getRepository("owner/repo")).thenReturn(mockRepo)

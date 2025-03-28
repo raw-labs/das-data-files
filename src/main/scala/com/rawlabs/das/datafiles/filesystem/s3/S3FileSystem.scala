@@ -60,18 +60,14 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
     }
 
     try {
-      // Try HEAD to see if it's a single object
-      val headReq = HeadObjectRequest.builder().bucket(bucket).key(key).build()
-      s3Client.headObject(headReq)
-
-      // If HEAD is successful => it's a single file
-      Right(List(url))
+      val objectKeys = listObjectsSingleLevel(bucket, key)
+      val uris = objectKeys.map(k => s"s3://$bucket/$k")
+      Right(uris)
     } catch {
-      case _: NoSuchKeyException =>
-        // Not a single object => treat as a prefix (like "directory") but only depth=1
-        listAsDirectorySingleLevel(bucket, key)
       case e: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
+      case e: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
       case e: LimitExceededException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
       case e: TooManyRequestsException =>
@@ -136,14 +132,21 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       }
 
       val (prefix, maybePattern) = splitWildcard(fullPath)
-      if (maybePattern.isEmpty) return list(url)
+      if (maybePattern.isEmpty) {
+        // verifies that it is a single file
+        val headReq = HeadObjectRequest.builder().bucket(bucket).key(fullPath).build()
+        s3Client.headObject(headReq)
+        // If HEAD is successful => it's a single file
+        Right(List(url))
 
-      val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
-      // Single-level listing for the prefix
-      val objects = listObjectsSingleLevel(bucket, prefix)
-      val matched = objects.filter(regex.matches)
+      } else {
 
-      Right(matched.map(k => s"s3://$bucket/$k"))
+        val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
+        // Single-level listing for the prefix
+        val objects = listObjectsSingleLevel(bucket, prefix)
+        val matched = objects.filter(regex.matches)
+        Right(matched.map(k => s"s3://$bucket/$k"))
+      }
     } catch {
       case e: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
@@ -206,18 +209,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
   // --------------------------------------------------------------------------
   // Private Helpers
   // --------------------------------------------------------------------------
-
-  /**
-   * If HEAD fails, we treat the path as a "folder" prefix and do a single-level listing. Returns Right(list-of-S3-URIs)
-   * or NotFound if empty.
-   */
-  private def listAsDirectorySingleLevel(bucket: String, prefix: String): Either[FileSystemError, List[String]] = {
-    val objectKeys = listObjectsSingleLevel(bucket, prefix)
-
-    val uris = objectKeys.map(k => s"s3://$bucket/$k")
-    Right(uris)
-
-  }
 
   /**
    * **Single-level** listing of objects under `prefix`, ignoring deeper subdirectories. We use `delimiter("/")` so that

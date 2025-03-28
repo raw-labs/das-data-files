@@ -47,15 +47,8 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
     try {
       // Try to list the directory content first.
       val contents =
-        try {
-          repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
-        } catch {
-          // If deserialization fails, assume it is a file and fetch file content instead.
-          case e: Exception
-              if Option(e.getCause).exists(
-                _.isInstanceOf[com.fasterxml.jackson.databind.exc.MismatchedInputException]) =>
-            List(repo.getFileContent(file.path, file.branch))
-        }
+        repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
+
       // Only include files in the result.
       val files = contents.filter(_.isFile).map { content =>
         s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
@@ -73,9 +66,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       case NonFatal(e) =>
         logger.error(s"Error listing github url $url", e)
         throw e
-
     }
-
   }
 
   /**
@@ -107,7 +98,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         logger.error(s"Error opening github url $url", e)
         throw e
     }
-
   }
 
   /**
@@ -120,7 +110,11 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
     val (prefixUrl, maybePattern) = splitWildcard(url)
     maybePattern match {
       case None =>
-        list(prefixUrl)
+        isFile(url) match {
+          case Left(value)  => Left(value)
+          case Right(false) => Left(FileSystemError.Unsupported("url is a folder"))
+          case Right(true)  => Right(List(url))
+        }
       case Some(pattern) =>
         list(prefixUrl).map { allFiles =>
           val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
@@ -169,6 +163,30 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    */
   override def stop(): Unit = {}
 
+  private def isFile(url: String): Either[FileSystemError, Boolean] = {
+    val (repo, file) = getRepoAndFile(url) match {
+      case Left(err)   => return Left(err)
+      case Right(file) => file
+    }
+
+    try {
+      val content = repo.getFileContent(file.path, file.branch)
+      Right(content.isFile)
+    } catch {
+      case e: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 404 =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
+        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 429 =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        logger.error(s"Error getting file content for github url $url", e)
+        throw e
+    }
+  }
+
   private def getRepoAndFile(url: String): Either[FileSystemError, (GHRepository, GithubFile)] = {
     val file = parseGitHubUrl(url) match {
       case Left(err)   => return Left(err)
@@ -181,9 +199,13 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
     } catch {
       case _: GHFileNotFoundException =>
         // when its not authorized, it throws a GHFileNotFoundException
-        Left(FileSystemError.NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
+        Left(
+          FileSystemError
+            .NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
+        Left(
+          FileSystemError
+            .NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
       case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
