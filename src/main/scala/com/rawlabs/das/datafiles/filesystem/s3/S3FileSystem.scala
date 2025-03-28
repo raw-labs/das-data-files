@@ -16,6 +16,7 @@ import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
 
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
@@ -81,6 +82,9 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+      case NonFatal(e) =>
+        logger.error(s"Error listing s3 url $url", e)
+        throw e
     }
   }
 
@@ -111,6 +115,9 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+      case NonFatal(e) =>
+        logger.error(s"Error opening s3 url $url", e)
+        throw e
     }
   }
 
@@ -147,8 +154,14 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+      case e: S3Exception if e.statusCode() == 301 =>
+        // If the wrong credentials are used, I am getting a 301 Moved Permanently
+        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+      case NonFatal(e) =>
+        logger.error(s"Error resolving s3 wildcard $url", e)
+        throw e
     }
   }
 
@@ -172,6 +185,9 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        logger.error(s"Error getting s3 url size $url", e)
+        throw e
     }
   }
 

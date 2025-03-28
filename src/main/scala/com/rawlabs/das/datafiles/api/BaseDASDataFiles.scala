@@ -108,7 +108,7 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
   }
 
   if (tableConfig.length > maxTables) {
-    throw new IllegalArgumentException(s"Too many tables: ${tableConfig.length} > $maxTables")
+    throw new DASSdkInvalidArgumentException(s"Too many tables: ${tableConfig.length} > $maxTables")
   }
 
   logger.info("Adding tables: {}", tableConfig.map(_.name).mkString(", "))

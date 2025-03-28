@@ -16,6 +16,7 @@ import java.io.InputStream
 import java.net.URI
 
 import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
 
 import org.kohsuke.github._
 
@@ -38,13 +39,12 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    * to list the directory contents using Hub4j. If the given path is a file, it returns a single-element list.
    */
   override def list(url: String): Either[FileSystemError, List[String]] = {
-    val file = parseGitHubUrl(url) match {
+    val (repo, file) = getRepoAndFile(url) match {
       case Left(err)   => return Left(err)
       case Right(file) => file
     }
 
     try {
-      val repo: GHRepository = githubClient.getRepository(s"${file.owner}/${file.repo}")
       // Try to list the directory content first.
       val contents =
         try {
@@ -62,7 +62,8 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       }
       Right(files)
     } catch {
-      case _: GHFileNotFoundException => Left(FileSystemError.NotFound(s"File not found: $url"))
+      case e: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 404 =>
         Left(FileSystemError.NotFound(url))
       case e: HttpException if e.getResponseCode == 401 =>
@@ -71,6 +72,10 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        logger.error(s"Error listing github url $url", e)
+        throw e
+
     }
 
   }
@@ -81,13 +86,12 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    * The file is accessed via Hub4j, and its download URL is used to open a stream.
    */
   override def open(url: String): Either[FileSystemError, InputStream] = {
-    val file = parseGitHubUrl(url) match {
+    val (repo, file) = getRepoAndFile(url) match {
       case Left(err)   => return Left(err)
       case Right(file) => file
     }
 
     try {
-      val repo: GHRepository = githubClient.getRepository(s"${file.owner}/${file.repo}")
       val fileContent = repo.getFileContent(file.path, file.branch)
       // Use the file’s download URL to open a stream.
       val downloadUrl = fileContent.getDownloadUrl
@@ -103,7 +107,9 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-
+      case NonFatal(e) =>
+        logger.error(s"Error opening github url $url", e)
+        throw e
     }
 
   }
@@ -132,13 +138,13 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    * Return the size of the GitHub file (in bytes), or an error if not found/dir.
    */
   override def getFileSize(url: String): Either[FileSystemError, Long] = {
-    val file = parseGitHubUrl(url) match {
-      case Left(err)   => return Left(err)
-      case Right(file) => file
+
+    val (repo, file) = getRepoAndFile(url) match {
+      case Left(err)    => return Left(err)
+      case Right(tuple) => tuple
     }
 
     try {
-      val repo: GHRepository = githubClient.getRepository(s"${file.owner}/${file.repo}")
       val fileContent = repo.getFileContent(file.path, file.branch)
       if (fileContent.isFile) {
         Right(fileContent.getSize) // size in bytes
@@ -155,6 +161,9 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        logger.error(s"Error getting file size for github url $url", e)
+        throw e
     }
 
   }
@@ -164,6 +173,22 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    * resources here.
    */
   override def stop(): Unit = {}
+
+  private def getRepoAndFile(url: String): Either[FileSystemError, (GHRepository, GithubFile)] = {
+    val file = parseGitHubUrl(url) match {
+      case Left(err)   => return Left(err)
+      case Right(file) => file
+    }
+
+    try {
+      val repo = githubClient.getRepository(s"${file.owner}/${file.repo}")
+      Right((repo, file))
+    } catch {
+      case e: GHFileNotFoundException =>
+        // when its not authorized, it throws a GHFileNotFoundException
+        Left(FileSystemError.Unauthorized(s"Did not find repository: ${file.owner}/${file.repo}"))
+    }
+  }
 
   // ----------------------------------------------------------------
   // Internal helper functions
