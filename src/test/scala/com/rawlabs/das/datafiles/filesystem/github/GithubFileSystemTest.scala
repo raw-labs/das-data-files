@@ -149,19 +149,18 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
     // If there's no wildcard, code calls "list(url)"
     val fileObj = mock[GHContent]
-    val listContent = java.util.Arrays.asList(fileObj)
-    when(mockRepo.getDirectoryContent("folder", "main")).thenReturn(listContent)
+    when(mockRepo.getFileContent("file.csv", "main")).thenReturn(fileObj)
     when(fileObj.isFile).thenReturn(true)
-    when(fileObj.getPath).thenReturn("folder/data.csv")
+    when(fileObj.getPath).thenReturn("file.csv")
 
     val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
-    val url = "github://owner/repo/main/folder" // no wildcard
+    val url = "github://owner/repo/main/file.csv" // no wildcard
     val result = fs.resolveWildcard(url)
 
     // We expect it to do the normal "list" => we get data.csv
     result.isRight shouldBe true
     val files = result.toOption.get
-    files should contain("github://owner/repo/main/folder/data.csv")
+    files should contain("github://owner/repo/main/file.csv")
   }
 
   it should "return permission denied if HttpException id thrown with 403" in {

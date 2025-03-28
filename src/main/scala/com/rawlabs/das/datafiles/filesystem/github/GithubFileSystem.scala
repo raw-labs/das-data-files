@@ -49,8 +49,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       val contents =
         repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
 
-      // Only include files in the result.
-      val files = contents.filter(_.isFile).map { content =>
+      val files = contents.map { content =>
         s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
       }
       Right(files)
@@ -107,20 +106,51 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    * at the prefix and filters them based on the glob pattern.
    */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
-    val (prefixUrl, maybePattern) = splitWildcard(url)
-    maybePattern match {
-      case None =>
-        isFile(url) match {
-          case Left(value)  => Left(value)
-          case Right(false) => Left(FileSystemError.Unsupported("url is a folder"))
-          case Right(true)  => Right(List(url))
-        }
-      case Some(pattern) =>
-        list(prefixUrl).map { allFiles =>
+
+    val (repo, file) = getRepoAndFile(url) match {
+      case Left(err)   => return Left(err)
+      case Right(file) => file
+    }
+
+    try {
+      val (prefixUrl, maybePattern) = splitWildcard(file.path)
+      maybePattern match {
+        case None =>
+          val content = repo.getFileContent(file.path, file.branch)
+          if (content.isFile) {
+            Right(List(url))
+          } else {
+            Left(FileSystemError.Unsupported(s"Path refers to a directory, cannot resolve wildcard: $url"))
+          }
+        case Some(pattern) =>
           val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
-          // Create a regex from the glob pattern.
-          allFiles.filter(regex.matches)
-        }
+
+          // Try to list the directory content first.
+          val contents =
+            repo.getDirectoryContent(prefixUrl.stripSuffix("/"), file.branch).asScala.toList
+
+          // Only include files in the result.
+          val files = contents
+            .filter(_.isFile)
+            .filter(content => regex.matches(content.getPath))
+            .map { content =>
+              s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
+            }
+
+          Right(files)
+      }
+    } catch {
+      case e: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 404 =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
+        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+      case e: HttpException if e.getResponseCode == 429 =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case NonFatal(e) =>
+        logger.error(s"resolving wildcard url $url", e)
+        throw e
     }
   }
 
