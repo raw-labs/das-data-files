@@ -45,14 +45,19 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
     }
 
     try {
-      // Try to list the directory content first.
-      val contents =
-        repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
+      val content = repo.getFileContent(file.path, file.branch)
+      if (content.isFile) {
+        Right(List(url))
+      } else {
+        val contents =
+          repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
 
-      val files = contents.map { content =>
-        s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
+        val files = contents.map { content =>
+          s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
+        }
+        Right(files)
       }
-      Right(files)
+
     } catch {
       case e: GHFileNotFoundException =>
         Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
@@ -116,12 +121,10 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       val (prefixUrl, maybePattern) = splitWildcard(file.path)
       maybePattern match {
         case None =>
+          // just to verify that the file exists
           val content = repo.getFileContent(file.path, file.branch)
-          if (content.isFile) {
-            Right(List(url))
-          } else {
-            Left(FileSystemError.Unsupported(s"Path refers to a directory, cannot resolve wildcard: $url"))
-          }
+          if (content.isDirectory) logger.info("wildcard path is a directory")
+          Right(List(url))
         case Some(pattern) =>
           val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
 
@@ -129,9 +132,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
           val contents =
             repo.getDirectoryContent(prefixUrl.stripSuffix("/"), file.branch).asScala.toList
 
-          // Only include files in the result.
           val files = contents
-            .filter(_.isFile)
             .filter(content => regex.matches(content.getPath))
             .map { content =>
               s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"

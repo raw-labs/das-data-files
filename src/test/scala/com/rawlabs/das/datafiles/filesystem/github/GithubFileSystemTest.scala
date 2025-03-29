@@ -30,6 +30,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     val mockGitHub = mock[GitHub]
     val mockRepo = mock[GHRepository]
     val mockContentFile = mock[GHContent]
+    val mockContentDir = mock[GHContent]
 
     // 2) Stubbing: getRepository => mockRepo
     when(mockGitHub.getRepository("owner/repo")).thenReturn(mockRepo)
@@ -38,6 +39,9 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     // "repo.getDirectoryContent(path, branch)" => List(GHContent)
     val listOfContents = java.util.Arrays.asList(mockContentFile)
     when(mockRepo.getDirectoryContent("folder", "main")).thenReturn(listOfContents)
+    when(mockRepo.getFileContent("folder", "main")).thenReturn(mockContentDir)
+    when(mockContentDir.isFile).thenReturn(false)
+    when(mockContentDir.getPath).thenReturn("folder")
 
     // The mockContentFile isFile => true, getPath => "folder/file.csv"
     when(mockContentFile.isFile).thenReturn(true)

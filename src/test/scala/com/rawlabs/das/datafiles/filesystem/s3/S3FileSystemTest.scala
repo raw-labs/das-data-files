@@ -28,7 +28,32 @@ import software.amazon.awssdk.services.s3.model._
 
 class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
-  it should "return all objects in a prefix" in {
+  "S3FileSystem.list" should "return a single file if headObject succeeds" in {
+    // 1) Mock S3Client
+    val mockClient = mock[S3Client]
+
+    // 2) Stub calls
+    // If we call headObject, we want it to succeed (no exception).
+    when(mockClient.headObject(any[HeadObjectRequest])).thenReturn(
+      HeadObjectResponse
+        .builder()
+        .contentLength(123L)
+        .build())
+
+    // 3) Create S3FileSystem with mock client
+    val fs = new S3FileSystem(mockClient, "/tmp/testcache")
+
+    // 4) Call list on a single object
+    val url = "s3://mybucket/somefile.csv"
+    val result = fs.list(url)
+
+    // 5) Verify
+    result shouldBe Right(List(url))
+    verify(mockClient, times(1)).headObject(any[HeadObjectRequest])
+    verify(mockClient, never()).listObjectsV2(any[ListObjectsV2Request])
+  }
+
+  it should "return all objects in a prefix if headObject throws NoSuchKeyException" in {
     val mockClient = mock[S3Client]
 
     // headObject => throw => we interpret that as "maybe it's a directory"
@@ -54,7 +79,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     result.isRight shouldBe true
     val files = result.toOption.get
     files should contain("s3://mybucket/folder/file1.csv")
-
+    verify(mockClient, times(1)).headObject(any[HeadObjectRequest])
     verify(mockClient, atLeastOnce()).listObjectsV2(any[ListObjectsV2Request])
   }
 

@@ -60,9 +60,19 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
     }
 
     try {
-      val objectKeys = listObjectsSingleLevel(bucket, key)
-      val uris = objectKeys.map(k => s"s3://$bucket/$k")
-      Right(uris)
+      // Try HEAD to see if it's a single object
+      try {
+        val headReq = HeadObjectRequest.builder().bucket(bucket).key(key).build()
+        s3Client.headObject(headReq)
+        // If HEAD is successful => it's a single file
+        Right(List(url))
+      } catch {
+        case _: NoSuchKeyException =>
+          // If HEAD fails with NoSuchKey, we assume it's a directory and list its contents
+          val objectKeys = listObjectsSingleLevel(bucket, key)
+          val uris = objectKeys.map(k => s"s3://$bucket/$k")
+          Right(uris)
+      }
     } catch {
       case e: NoSuchBucketException =>
         Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
