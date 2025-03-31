@@ -20,7 +20,7 @@ import scala.util.control.NonFatal
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
-import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
+import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
 
 import software.amazon.awssdk.auth.credentials.{
   AnonymousCredentialsProvider,
@@ -271,9 +271,11 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
 }
 
 object S3FileSystem {
-  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): S3FileSystem = {
+  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long)(implicit
+      config: DASSettings): S3FileSystem = {
     val builder = S3Client.builder()
-    options.get("aws_region").foreach(r => builder.region(Region.of(r)))
+    val region = options.getOrElse("aws_region", config.getString("das.data-files.s3.aws-region"))
+    builder.region(Region.of(region))
 
     // Credentials
     val credentials =
