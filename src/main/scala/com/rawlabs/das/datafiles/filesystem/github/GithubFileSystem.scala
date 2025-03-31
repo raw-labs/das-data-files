@@ -130,8 +130,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
           Right(List(url))
         case Some(pattern) =>
           val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
-
-          // Try to list the directory content first.
           val contents =
             repo.getDirectoryContent(prefixUrl.stripSuffix("/"), file.branch).asScala.toList
 
@@ -196,30 +194,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    * resources here.
    */
   override def stop(): Unit = {}
-
-  private def isFile(url: String): Either[FileSystemError, Boolean] = {
-    val (repo, file) = getRepoAndFile(url) match {
-      case Left(err)   => return Left(err)
-      case Right(file) => file
-    }
-
-    try {
-      val content = repo.getFileContent(file.path, file.branch)
-      Right(content.isFile)
-    } catch {
-      case e: GHFileNotFoundException =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 429 =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        logger.error(s"Error getting file content for github url $url", e)
-        throw e
-    }
-  }
 
   private def getRepoAndFile(url: String): Either[FileSystemError, (GHRepository, GithubFile)] = {
     val file = parseGitHubUrl(url) match {
