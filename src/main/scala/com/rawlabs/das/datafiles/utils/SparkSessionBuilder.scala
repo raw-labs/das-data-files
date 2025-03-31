@@ -45,7 +45,7 @@ object SparkSessionBuilder {
       .getOrCreate()
       .newSession()
 
-    val region = options.getOrElse("aws_region", settings.getString("das.data-files.s3.region"))
+    val region = options.getOrElse("aws_region", settings.getString("das.data-files.s3.default-region"))
     newSession.conf.set("fs.s3a.endpoint", s"s3.$region.amazonaws.com")
 
     if (options.contains("aws_access_key")) {
