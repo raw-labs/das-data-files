@@ -50,7 +50,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
   it should "create a table from a private s3 bucket with valid credentials" in {
     // This test requires that the user running the test has a private
     // bucket accessible with the AWS credentials provided.
-//    assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty, "AWS credentials must be set for this test to run.")
+    assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty, "AWS credentials must be set for this test to run.")
 
     val config = Map(
       "aws_access_key" -> awsAccessKey,
@@ -72,7 +72,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
 
   it should "create multiple tables from an s3 path using wildcard *" in {
     // We should have 2 tables: summer_olympics and winter_olympics
-//    assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty)
+    assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty)
 
     val config = Map(
       "aws_access_key" -> awsAccessKey,
@@ -184,7 +184,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
   it should "create a table from a private GitHub repo file (with token)" in {
     // This test requires a valid GitHub personal access token or GitHub App token
     // for a private repo that you control.
-//    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
+    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
 
     val config = Map(
       "paths" -> "1",
@@ -204,7 +204,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
 
   it should "create tables from a GitHub repo using wildcards" in {
     // Example: "github://owner/repo/main/data/*.csv"
-//    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this wildcard test.")
+    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this wildcard test.")
     val config = Map(
       "paths" -> "1",
       "github_api_token" -> gitHubToken,

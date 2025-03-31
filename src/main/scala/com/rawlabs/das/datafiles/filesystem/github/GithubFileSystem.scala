@@ -45,19 +45,22 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
     }
 
     try {
-      val content = repo.getFileContent(file.path, file.branch)
-      if (content.isFile) {
-        Right(List(url))
-      } else {
-        val contents =
+
+      val contents =
+        try {
           repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
+        } catch {
+          // If deserialization fails, assume it is a file and fetch file content instead.
+          case e: Exception
+              if Option(e.getCause).exists(
+                _.isInstanceOf[com.fasterxml.jackson.databind.exc.MismatchedInputException]) =>
+            List(repo.getFileContent(file.path, file.branch))
 
-        val files = contents.map { content =>
-          s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
         }
-        Right(files)
+      val files = contents.map { content =>
+        s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
       }
-
+      Right(files)
     } catch {
       case e: GHFileNotFoundException =>
         Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
