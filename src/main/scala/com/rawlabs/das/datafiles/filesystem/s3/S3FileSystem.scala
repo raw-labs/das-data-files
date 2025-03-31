@@ -271,11 +271,9 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
 }
 
 object S3FileSystem {
-  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long)(implicit
-      config: DASSettings): S3FileSystem = {
+  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): S3FileSystem = {
     val builder = S3Client.builder()
-    val region = options.getOrElse("aws_region", config.getString("das.data-files.s3.default-region"))
-    builder.region(Region.of(region))
+    options.get("aws_region").foreach(region => builder.region(Region.of(region)))
 
     // Credentials
     val credentials =

@@ -41,7 +41,10 @@ Test / javaOptions ++= Seq(
   "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
   "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED")
 
+Test / envVars ++= Map("AWS_DEFAULT_REGION" -> "eu-west-1")
 run / javaOptions ++= Seq(
   "--add-opens=java.base/java.io=ALL-UNNAMED",
   "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
-  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED")
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"
+
+)
