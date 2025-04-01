@@ -349,7 +349,7 @@ object SparkToDASConverter {
       case sparkTypes.BinaryType =>
         Type.newBuilder().setBinary(BinaryType.newBuilder().setNullable(nullable)).build()
       // Temporal types
-      case _: sparkTypes.DayTimeIntervalType | _: sparkTypes.DayTimeIntervalType |
+      case _: sparkTypes.CalendarIntervalType | _: sparkTypes.DayTimeIntervalType |
           _: sparkTypes.YearMonthIntervalType =>
         Type.newBuilder().setInterval(IntervalType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.DateType =>
