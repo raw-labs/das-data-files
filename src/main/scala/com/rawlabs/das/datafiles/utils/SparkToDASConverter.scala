@@ -209,20 +209,23 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
 
   /**
-   * Converts a DAS protocol Value into its corresponding native Spark value.
+   * Converts a DAS protocol Value into its corresponding native Spark value,
+   * using the provided Spark SQL DataType.
    *
-   * Handles conversion for the following DAS value cases:
-   *   - NULL, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, DECIMAL, BOOL, STRING
-   *   - BINARY: converted to a byte array.
-   *   - DATE: converted to a java.sql.Date.
-   *   - TIME: converted to a java.sql.Time.
-   *   - TIMESTAMP: converted to a java.sql.Timestamp.
-   *   - INTERVAL: converted to a Spark CalendarInterval.
-   *   - RECORD: converted to a Map[String, Any].
-   *   - LIST: converted to a Seq[Any].
+   * This function is intended to be used only in the context of filtering qualifiers.
+   * It attempts to convert the given DAS value (such as INT, STRING, DATE, etc.) into
+   * a Spark value that can be compared in a filter condition. The conversion is performed
+   * based on the provided Spark type.
    *
-   * @param value The DAS protocol Value to convert.
-   * @return A native Scala/Java value suitable for use in Spark DataFrames.
+   * If the conversion is successful, the resulting Spark value is wrapped in a Some(value).
+   * If the conversion is not possible (for example, if the types do not match or the conversion
+   * is unsupported), the function returns None. In the context of qualifier pushdown,
+   * a None indicates that the qualifier cannot be applied.
+   * 
+   * @param value The DAS protocol Value to be converted.
+   * @param sparkType The Spark SQL DataType that the output value should conform to.
+   * @return An Option[Any] containing the native Spark value if the conversion is successful,
+   *         or None if the conversion is not possible (indicating that the qualifier cannot be applied).
    */
   def toComparableSparkValue(value: Value, sparkType: sparkTypes.DataType): Option[Any] = {
     (value.getValueCase, sparkType) match {
