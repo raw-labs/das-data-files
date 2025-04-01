@@ -58,6 +58,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   private lazy val sparkSchema: StructType =
     inferDataframe(acquireUrl())
 
+  private lazy val sparkTypes = sparkSchema.fields.map(f => f.name -> f.dataType).toMap
+
   /**
    * Convert the Spark schema to a list of (colName -> DAS Type)
    */
@@ -99,7 +101,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
     logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
     val df = loadDataframe(executionUrl, sparkSchema)
-    val (filteredDF, allApplied) = applyQuals(df, quals)
+    val (filteredDF, allApplied) = applyQuals(df, quals, sparkTypes)
 
     val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
     val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
