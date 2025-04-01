@@ -16,6 +16,8 @@ import java.io.{File, InputStream}
 import java.nio.file.{Files, StandardCopyOption}
 import java.util.UUID
 
+import scala.util.control.NonFatal
+
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.typesafe.scalalogging.StrictLogging
 
@@ -89,6 +91,11 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
       try {
         Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
         Right(outFile.getAbsolutePath)
+      } catch {
+        case NonFatal(e) =>
+          logger.error(s"Error downloading $url to $outFile", e)
+          Files.deleteIfExists(outFile.toPath)
+          throw e
       } finally {
         inputStream.close()
       }
