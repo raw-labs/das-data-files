@@ -147,7 +147,7 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
   path0_null_value 'null',
    
   path1_url 's3://bucket/path/data2.csv',
-    path1_header 'false',
+  path1_header 'false',
 );
 ```
 
