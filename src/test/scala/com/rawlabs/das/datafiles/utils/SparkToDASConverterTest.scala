@@ -12,20 +12,19 @@
 
 package com.rawlabs.das.datafiles.utils
 
-import java.sql.{Date, Time, Timestamp}
-import java.time.{LocalDate, LocalDateTime, LocalTime}
-
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.{types => sparkTypes, _}
-import org.apache.spark.unsafe.types.CalendarInterval
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-
 import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.protocol.das.v1.query._
 import com.rawlabs.protocol.das.v1.types.Value.ValueCase
 import com.rawlabs.protocol.das.v1.{types => dasTypes}
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.{types => sparkTypes}
+import org.apache.spark.unsafe.types.CalendarInterval
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
+import java.sql.{Date, Time, Timestamp}
+import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 /**
  * Unit tests for SparkToDASConverter object methods: 1) applyQuals 2) applySortKeys 3) sparkTypeToDAS 4)
@@ -267,6 +266,8 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
     val arrType = sparkTypes.ArrayType(sparkTypes.StringType, containsNull = true)
     val dasArr = SparkToDASConverter.sparkTypeToDAS(arrType, nullable = false)
     dasArr.hasList shouldBe true
+    dasArr.getList.getInnerType.hasString shouldBe true
+    dasArr.getList.getInnerType.getString.getNullable shouldBe true
 
     val structType = sparkTypes.StructType(
       Seq(
