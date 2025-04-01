@@ -209,23 +209,20 @@ object SparkToDASConverter {
   // -------------------------------------------------------------------
 
   /**
-   * Converts a DAS protocol Value into its corresponding native Spark value,
-   * using the provided Spark SQL DataType.
+   * Converts a DAS protocol Value into its corresponding native Spark value, using the provided Spark SQL DataType.
    *
-   * This function is intended to be used only in the context of filtering qualifiers.
-   * It attempts to convert the given DAS value (such as INT, STRING, DATE, etc.) into
-   * a Spark value that can be compared in a filter condition. The conversion is performed
-   * based on the provided Spark type.
+   * This function is intended to be used only in the context of filtering qualifiers. It attempts to convert the given
+   * DAS value (such as INT, STRING, DATE, etc.) into a Spark value that can be compared in a filter condition. The
+   * conversion is performed based on the provided Spark type.
    *
-   * If the conversion is successful, the resulting Spark value is wrapped in a Some(value).
-   * If the conversion is not possible (for example, if the types do not match or the conversion
-   * is unsupported), the function returns None. In the context of qualifier pushdown,
-   * a None indicates that the qualifier cannot be applied.
-   * 
+   * If the conversion is successful, the resulting Spark value is wrapped in a Some(value). If the conversion is not
+   * possible (for example, if the types do not match or the conversion is unsupported), the function returns None. In
+   * the context of qualifier pushdown, a None indicates that the qualifier cannot be applied.
+   *
    * @param value The DAS protocol Value to be converted.
    * @param sparkType The Spark SQL DataType that the output value should conform to.
-   * @return An Option[Any] containing the native Spark value if the conversion is successful,
-   *         or None if the conversion is not possible (indicating that the qualifier cannot be applied).
+   * @return An Option[Any] containing the native Spark value if the conversion is successful, or None if the conversion
+   *   is not possible (indicating that the qualifier cannot be applied).
    */
   def toComparableSparkValue(value: Value, sparkType: sparkTypes.DataType): Option[Any] = {
     (value.getValueCase, sparkType) match {
