@@ -77,9 +77,6 @@ class XmlTableTest extends AnyFlatSpec with Matchers with SparkTestContext with 
     rows(1).getColumns(1).getData.getString.getV shouldBe "Bob"
   }
 
-  // --------------------------------------------------------------------------
-  // New / Expanded Tests for XML Options
-  // --------------------------------------------------------------------------
   it should "use attribute_prefix to capture XML attributes" in {
     val withAttributes =
       """<people>
