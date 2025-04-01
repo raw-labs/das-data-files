@@ -38,12 +38,22 @@ import com.rawlabs.protocol.das.v1.types._
 import com.typesafe.scalalogging.StrictLogging
 
 /**
- * An abstract base class for "Data File" tables. Common logic:
- *   - Storing tableName, url, SparkSession
- *   - Overriding basic DASTable methods
- *   - Inferring schema / building TableDefinition (if desired)
+ * BaseDataFileTable provides common functionality for reading a data file and converting its contents into a DAS table.
  *
- * Child classes implement: def loadDataFrame(): DataFrame
+ * Responsibilities include:
+ *   - Managing table configuration (name, URI, Spark session).
+ *   - Inferring the file schema via Spark and building a DAS TableDefinition.
+ *   - Executing the data retrieval flow:
+ *     1. Loading a DataFrame (child classes implement format-specific loading). 2. Applying filter qualifiers. 3.
+ *        Projecting requested columns. 4. Sorting and limiting rows. 5. Converting Spark rows to DAS protocol rows.
+ *
+ * Errors during processing are reported using DASSdk exceptions (e.g. DASSdkInvalidArgumentException,
+ * DASSdkPermissionDeniedException).
+ *
+ * Custom configuration options are remapped to Spark options using {@code remapOptions} .
+ *
+ * @see com.rawlabs.das.datafiles.utils.SparkToDASConverter for conversion utilities.
+ * @see com.rawlabs.das.sdk.scala.DASTable for the DAS table interface.
  */
 abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: SparkSession)
     extends DASTable
@@ -88,8 +98,13 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   override def getTableSortOrders(sortKeys: Seq[SortKey]): Seq[SortKey] = sortKeys.filter(x => x.getCollate.isEmpty)
 
   /**
-   * The main data read flow: 1) loadDataFrame() [abstract method implemented by child classes] 2) applyQuals (pushdown
-   * filtering) 3) select requested columns 4) applySortKeys 5) limit 6) convert to DAS rows
+   * The main data read flow:
+   *   - loadDataFrame(),
+   *   - applyQuals (pushdown filtering),
+   *   - select requested columns,
+   *   - applySortKeys,
+   *   - limit,
+   *   - convert to DAS rows
    */
   override def execute(
       quals: Seq[Qual],
