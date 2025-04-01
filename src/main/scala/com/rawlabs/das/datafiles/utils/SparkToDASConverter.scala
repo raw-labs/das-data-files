@@ -319,8 +319,16 @@ object SparkToDASConverter {
         DasType.newBuilder().setDecimal(DecimalType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.StringType =>
         DasType.newBuilder().setString(StringType.newBuilder().setNullable(nullable)).build()
+      case sparkTypes.VarcharType(_) =>
+        // You can treat VarcharType just like StringType if your DAS Type only has “string”
+        DasType.newBuilder().setString(StringType.newBuilder().setNullable(nullable)).build()
+      case sparkTypes.CalendarIntervalType =>
+        DasType.newBuilder().setInterval(IntervalType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.DateType =>
         DasType.newBuilder().setDate(DateType.newBuilder().setNullable(nullable)).build()
+      case sparkTypes.TimestampNTZType =>
+        DasType.newBuilder().setTimestamp(TimestampType.newBuilder().setNullable(nullable)).build()
+      // TODO: Handle time zones
       case sparkTypes.TimestampType =>
         DasType.newBuilder().setTimestamp(TimestampType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.BinaryType =>
@@ -338,21 +346,31 @@ object SparkToDASConverter {
           attsBuilder.addAtts(AttrType.newBuilder().setName(field.name).setTipe(dasFieldType))
         }
         DasType.newBuilder().setRecord(attsBuilder.build()).build()
+      case sparkTypes.MapType(_: sparkTypes.StringType, _, _) =>
+        DasType.newBuilder().setRecord(RecordType.newBuilder().setNullable(nullable)).build()
       case sparkTypes.MapType(keyType, valueType, valueContainsNull) =>
-        val mapAsRecord = RecordType.newBuilder().setNullable(nullable)
+        // Return a LIST of RECORDs, each RECORD has {key, value} fields
 
-        val keysType = sparkTypeToDAS(keyType, nullable = false)
-        val keysListType =
-          DasType.newBuilder().setList(ListType.newBuilder().setInnerType(keysType).setNullable(false)).build()
-        mapAsRecord.addAtts(AttrType.newBuilder().setName("keys").setTipe(keysListType))
-        val valsType = sparkTypeToDAS(valueType, valueContainsNull)
-        val valsListType =
-          DasType
-            .newBuilder()
-            .setList(ListType.newBuilder().setInnerType(valsType).setNullable(valueContainsNull))
-            .build()
-        mapAsRecord.addAtts(AttrType.newBuilder().setName("values").setTipe(valsListType))
-        DasType.newBuilder().setRecord(mapAsRecord.build()).build()
+        // Convert the key and value to DAS types
+        val keyDasType   = sparkTypeToDAS(keyType, nullable = false)
+        val valueDasType = sparkTypeToDAS(valueType, valueContainsNull)
+
+        // Build the RECORD { key, value }
+        val recordBuilder = RecordType.newBuilder().setNullable(false)
+        recordBuilder.addAtts(
+          AttrType.newBuilder().setName("key").setTipe(keyDasType)
+        )
+        recordBuilder.addAtts(
+          AttrType.newBuilder().setName("value").setTipe(valueDasType)
+        )
+
+        val recordDasType = DasType.newBuilder().setRecord(recordBuilder.build()).build()
+
+        // Then wrap that RECORD in a LIST
+        val listBuilder = ListType.newBuilder()
+          .setInnerType(recordDasType)
+          .setNullable(nullable) // the map column as a whole might be nullable
+        DasType.newBuilder().setList(listBuilder.build()).build()
       case other =>
         throw new DASSdkInvalidArgumentException(s"Unsupported Spark type: ${other.typeName}")
     }

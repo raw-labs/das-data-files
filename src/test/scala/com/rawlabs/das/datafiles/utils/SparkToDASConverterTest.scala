@@ -511,4 +511,66 @@ class SparkToDASConverterTest extends AnyFlatSpec with Matchers with SparkTestCo
     val sparkVal = SparkToDASConverter.protoValueToSparkValue(dasListVal)
     sparkVal shouldBe Seq(1.1, 2.2)
   }
+
+  it should "treat VarcharType as string" in {
+    // e.g. Spark's VarcharType(100)
+    val varcharSparkType = sparkTypes.VarcharType(100)
+    val dasVarcharType =
+      SparkToDASConverter.sparkTypeToDAS(varcharSparkType, nullable = true)
+
+    dasVarcharType.hasString shouldBe true
+    dasVarcharType.getString.getNullable shouldBe true
+  }
+
+  it should "convert DayTimeIntervalType to a DAS interval type" in {
+    // Spark 3.x: DayTimeIntervalType()
+    // If you need a specific range, you can do DayTimeIntervalType(DAY, SECOND), etc.
+    val dtInterval = sparkTypes.DayTimeIntervalType()
+    val dasIntervalType =
+      SparkToDASConverter.sparkTypeToDAS(dtInterval, nullable = false)
+
+    dasIntervalType.hasInterval shouldBe true
+    dasIntervalType.getInterval.getNullable shouldBe false
+  }
+
+  it should "convert YearMonthIntervalType to a DAS interval type" in {
+    // Spark 3.x: YearMonthIntervalType()
+    // If you need a specific range, e.g. YearMonthIntervalType(YEAR, MONTH)
+    val ymInterval = sparkTypes.YearMonthIntervalType()
+    val dasIntervalType =
+      SparkToDASConverter.sparkTypeToDAS(ymInterval, nullable = true)
+
+    dasIntervalType.hasInterval shouldBe true
+    dasIntervalType.getInterval.getNullable shouldBe true
+  }
+
+  it should "convert a MapType with non-string key into a list of RECORD(key, value)" in {
+    // Example: key is IntegerType, value is StringType
+    // Under your new logic, that should produce a LIST of RECORD(key, value)
+    val mapSparkType =
+      sparkTypes.MapType(sparkTypes.IntegerType, sparkTypes.StringType, valueContainsNull = true)
+
+    val dasMapType =
+      SparkToDASConverter.sparkTypeToDAS(mapSparkType, nullable = false)
+
+    // We should get a top-level LIST
+    dasMapType.hasList shouldBe true
+    val listType = dasMapType.getList
+    listType.getNullable shouldBe false
+
+    // Inside that LIST should be a RECORD with 2 attributes: key, value
+    val recordType = listType.getInnerType
+    recordType.hasRecord shouldBe true
+    val recordSchema = recordType.getRecord
+
+    recordSchema.getAttsCount shouldBe 2
+    recordSchema.getAtts(0).getName shouldBe "key"
+    recordSchema.getAtts(1).getName shouldBe "value"
+
+    // You could also check that the types are correct
+    val keyAttr = recordSchema.getAtts(0)
+    val valueAttr = recordSchema.getAtts(1)
+    keyAttr.getTipe.hasInt shouldBe true // because sparkTypes.IntegerType
+    valueAttr.getTipe.hasString shouldBe true // because sparkTypes.StringType
+  }
 }
