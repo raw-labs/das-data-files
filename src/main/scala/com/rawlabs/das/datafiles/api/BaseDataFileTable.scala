@@ -119,7 +119,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     val executionUrl = acquireUrl()
 
     try {
-      logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
+      logger.debug(s"Executing $format table $tableName on $executionUrl, original url: ${config.uri}")
       val df = loadDataframe(executionUrl, sparkSchema)
       val (filteredDF, allApplied) = applyQuals(df, quals, sparkTypes)
 
@@ -238,7 +238,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
           logger.info(s"Using local file cache for url ${config.uri}: $url")
           url
         case Left(FileSystemError.NotFound(_, message)) =>
-          throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}: $message")
+          throw new DASSdkInvalidArgumentException(message)
         case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
         case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
         case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)

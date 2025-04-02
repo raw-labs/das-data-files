@@ -19,6 +19,7 @@ import scala.jdk.CollectionConverters._
 
 import org.kohsuke.github._
 
+import com.fasterxml.jackson.databind.JsonMappingException
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 
@@ -50,9 +51,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
           repo.getDirectoryContent(file.path.stripSuffix("/"), file.branch).asScala.toList
         } catch {
           // If deserialization fails, assume it is a file and fetch file content instead.
-          case e: Exception
-              if Option(e.getCause).exists(
-                _.isInstanceOf[com.fasterxml.jackson.databind.exc.MismatchedInputException]) =>
+          case e: HttpException if Option(e.getCause).exists(_.isInstanceOf[JsonMappingException]) =>
             List(repo.getFileContent(file.path, file.branch))
 
         }
@@ -98,6 +97,9 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied: $url"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
+      case e: HttpException if Option(e.getCause).exists(_.isInstanceOf[JsonMappingException]) =>
+        // If deserialization fails, assume it is folder
+        Left(FileSystemError.Unsupported(s"url refers to a directory ($url)"))
     }
   }
 
@@ -145,6 +147,9 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied: $url"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
+      case e: HttpException if Option(e.getCause).exists(_.isInstanceOf[JsonMappingException]) =>
+        // If deserialization fails, assume it is folder
+        Left(FileSystemError.Unsupported(s"url refers to a directory ($url)"))
     }
 
   }

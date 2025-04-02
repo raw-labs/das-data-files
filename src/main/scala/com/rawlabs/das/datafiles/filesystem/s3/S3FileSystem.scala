@@ -150,8 +150,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.PermissionDenied(s"Got forbidden while trying to resolve wildcard $url"))
       case e: S3Exception if e.statusCode() == 401 =>
         Left(FileSystemError.Unauthorized(s"Got unauthorized while trying to resolve wildcard $url"))
-      case _: AccessDeniedException =>
-        Left(FileSystemError.PermissionDenied(s"Got access denied while trying to resolve wildcard $url"))
     }
   }
 
