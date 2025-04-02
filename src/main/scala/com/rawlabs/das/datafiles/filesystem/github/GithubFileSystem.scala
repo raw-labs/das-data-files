@@ -16,7 +16,6 @@ import java.io.InputStream
 import java.net.URI
 
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
 
 import org.kohsuke.github._
 
@@ -70,9 +69,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        logger.error(s"Error listing github url $url", e)
-        throw e
     }
   }
 
@@ -101,9 +97,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        logger.error(s"Error opening github url $url", e)
-        throw e
     }
   }
 
@@ -151,9 +144,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        logger.error(s"Error getting file size for github url $url", e)
-        throw e
     }
 
   }
@@ -187,9 +177,6 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
       case e: HttpException if e.getResponseCode == 429 =>
         Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        logger.error(s"Error getting repository ${file.owner}/${file.repo}", e)
-        throw e
     }
   }
 

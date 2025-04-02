@@ -16,11 +16,10 @@ import java.io.{BufferedInputStream, InputStream}
 import java.net.URI
 
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
-import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSettings}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 
 import software.amazon.awssdk.auth.credentials.{
   AnonymousCredentialsProvider,
@@ -88,9 +87,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
-      case NonFatal(e) =>
-        logger.error(s"Error listing s3 url $url", e)
-        throw e
     }
   }
 
@@ -123,9 +119,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
-      case NonFatal(e) =>
-        logger.error(s"Error opening s3 url $url", e)
-        throw e
     }
   }
 
@@ -166,9 +159,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
-      case NonFatal(e) =>
-        logger.error(s"Error resolving s3 wildcard $url", e)
-        throw e
     }
   }
 
@@ -200,9 +190,6 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
         Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
       case _: AccessDeniedException =>
         Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
-      case NonFatal(e) =>
-        logger.error(s"Error getting s3 url size $url", e)
-        throw e
     }
   }
 

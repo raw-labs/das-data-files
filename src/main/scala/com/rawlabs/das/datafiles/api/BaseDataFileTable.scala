@@ -15,9 +15,7 @@ package com.rawlabs.das.datafiles.api
 import java.nio.file.AccessDeniedException
 
 import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
 
-import org.apache.spark
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -173,14 +171,9 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         .schema
     } catch {
       case e: AccessDeniedException =>
-        logger.error(s"Permission denied ${config.uri} resolved to $resolvedUrl ", e)
         throw new DASSdkPermissionDeniedException(s"Permission denied for ${config.uri}")
       case e: org.apache.spark.sql.AnalysisException =>
-        logger.error(s"Error inferring ${config.uri} resolved to $resolvedUrl ", e)
         throw new DASSdkInvalidArgumentException(s"Error loading ${config.uri}: ${e.getMessage}")
-      case NonFatal(e) =>
-        logger.error(s"Error inferring ${config.uri} resolved to $resolvedUrl ", e)
-        throw e
     }
   }
 
@@ -193,14 +186,9 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         .load(resolvedUrl)
     } catch {
       case e: AccessDeniedException =>
-        logger.error(s"Permission denied ${config.uri} resolved to $resolvedUrl ", e)
         throw new DASSdkPermissionDeniedException(s"Permission denied for ${config.uri}")
       case e: org.apache.spark.sql.AnalysisException =>
-        logger.error(s"Error loading dataframe ${config.uri} resolved to $resolvedUrl ", e)
         throw new DASSdkInvalidArgumentException(s"Error loading ${config.uri}: ${e.getMessage}")
-      case NonFatal(e) =>
-        logger.error(s"Error loading dataframe ${config.uri} resolved to $resolvedUrl ", e)
-        throw e
     }
   }
 
@@ -212,7 +200,9 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
       config.uri.toString
     } else {
       config.fileCacheManager.getLocalPathForUrl(config.uri.toString) match {
-        case Right(url) => url
+        case Right(url) =>
+          logger.info(s"Using local file cache for url ${config.uri}: $url")
+          url
         case Left(FileSystemError.NotFound(_, message)) =>
           throw new DASSdkInvalidArgumentException(s"No files found at ${config.uri}: $message")
         case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)

@@ -93,7 +93,6 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
         Right(outFile.getAbsolutePath)
       } catch {
         case NonFatal(e) =>
-          logger.error(s"Error downloading $url to $outFile", e)
           Files.deleteIfExists(outFile.toPath)
           throw e
       } finally {
@@ -101,7 +100,6 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
       }
     } catch {
       case e: java.nio.file.AccessDeniedException =>
-        logger.error(s"Permission denied while getting local url for $url", e)
         Left(FileSystemError.PermissionDenied(e.getMessage))
     }
   }

@@ -68,8 +68,6 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
       }
     } catch {
       case e: FileNotFoundException if e.getMessage.contains("Permission denied") =>
-        // FileInputStream throws an FileNotFound if it cannot open the file
-        logger.error(s"Permission denied for ($url)", e)
         Left(FileSystemError.PermissionDenied("Permission denied for ($url)"))
     }
   }
@@ -112,13 +110,10 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
       }
     } catch {
       case e: PatternSyntaxException =>
-        logger.error(s"Error in glob pattern ($url)", e)
         Left(FileSystemError.Unsupported("Error in glob pattern: " + e.getMessage))
       case e: UnsupportedOperationException =>
-        logger.error(s"Unsupported operation for ($url)", e)
         Left(FileSystemError.Unsupported(e.getMessage))
       case e: FileNotFoundException =>
-        logger.error(s"file not found for ($url)", e)
         Left(FileSystemError.NotFound(url, s"File not found $url: ${e.getMessage}"))
     }
   }
