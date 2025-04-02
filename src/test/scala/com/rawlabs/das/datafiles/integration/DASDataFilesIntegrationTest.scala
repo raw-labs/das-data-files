@@ -244,8 +244,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         "path0_format" -> "json")
 
     val e = intercept[DASSdkInvalidArgumentException] {
-      // or DASSdkUnauthenticatedException / whichever your code throws
-      new DASDataFiles(config).tables
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
     assert(e.getMessage.contains("Repository raw-labs/raw does not exist or requires credentials"))
   }
@@ -259,8 +260,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         "path0_format" -> "json")
 
     intercept[DASSdkPermissionDeniedException] {
-      // or DASSdkUnauthenticatedException / whichever your code throws
-      new DASDataFiles(config).tables
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
   }
 
@@ -273,7 +275,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       "path0_format" -> "csv")
 
     intercept[DASSdkInvalidArgumentException] {
-      new DASDataFiles(config).tables
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
   }
 
@@ -286,7 +290,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       "path0_format" -> "csv")
 
     intercept[DASSdkInvalidArgumentException] {
-      new DASDataFiles(config).tables
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
   }
 }
