@@ -73,20 +73,18 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
           Right(uris)
       }
     } catch {
-      case e: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
-      case e: NoSuchKeyException =>
-        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
-      case e: LimitExceededException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case e: TooManyRequestsException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket $bucket not: $url"))
+      case _: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"Path $key not found: $url"))
+      case _: LimitExceededException | _: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: S3Exception if e.statusCode() == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Forbidden: $url"))
       case e: S3Exception if e.statusCode() == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+        Left(FileSystemError.Unauthorized(s"Unauthorized: $url "))
       case _: AccessDeniedException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+        Left(FileSystemError.PermissionDenied(s"Access denied: $url"))
     }
   }
 
@@ -105,20 +103,18 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       val response: ResponseInputStream[_] = s3Client.getObject(getReq)
       Right(new BufferedInputStream(response))
     } catch {
-      case e: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
-      case e: NoSuchKeyException =>
-        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
-      case e: LimitExceededException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case e: TooManyRequestsException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket $bucket not: $url"))
+      case _: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"Path $key not found: $url"))
+      case _: LimitExceededException | _: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: S3Exception if e.statusCode() == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Forbidden: $url"))
       case e: S3Exception if e.statusCode() == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+        Left(FileSystemError.Unauthorized(s"Unauthorized: $url "))
       case _: AccessDeniedException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+        Left(FileSystemError.PermissionDenied(s"Access denied: $url"))
     }
   }
 
@@ -128,37 +124,34 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
    */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
 
-    try {
-      val (bucket, fullPath) = parseS3Url(url) match {
-        case Left(error)   => return Left(error)
-        case Right(values) => values
-      }
+    val (bucket, fullPath) = parseS3Url(url) match {
+      case Left(error)   => return Left(error)
+      case Right(values) => values
+    }
 
-      val (prefix, maybePattern) = splitWildcard(fullPath)
-      if (maybePattern.isEmpty) {
-        Right(List(url))
-      } else {
-        val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
-        // Single-level listing for the prefix
-        val objects = listObjectsSingleLevel(bucket, prefix)
-        val matched = objects.filter(regex.matches)
-        Right(matched.map(k => s"s3://$bucket/$k"))
-      }
+    val (prefix, maybePattern) = splitWildcard(fullPath)
+    if (maybePattern.isEmpty) return Right(List(url))
+
+    try {
+      val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
+      // Single-level listing for the prefix
+      val objects = listObjectsSingleLevel(bucket, prefix)
+      val matched = objects.filter(regex.matches)
+      Right(matched.map(k => s"s3://$bucket/$k"))
+
     } catch {
-      case e: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
-      case e: NoSuchKeyException =>
-        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
-      case e: LimitExceededException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case e: TooManyRequestsException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Got bucket not found while trying to resolve wildcard $url"))
+      case _: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"Got path not found while trying to resolve wildcard $url"))
+      case _: LimitExceededException | _: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests while trying to resolve wildcard $url"))
       case e: S3Exception if e.statusCode() == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Got forbidden while trying to resolve wildcard $url"))
       case e: S3Exception if e.statusCode() == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+        Left(FileSystemError.Unauthorized(s"Got unauthorized while trying to resolve wildcard $url"))
       case _: AccessDeniedException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+        Left(FileSystemError.PermissionDenied(s"Got access denied while trying to resolve wildcard $url"))
     }
   }
 
@@ -176,20 +169,18 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
       val headResp = s3Client.headObject(headReq)
       Right(headResp.contentLength())
     } catch {
-      case e: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url, s"Bucket not found  => ${e.getMessage}"))
-      case e: NoSuchKeyException =>
-        Left(FileSystemError.NotFound(url, s"key not found => ${e.getMessage}"))
-      case e: LimitExceededException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case e: TooManyRequestsException =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+      case _: NoSuchBucketException =>
+        Left(FileSystemError.NotFound(url, s"Bucket $bucket not: $url"))
+      case _: NoSuchKeyException =>
+        Left(FileSystemError.NotFound(url, s"Path $key not found: $url"))
+      case _: LimitExceededException | _: TooManyRequestsException =>
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: S3Exception if e.statusCode() == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Forbidden $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Forbidden: $url"))
       case e: S3Exception if e.statusCode() == 401 =>
-        Left(FileSystemError.Unauthorized(s"Unauthorized $url => ${e.getMessage}"))
+        Left(FileSystemError.Unauthorized(s"Unauthorized: $url "))
       case _: AccessDeniedException =>
-        Left(FileSystemError.PermissionDenied(s"Access denied listing $url"))
+        Left(FileSystemError.PermissionDenied(s"Access denied: $url"))
     }
   }
 

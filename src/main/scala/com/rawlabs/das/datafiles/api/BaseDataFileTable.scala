@@ -12,12 +12,14 @@
 
 package com.rawlabs.das.datafiles.api
 
+import java.io.{FileNotFoundException, IOException}
 import java.nio.file.AccessDeniedException
 
 import scala.jdk.CollectionConverters._
 
+import org.apache.spark.SparkException
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{AnalysisException, DataFrame, SparkSession}
 
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.utils.SparkToDASConverter._
@@ -116,48 +118,71 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
     val executionUrl = acquireUrl()
 
-    logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
-    val df = loadDataframe(executionUrl, sparkSchema)
-    val (filteredDF, allApplied) = applyQuals(df, quals, sparkTypes)
+    try {
+      logger.debug(s"Executing $format table $tableName format  on $executionUrl, original url: ${config.uri}")
+      val df = loadDataframe(executionUrl, sparkSchema)
+      val (filteredDF, allApplied) = applyQuals(df, quals, sparkTypes)
 
-    val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
-    val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
+      val finalCols = if (columnsRequested.nonEmpty) columnsRequested else filteredDF.columns.toSeq
+      val dfSelected = filteredDF.select(finalCols.map(df.col): _*)
 
-    // applySortKeys *before* limit
-    val dfSorted = applySortKeys(dfSelected, sortKeys)
+      // applySortKeys *before* limit
+      val dfSorted = applySortKeys(dfSelected, sortKeys)
 
-    // apply the limit only if all quals were applied and a limit was requested
-    val dfLimited = (maybeLimit, allApplied) match {
-      case (Some(l), true) => dfSorted.limit(l.toInt)
-      case _               => dfSorted
-    }
-
-    val sparkIter = dfLimited.toLocalIterator().asScala
-
-    // For quick lookup of col -> DAS Type
-    val colTypesMap: Map[String, Type] = columns.toMap
-
-    new DASExecuteResult {
-      override def hasNext: Boolean = {
-        sparkIter.hasNext
+      // apply the limit only if all quals were applied and a limit was requested
+      val dfLimited = (maybeLimit, allApplied) match {
+        case (Some(l), true) => dfSorted.limit(l.toInt)
+        case _               => dfSorted
       }
 
-      override def next(): ProtoRow = {
-        val rowBuilder = ProtoRow.newBuilder()
-        val row = sparkIter.next()
+      val sparkIter = dfLimited.toLocalIterator().asScala
 
-        finalCols.foreach { col =>
-          val rawVal = row.getAs[Any](col)
-          val dasType =
-            colTypesMap.getOrElse(
-              col,
-              throw new DASSdkInvalidArgumentException(s"table $tableName Column $col not found in schema"))
-          val protoVal = sparkValueToProtoValue(rawVal, dasType, col)
-          rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
+      // For quick lookup of col -> DAS Type
+      val colTypesMap: Map[String, Type] = columns.toMap
+
+      new DASExecuteResult {
+        override def hasNext: Boolean = {
+          sparkIter.hasNext
         }
-        rowBuilder.build()
+
+        override def next(): ProtoRow = {
+          val rowBuilder = ProtoRow.newBuilder()
+          val row = sparkIter.next()
+
+          finalCols.foreach { col =>
+            val rawVal = row.getAs[Any](col)
+            val dasType =
+              colTypesMap.getOrElse(
+                col,
+                throw new DASSdkInvalidArgumentException(s"table $tableName Column $col not found in schema"))
+            val protoVal = sparkValueToProtoValue(rawVal, dasType, col)
+            rowBuilder.addColumns(ProtoColumn.newBuilder().setName(col).setData(protoVal))
+          }
+          rowBuilder.build()
+        }
+
+        override def close(): Unit = {}
       }
-      override def close(): Unit = {}
+    } catch {
+      // spark AnalysisException
+      case e: AnalysisException if e.errorClass.contains("PATH_NOT_FOUND") =>
+        throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
+      case e: AnalysisException =>
+        throw new DASSdkInvalidArgumentException(
+          s"Error while executing table $tableName, url: ${config.uri}, please verify that the url is a valid $format file",
+          e)
+      // Fallback to SparkException
+      case e: SparkException =>
+        throw new DASSdkInvalidArgumentException(
+          s"Error while executing table $tableName, url: ${config.uri}, please verify that the url is a valid $format file",
+          e)
+      // IO and FileSystem issues
+      case e: AccessDeniedException =>
+        throw new DASSdkPermissionDeniedException(s"Access denied for ${config.uri}", e)
+      case e: FileNotFoundException =>
+        throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
+      case e: IOException =>
+        throw new DASSdkInvalidArgumentException(s"IO error reading ${config.uri}", e)
     }
   }
 
@@ -170,26 +195,35 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         .load(resolvedUrl)
         .schema
     } catch {
+      // spark AnalysisException
+      case e: AnalysisException if e.errorClass.contains("PATH_NOT_FOUND") =>
+        throw new DASSdkInvalidArgumentException(s"File does not exist: ${config.uri}", e)
+      case e: AnalysisException =>
+        logger.error(s"error class ${e.errorClass}")
+        throw new DASSdkInvalidArgumentException(
+          s"Error while inferring ${config.uri}, please verify that the url is a valid $format file",
+          e)
+      // Fallback to SparkException
+      case e: SparkException =>
+        throw new DASSdkInvalidArgumentException(
+          s"Error while inferring ${config.uri}, please verify that the url is a valid $format file",
+          e)
+      // IO and FileSystem issues
       case e: AccessDeniedException =>
-        throw new DASSdkPermissionDeniedException(s"Permission denied for ${config.uri}")
-      case e: org.apache.spark.sql.AnalysisException =>
-        throw new DASSdkInvalidArgumentException(s"Error loading ${config.uri}: ${e.getMessage}")
+        throw new DASSdkPermissionDeniedException(s"Access denied for ${config.uri}", e)
+      case e: FileNotFoundException =>
+        throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
+      case e: IOException =>
+        throw new DASSdkInvalidArgumentException(s"IO error reading ${config.uri}", e)
     }
   }
 
   private def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
-    try {
-      sparkSession.read
-        .schema(schema)
-        .options(sparkOptions)
-        .format(format)
-        .load(resolvedUrl)
-    } catch {
-      case e: AccessDeniedException =>
-        throw new DASSdkPermissionDeniedException(s"Permission denied for ${config.uri}")
-      case e: org.apache.spark.sql.AnalysisException =>
-        throw new DASSdkInvalidArgumentException(s"Error loading ${config.uri}: ${e.getMessage}")
-    }
+    sparkSession.read
+      .schema(schema)
+      .options(sparkOptions)
+      .format(format)
+      .load(resolvedUrl)
   }
 
   private def acquireUrl(): String = {

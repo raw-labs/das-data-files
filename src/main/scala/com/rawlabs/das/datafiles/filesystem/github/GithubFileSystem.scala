@@ -61,14 +61,14 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       }
       Right(files)
     } catch {
-      case e: GHFileNotFoundException =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case _: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+        Left(FileSystemError.NotFound(url, s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Permission denied: $url"))
       case e: HttpException if e.getResponseCode == 429 =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
     }
   }
 
@@ -90,13 +90,14 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
       val inputStream = new URI(downloadUrl).toURL.openStream()
       Right(inputStream)
     } catch {
-      case e: GHFileNotFoundException => Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case _: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+        Left(FileSystemError.NotFound(url, s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Permission denied: $url"))
       case e: HttpException if e.getResponseCode == 429 =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
     }
   }
 
@@ -136,14 +137,14 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.Unsupported(s"Path refers to a directory, cannot get size: $url"))
       }
     } catch {
-      case e: GHFileNotFoundException =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+      case _: GHFileNotFoundException =>
+        Left(FileSystemError.NotFound(url, s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
+        Left(FileSystemError.NotFound(url, s"File not found: $url"))
       case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Permission denied: $url"))
       case e: HttpException if e.getResponseCode == 429 =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
     }
 
   }
@@ -174,9 +175,9 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
           FileSystemError
             .NotFound(url, s"Repository ${file.owner}/${file.repo} does not exist or requires credentials"))
       case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
+        Left(FileSystemError.PermissionDenied(s"Permission denied: $url"))
       case e: HttpException if e.getResponseCode == 429 =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
+        Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
     }
   }
 

@@ -15,6 +15,7 @@ package com.rawlabs.das.datafiles.xml
 import org.apache.spark.sql.SparkSession
 
 import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 
@@ -28,7 +29,7 @@ class XmlTable(config: DataFilesTableConfig, sparkSession: SparkSession)
 
   // The row tag is required for XML tables.
   private val rowTag =
-    config.options.getOrElse("row_tag", throw new IllegalArgumentException("row_tag is required for xml tables"))
+    config.options.getOrElse("row_tag", throw new DASSdkInvalidArgumentException("row_tag is required for xml tables"))
 
   override protected val sparkOptions: Map[String, String] = {
     Map("rowTag" -> rowTag) ++
