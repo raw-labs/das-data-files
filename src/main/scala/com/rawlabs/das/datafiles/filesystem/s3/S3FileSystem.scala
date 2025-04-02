@@ -143,14 +143,8 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
 
       val (prefix, maybePattern) = splitWildcard(fullPath)
       if (maybePattern.isEmpty) {
-        // verifies that it is a single file
-        val headReq = HeadObjectRequest.builder().bucket(bucket).key(fullPath).build()
-        s3Client.headObject(headReq)
-        // If HEAD is successful => it's a single file
         Right(List(url))
-
       } else {
-
         val regex = ("^" + prefix + globToRegex(maybePattern.get) + "$").r
         // Single-level listing for the prefix
         val objects = listObjectsSingleLevel(bucket, prefix)

@@ -31,6 +31,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
 
   it should "create a table from a public s3 bucket without credentials" in {
     val config = Map(
+      "aws_region" -> "eu-west-1",
       "paths" -> "1",
       "path0_url" -> "s3://rawlabs-public-test-data/winter_olympics.csv",
       "path0_format" -> "csv",
@@ -53,6 +54,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
     assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty, "AWS credentials must be set for this test to run.")
 
     val config = Map(
+      "aws_region" -> "eu-west-1",
       "aws_access_key" -> awsAccessKey,
       "aws_secret_key" -> awsSecretKey,
       "paths" -> "1",
@@ -75,6 +77,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
     assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty)
 
     val config = Map(
+      "aws_region" -> "eu-west-1",
       "aws_access_key" -> awsAccessKey,
       "aws_secret_key" -> awsSecretKey,
       "paths" -> "1",
@@ -95,6 +98,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
 
   it should "fail if credentials are invalid for a private bucket" in {
     val config = Map(
+      "aws_region" -> "eu-west-1",
       "aws_access_key" -> "INVALID_ACCESS",
       "aws_secret_key" -> "INVALID_SECRET",
       "paths" -> "1",
@@ -111,7 +115,11 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
 
   it should "fail if missing credentials for a private bucket" in {
     val config =
-      Map("paths" -> "1", "path0_url" -> "s3://rawlabs-private-test-data/winter_olympics.csv", "path0_format" -> "csv")
+      Map(
+        "aws_region" -> "eu-west-1",
+        "paths" -> "1",
+        "path0_url" -> "s3://rawlabs-private-test-data/winter_olympics.csv",
+        "path0_format" -> "csv")
 
     // We expect some sort of authentication/permission error:
     intercept[DASSdkPermissionDeniedException] {
@@ -123,24 +131,31 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
 
   it should "fail if missing credentials for a private bucket with wildcard" in {
     val config =
-      Map("paths" -> "1", "path0_url" -> "s3://rawlabs-private-test-data/*_olympics.csv", "path0_format" -> "csv")
+      Map(
+        "aws_region" -> "eu-west-1",
+        "paths" -> "1",
+        "path0_url" -> "s3://rawlabs-private-test-data/*_olympics.csv",
+        "path0_format" -> "csv")
 
     // We expect some sort of authentication/permission error:
     intercept[DASSdkPermissionDeniedException] {
-      new DASDataFiles(config).tables.head._2
-        .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
-        .hasNext
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
   }
 
   it should "fail if the file is missing on s3" in {
     val config = Map(
+      "aws_region" -> "eu-west-1",
       "paths" -> "1",
       "path0_url" -> "s3://rawlabs-public-test-data/this_file_does_not_exist.csv",
       "path0_format" -> "csv")
 
     intercept[DASSdkInvalidArgumentException] {
-      new DASDataFiles(config).tables
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
   }
 
@@ -152,7 +167,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       Map("paths" -> "1", "path0_url" -> "s3://rawlabs-public-test-data/demos", "path0_format" -> "csv")
 
     intercept[DASSdkInvalidArgumentException] {
-      new DASDataFiles(config).tables
+      val das = new DASDataFiles(config)
+      val table = das.tables.head._2
+      table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
   }
 
@@ -202,12 +219,10 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
     it.hasNext shouldBe true
   }
 
-  it should "create tables from a GitHub repo using wildcards" in {
+  it should "create tables from a public GitHub repo using wildcards" in {
     // Example: "github://owner/repo/main/data/*.csv"
-    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this wildcard test.")
     val config = Map(
       "paths" -> "1",
-      "github_api_token" -> gitHubToken,
       "path0_url" -> "github://owid/covid-19-data/master/public/data/*.csv",
       "path0_format" -> "csv")
 
@@ -226,7 +241,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       Map(
         "paths" -> "1",
         "path0_url" -> "github://raw-labs/raw/master/docs/public/static/rql2DocsGenerated.json",
-        "path0_format" -> "csv")
+        "path0_format" -> "json")
 
     val e = intercept[DASSdkInvalidArgumentException] {
       // or DASSdkUnauthenticatedException / whichever your code throws
@@ -241,7 +256,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         "github_api_token" -> "INVALID_TOKEN",
         "paths" -> "1",
         "path0_url" -> "github://raw-labs/raw/master/docs/public/static/rql2DocsGenerated.json",
-        "path0_format" -> "csv")
+        "path0_format" -> "json")
 
     intercept[DASSdkPermissionDeniedException] {
       // or DASSdkUnauthenticatedException / whichever your code throws
@@ -250,7 +265,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
   }
 
   it should "fail if the GitHub file does not exist" in {
+    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
     val config = Map(
+      "github_api_token" -> gitHubToken,
       "paths" -> "1",
       "path0_url" -> "github://raw-labs/raw-labs/master/does-not-exist.csv",
       "path0_format" -> "csv")
@@ -261,9 +278,9 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
   }
 
   it should "fail if the GitHub path is actually a directory with no direct file" in {
-    // For example, referencing a known directory path:
-    // "github://owner/repo/main/path/to/directory"
+    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
     val config = Map(
+      "github_api_token" -> gitHubToken,
       "paths" -> "1",
       "path0_url" -> "github://raw-labs/raw-labs/master/docs/public/static/",
       "path0_format" -> "csv")

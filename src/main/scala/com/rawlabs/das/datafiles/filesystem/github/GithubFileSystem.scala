@@ -115,44 +115,13 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
    */
   override def resolveWildcard(url: String): Either[FileSystemError, List[String]] = {
 
-    val (repo, file) = getRepoAndFile(url) match {
-      case Left(err)   => return Left(err)
-      case Right(file) => file
-    }
-
-    try {
-      val (prefixUrl, maybePattern) = splitWildcard(file.path)
-      maybePattern match {
-        case None =>
-          // just to verify that the file exists
-          val content = repo.getFileContent(file.path, file.branch)
-          if (content.isDirectory) logger.info("wildcard path is a directory")
-          Right(List(url))
-        case Some(pattern) =>
-          val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
-          val contents =
-            repo.getDirectoryContent(prefixUrl.stripSuffix("/"), file.branch).asScala.toList
-
-          val files = contents
-            .filter(content => regex.matches(content.getPath))
-            .map { content =>
-              s"github://${file.owner}/${file.repo}/${file.branch}/${content.getPath}"
-            }
-
-          Right(files)
-      }
-    } catch {
-      case e: GHFileNotFoundException =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 404 =>
-        Left(FileSystemError.NotFound(url, s"File not found: $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 401 | e.getResponseCode == 403 =>
-        Left(FileSystemError.PermissionDenied(s"Permission denied $url => ${e.getMessage}"))
-      case e: HttpException if e.getResponseCode == 429 =>
-        Left(FileSystemError.TooManyRequests(s"Too many requests $url => ${e.getMessage}"))
-      case NonFatal(e) =>
-        logger.error(s"resolving wildcard url $url", e)
-        throw e
+    val (prefixUrl, maybePattern) = splitWildcard(url)
+    maybePattern match {
+      case None =>
+        Right(List(url))
+      case Some(pattern) =>
+        val regex = ("^" + prefixUrl + globToRegex(pattern) + "$").r
+        list(prefixUrl).map(files => files.filter(regex.matches))
     }
   }
 

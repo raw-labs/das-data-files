@@ -12,8 +12,12 @@
 
 package com.rawlabs.das.datafiles.api
 
-import scala.jdk.CollectionConverters._
+import java.nio.file.AccessDeniedException
 
+import scala.jdk.CollectionConverters._
+import scala.util.control.NonFatal
+
+import org.apache.spark
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -160,20 +164,44 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   }
 
   private def inferDataframe(resolvedUrl: String): StructType = {
-    sparkSession.read
-      .option("inferSchema", "true")
-      .options(sparkOptions)
-      .format(format)
-      .load(resolvedUrl)
-      .schema
+    try {
+      sparkSession.read
+        .option("inferSchema", "true")
+        .options(sparkOptions)
+        .format(format)
+        .load(resolvedUrl)
+        .schema
+    } catch {
+      case e: AccessDeniedException =>
+        logger.error(s"Permission denied ${config.uri} resolved to $resolvedUrl ", e)
+        throw new DASSdkPermissionDeniedException(s"Permission denied for ${config.uri}")
+      case e: org.apache.spark.sql.AnalysisException =>
+        logger.error(s"Error inferring ${config.uri} resolved to $resolvedUrl ", e)
+        throw new DASSdkInvalidArgumentException(s"Error loading ${config.uri}: ${e.getMessage}")
+      case NonFatal(e) =>
+        logger.error(s"Error inferring ${config.uri} resolved to $resolvedUrl ", e)
+        throw e
+    }
   }
 
   private def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
-    sparkSession.read
-      .schema(schema)
-      .options(sparkOptions)
-      .format(format)
-      .load(resolvedUrl)
+    try {
+      sparkSession.read
+        .schema(schema)
+        .options(sparkOptions)
+        .format(format)
+        .load(resolvedUrl)
+    } catch {
+      case e: AccessDeniedException =>
+        logger.error(s"Permission denied ${config.uri} resolved to $resolvedUrl ", e)
+        throw new DASSdkPermissionDeniedException(s"Permission denied for ${config.uri}")
+      case e: org.apache.spark.sql.AnalysisException =>
+        logger.error(s"Error loading dataframe ${config.uri} resolved to $resolvedUrl ", e)
+        throw new DASSdkInvalidArgumentException(s"Error loading ${config.uri}: ${e.getMessage}")
+      case NonFatal(e) =>
+        logger.error(s"Error loading dataframe ${config.uri} resolved to $resolvedUrl ", e)
+        throw e
+    }
   }
 
   private def acquireUrl(): String = {
