@@ -172,7 +172,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("File does not exist: s3://rawlabs-public-test-data/this_file_does_not_exist.csv")
+    e.getMessage should be("File not found: s3://rawlabs-public-test-data/this_file_does_not_exist.csv")
   }
 
   it should "fail if the s3 path is actually a directory rather than a file" in {
@@ -189,7 +189,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .hasNext
     }
     e.getMessage should be(
-      "Error while inferring s3://rawlabs-public-test-data/demos, please verify that the url is a valid csv file")
+      "Could not infer s3://rawlabs-public-test-data/demos, please verify that the url is a valid csv file")
   }
 
   it should "fail if the s3 path is not a parquet file" in {

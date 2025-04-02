@@ -197,9 +197,12 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     } catch {
       // spark AnalysisException
       case e: AnalysisException if e.errorClass.contains("PATH_NOT_FOUND") =>
-        throw new DASSdkInvalidArgumentException(s"File does not exist: ${config.uri}", e)
+        throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
+      case e: AnalysisException if e.errorClass.contains("UNABLE_TO_INFER_SCHEMA") =>
+        throw new DASSdkInvalidArgumentException(
+          s"Could not infer ${config.uri}, please verify that the url is a valid $format file",
+          e)
       case e: AnalysisException =>
-        logger.error(s"error class ${e.errorClass}")
         throw new DASSdkInvalidArgumentException(
           s"Error while inferring ${config.uri}, please verify that the url is a valid $format file",
           e)
