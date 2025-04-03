@@ -12,9 +12,11 @@
 
 package com.rawlabs.das.datafiles.json
 
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import com.rawlabs.das.datafiles.api.{BaseDataFileTable, DataFilesTableConfig}
+import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.das.sdk.scala.DASTable
 import com.rawlabs.protocol.das.v1.query.Qual
 
@@ -41,6 +43,19 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
           "sampling_ratio" -> "samplingRatio", // Fraction of input JSON objects used for schema inferring.
           "column_name_of_corrupt_record" -> "columnNameOfCorruptRecord" // Name for field holding corrupt records.
         ))
+
+  override protected def inferDataframe(resolvedUrl: String): StructType = {
+
+    val schema = super.inferDataframe(resolvedUrl)
+    val mode = config.options.getOrElse("mode", "PERMISSIVE")
+    if (schema.size == 1 && mode == "PERMISSIVE") {
+      // If the schema is a single column and mode is PERMISSIVE, then it only has the corrupt record column.
+      // So its not a valid json file.
+      throw new DASSdkInvalidArgumentException(
+        s"Could not infer ${config.uri}, please verify that the url is a valid json file")
+    }
+    schema
+  }
 
   override def tableEstimate(quals: Seq[Qual], columns: Seq[String]): DASTable.TableEstimate = {
     // We can't easily know row counts without reading the file.

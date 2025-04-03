@@ -226,7 +226,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .hasNext
     }
     e.getMessage should be(
-      "Error while executing table winter_olympics, url: s3://rawlabs-public-test-data/winter_olympics.csv, please verify that the url is a valid json file")
+      "Could not infer s3://rawlabs-public-test-data/winter_olympics.csv, please verify that the url is a valid json file")
   }
 
   // -----------------------------------------------------------------------

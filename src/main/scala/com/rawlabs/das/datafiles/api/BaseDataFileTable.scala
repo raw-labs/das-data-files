@@ -186,7 +186,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     }
   }
 
-  private def inferDataframe(resolvedUrl: String): StructType = {
+  protected def inferDataframe(resolvedUrl: String): StructType = {
     try {
       sparkSession.read
         .option("inferSchema", "true")
@@ -221,7 +221,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     }
   }
 
-  private def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
+  protected def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
     sparkSession.read
       .schema(schema)
       .options(sparkOptions)
