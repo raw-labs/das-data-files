@@ -23,8 +23,7 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 
-class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSize: Long = 100L * 1024L * 1024L)
-    extends BaseFileSystem(cacheFolder, maxDownloadSize) {
+class GithubFileSystem(githubClient: GitHub) extends BaseFileSystem() {
 
   private case class GithubFile(owner: String, repo: String, branch: String, path: String)
 
@@ -206,10 +205,10 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
 }
 
 object GithubFileSystem {
-  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): GithubFileSystem = {
+  def build(options: Map[String, String]): GithubFileSystem = {
     val builder = new GitHubBuilder()
     options.get("github_api_token").foreach(token => builder.withOAuthToken(token))
 
-    new GithubFileSystem(builder.build(), cacheFolder, maxDownloadSize)
+    new GithubFileSystem(builder.build())
   }
 }

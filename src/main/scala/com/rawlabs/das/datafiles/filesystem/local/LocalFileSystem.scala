@@ -22,8 +22,7 @@ import scala.jdk.CollectionConverters._
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
 
-class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
-    extends BaseFileSystem(downloadFolder, maxDownloadSize) {
+class LocalFileSystem extends BaseFileSystem() {
 
   val name: String = "local"
 
@@ -120,12 +119,6 @@ class LocalFileSystem(downloadFolder: String, maxDownloadSize: Long)
 
   override def stop(): Unit = {}
 
-  /**
-   * For local paths, getLocalUrl is basically a no-op; we can return the original path as "local".
-   */
-  override def getLocalUrl(url: String): Either[FileSystemError, String] = {
-    Right(url)
-  }
 
   /**
    * Return the size of the file in bytes, or an error if not found or a directory.

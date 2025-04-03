@@ -12,6 +12,7 @@
 
 package com.rawlabs.das.datafiles.api
 
+import java.io.File
 import java.net.URI
 
 import scala.collection.mutable
@@ -46,14 +47,18 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
     with StrictLogging {
 
   private val maxTables = settings.getInt("das.data-files.max-tables")
+  private val dasOptions = new DASDataFilesOptions(options)
+
+  // File cache settings
   private val fileCacheExpiration = settings.getDuration("das.data-files.file-cache-expiration")
   private val cleanupCachePeriod = settings.getDuration("das.data-files.cleanup-cache-period")
-  private val dasOptions = new DASDataFilesOptions(options)
+  private val cacheFolder = settings.getString("das.data-files.cache-dir")
+  private val maxDownloadSize = settings.getBytes("das.data-files.max-download-size")
 
   // Keep track of used names so we ensure uniqueness
   private val usedNames = mutable.Set[String]()
 
-  val uuid = java.util.UUID.randomUUID().toString.take(8)
+  private val uuid = java.util.UUID.randomUUID().toString.take(8)
   protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp-" + uuid, options)
 
   private val filesystems = {
@@ -64,9 +69,19 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
       scheme -> FileSystemFactory.build(uri, options)
     }
   }
+  val downloadFolder = new File(cacheFolder)
+  // create the download folder if it doesn't exist
+  if (!downloadFolder.exists()) {
+    downloadFolder.mkdirs()
+  }
 
   private val fileCacheManager: FileCacheManager =
-    new FileCacheManager(filesystems.values.toSeq, fileCacheExpiration.toMillis, cleanupCachePeriod.toMillis)
+    new FileCacheManager(
+      filesystems.values.toSeq,
+      fileCacheExpiration.toMillis,
+      cleanupCachePeriod.toMillis,
+      maxDownloadSize,
+      downloadFolder)
 
   // Resolve all URLs and build a list of tables
   protected val tableConfig: Seq[DataFilesTableConfig] = dasOptions.pathConfig.flatMap { config =>

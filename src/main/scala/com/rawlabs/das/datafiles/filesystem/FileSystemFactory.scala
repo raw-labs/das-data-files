@@ -35,10 +35,10 @@ object FileSystemFactory {
     val maxDownloadSize = config.getBytes("das.data-files.max-download-size")
     uri.getScheme match {
       case "s3" =>
-        S3FileSystem.build(options, cacheFolder, maxDownloadSize)
+        S3FileSystem.build(options)
 
       case "github" =>
-        GithubFileSystem.build(options, cacheFolder, maxDownloadSize)
+        GithubFileSystem.build(options)
 
       case "file" | null =>
         // "file" or a missing scheme => local filesystem
@@ -46,7 +46,7 @@ object FileSystemFactory {
         if (!allowLocal) {
           throw new DASSdkInvalidArgumentException("Local files are not allowed.")
         }
-        new LocalFileSystem(cacheFolder, maxDownloadSize)
+        new LocalFileSystem()
 
       case other =>
         throw new DASSdkInvalidArgumentException(s"Unsupported URI scheme '$other' for path: ${uri.toString}")

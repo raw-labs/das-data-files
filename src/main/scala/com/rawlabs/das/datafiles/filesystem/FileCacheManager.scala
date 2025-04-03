@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 RAW Labs S.A.
+ * Copyright 2024 RAW Labs S.A.
  *
  * Use of this software is governed by the Business Source License
  * included in the file licenses/BSL.txt.
@@ -12,34 +12,43 @@
 
 package com.rawlabs.das.datafiles.filesystem
 
-import java.util.concurrent.{ConcurrentHashMap, ScheduledExecutorService, ScheduledThreadPoolExecutor, TimeUnit}
-
 import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
+import com.rawlabs.das.datafiles.filesystem.local.LocalFileSystem
 import com.typesafe.scalalogging.StrictLogging
 
+import java.io.File
+import java.net.URI
+import java.nio.file.{Files, StandardCopyOption}
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.concurrent._
+import scala.util.control.NonFatal
+
 /**
- * Represents a cached entry for a given URL.
- *
- * @param localPath The last local file path that was returned by the filesystem for this URL
- * @param timestampMillis The time (System.currentTimeMillis) when we last downloaded
+ * Represents a cached entry for a given URL. We store the final local path (with `_finished` prefix) and the timestamp
  */
 case class CacheEntry(localPath: String, timestampMillis: Long)
 
 /**
- * A standalone manager that: 1) Keeps a list of available BaseFileSystems 2) Finds a suitable FS for a given URL 3)
- * Caches the resulting local path for a configurable TTL 4) Periodically cleans up old entries and (optionally) deletes
- * the local files
+ * The file cache manager. Now responsible for:
+ *   - Deciding how/where to place files on disk
+ *   - Checking file sizes
+ *   - Doing the actual download from the filesystem's InputStream
  */
 class FileCacheManager(
-    fileSystems: Seq[BaseFileSystem], // a list of FSes (S3, GitHub, local, etc.)
-    cacheTtlMillis: Long, // how long to consider a cached entry "fresh",
-    intervalMillis: Long // how often to clean up the cache
+    fileSystems: Seq[BaseFileSystem],
+    cacheTtlMillis: Long,
+    intervalMillis: Long,
+    maxDownloadSize: Long, // Moved from BaseFileSystem
+    downloadFolder: File // The actual root folder for downloads
 ) extends StrictLogging {
 
-  // Thread-safe map: url -> CacheEntry
+  val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+
+  // Cache map: url -> CacheEntry
   private val cacheMap = new ConcurrentHashMap[String, CacheEntry]()
 
-  // Optional background scheduler for automatic cleanup
+  // Executor for periodic cleanup
   private val scheduler: ScheduledExecutorService = new ScheduledThreadPoolExecutor(1)
   private val scheduledCleanup = scheduler.scheduleWithFixedDelay(
     () => {
@@ -55,121 +64,165 @@ class FileCacheManager(
     TimeUnit.MILLISECONDS)
 
   // ------------------------------------------------------------------------
+  // Initialization logic: on startup, clean leftover files
+  // ------------------------------------------------------------------------
+  initCleanupOnStartup()
+
+  private def initCleanupOnStartup(): Unit = {
+    logger.info("Performing initial cleanup of leftover _downloading / _finished files.")
+    if (downloadFolder.exists() && downloadFolder.isDirectory) {
+      val leftover = downloadFolder.listFiles().filter { f =>
+        val name = f.getName
+        name.startsWith("_downloading") || name.startsWith("_finished")
+      }
+      leftover.foreach { f =>
+        logger.debug(s"Deleting leftover file: ${f.getAbsolutePath}")
+        f.delete()
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------------
   // Public API
   // ------------------------------------------------------------------------
 
   /**
-   * Return a local path for the given URL. If a fresh entry exists in the cache, return that; otherwise ask the correct
-   * filesystem for the local file path and store it in the cache.
+   * Return a local path for the given URL. If a fresh entry exists in the cache, return that; otherwise, we download
+   * the file ourselves.
    */
   def getLocalPathForUrl(url: String): Either[FileSystemError, String] = {
-    // 1) Check if we already have a cached entry that is still "fresh"
     val now = System.currentTimeMillis()
     val cached = cacheMap.get(url)
     if (cached != null) {
       val age = now - cached.timestampMillis
       if (age < cacheTtlMillis) {
-        // still fresh
         logger.debug(s"Reusing cached file for '$url' -> ${cached.localPath} (age=$age ms)")
         return Right(cached.localPath)
       } else {
-        logger.debug(s"Cache entry for '$url' is expired (age=$age ms). Will delete and re-download.")
-        deleteFile(url, cached.localPath)
+        logger.debug(s"Cache entry for '$url' is expired (age=$age ms). Deleting file and re-downloading.")
+        deleteFile(cached.localPath)
+        cacheMap.remove(url)
       }
     }
 
-    // 2) Find a filesystem that supports the URL
+    // Find a filesystem that supports the URL
     val maybeFs = fileSystems.find(_.supportsUrl(url))
     if (maybeFs.isEmpty) {
       logger.warn(s"No filesystem found that supports '$url'")
       return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
     }
+
     val fs = maybeFs.get
 
-    // 3) Download (or open) the file path from that filesystem
-    fs.getLocalUrl(url) match {
-      case Left(err) =>
-        // We cannot cache an error -> just return it
-        Left(err)
+    // Local filesystem: just return the URL as is
+    if (fs.isInstanceOf[LocalFileSystem]) {
+      logger.debug(s"Local filesystem found for '$url'")
+      return Right(url)
+    }
 
+    // Download the file
+    downloadFile(fs, url) match {
+      case Left(err) => Left(err)
       case Right(localPath) =>
-        // 4) Store a new CacheEntry in our map
         cacheMap.put(url, CacheEntry(localPath, now))
-        logger.debug(s"Caching new entry for '$url' -> $localPath")
         Right(localPath)
     }
   }
 
   /**
-   * Stop the background cleanup thread (if started). This cancels further scheduled tasks.
-   */
-  private def stopBackgroundCleanup(): Unit = synchronized {
-    logger.info("Stopping background cleanup for file cache.")
-    scheduledCleanup.cancel(true)
-  }
-
-  /**
-   * Shut down the underlying scheduler entirely. If you have no other uses for the thread, call this to clean up
-   * resources.
+   * Stop the background cleanup thread and remove everything from the cache.
    */
   def stop(): Unit = {
-    logger.info("Shutting down file cache manager's scheduler.")
-    stopBackgroundCleanup()
+    logger.info("Shutting down file cache manager.")
+    scheduledCleanup.cancel(true)
     scheduler.shutdown()
     clearAll()
   }
 
-  /**
-   * Cleans up any cache entries older than TTL, and optionally removes their local files from disk. If you are calling
-   * `startBackgroundCleanup()`, this will happen automatically on a schedule.
-   */
+  private def downloadFile(fs: BaseFileSystem, url: String): Either[FileSystemError, String] = {
+
+    // 2) Check file size
+    fs.getFileSize(url) match {
+      case Left(err) => return Left(err)
+      case Right(size) if size > maxDownloadSize =>
+        logger.warn(s"File $url is too large ($size bytes), skipping download.")
+        return Left(FileSystemError.FileTooLarge(url, size, maxDownloadSize))
+      case Right(_) => // OK to proceed
+    }
+
+    // 3) download the file
+    // Include a small unique ID (e.g., short random or the URL hash) to avoid collisions
+    val timestamp = dateTimeFormatter.format(LocalDateTime.now())
+    val uniqueId = java.util.UUID.randomUUID().toString.take(8)
+    // Extract the original file name from the URL.
+    val originalFileName = extractFileName(url)
+    val downloadingFileName = s"$timestamp-$uniqueId-$originalFileName"
+    val downloadingFile = new File(downloadFolder, downloadingFileName)
+
+    // 4) Actually stream the remote file to local
+    logger.debug(s"Downloading file from '$url' to ${downloadingFile.getAbsolutePath}")
+    val inputStream = fs.open(url) match {
+      case Left(err) =>
+        logger.warn(s"Failed to open remote file $url: $err")
+        return Left(err)
+      case Right(is) => is
+    }
+
+    try {
+      Files.copy(inputStream, downloadingFile.toPath, StandardCopyOption.REPLACE_EXISTING)
+    } catch {
+      case NonFatal(e) =>
+        downloadingFile.delete()
+        throw e
+    } finally {
+      inputStream.close()
+    }
+
+    Right(downloadingFile.getAbsolutePath)
+  }
+
+  // A helper to extract the original file name from the URL.
+  private def extractFileName(url: String): String = {
+    val uri = new URI(url)
+    val path = uri.getPath
+    val fileName = path.substring(path.lastIndexOf('/') + 1)
+    if (fileName.nonEmpty) fileName else "downloadedFile"
+
+  }
+
+  // ------------------------------------------------------------------------
+  // Cleanup logic
+  // ------------------------------------------------------------------------
+
   private def cleanupCache(): Unit = {
     val now = System.currentTimeMillis()
-
-    // Collect keys to remove
     val iter = cacheMap.entrySet().iterator()
     while (iter.hasNext) {
       val entry = iter.next()
-      val url = entry.getKey
-      val value = entry.getValue
-      val age = now - value.timestampMillis
-
+      val (url, cacheEntry) = (entry.getKey, entry.getValue)
+      val age = now - cacheEntry.timestampMillis
       if (age > cacheTtlMillis) {
-        logger.debug(s"Evicting stale cache entry for '$url' (age=$age ms), path=${value.localPath}")
-        deleteFile(entry.getKey, entry.getValue.localPath)
-        // remove from map
+        logger.debug(s"Evicting stale cache entry for '$url' (age=$age ms), path=${cacheEntry.localPath}")
+        deleteFile(cacheEntry.localPath)
         iter.remove()
       }
     }
   }
 
-  private def deleteFile(originalUrl: String, path: String): Unit = {
-
-    if (originalUrl == path) {
-      logger.warn("Not deleting local url: {}", originalUrl)
-      return
-    }
-
-    val f = new java.io.File(path)
+  private def deleteFile(path: String): Unit = {
+    val f = new File(path)
     if (f.exists()) {
       logger.debug(s"Deleting local file: ${f.getAbsolutePath}")
       f.delete()
     }
   }
-  // ------------------------------------------------------------------------
-  // Additional convenience methods (optional)
-  // ------------------------------------------------------------------------
 
-  /**
-   * Clears the entire cache map at once. Possibly dangerous if in use.
-   */
   private def clearAll(): Unit = {
     logger.info("Clearing all cache entries and deleting all files.")
-
     val iter = cacheMap.entrySet().iterator()
     while (iter.hasNext) {
-      val entry = iter.next()
-      deleteFile(entry.getKey, entry.getValue.localPath)
+      val e = iter.next()
+      deleteFile(e.getValue.localPath)
     }
     cacheMap.clear()
   }

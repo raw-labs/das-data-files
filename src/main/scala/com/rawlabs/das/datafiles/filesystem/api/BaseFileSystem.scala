@@ -12,21 +12,15 @@
 
 package com.rawlabs.das.datafiles.filesystem.api
 
-import java.io.{File, InputStream}
-import java.nio.file.{Files, StandardCopyOption}
-import java.util.UUID
-
-import scala.util.control.NonFatal
-
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.typesafe.scalalogging.StrictLogging
+
+import java.io.InputStream
 
 /**
  * Base class for "DAS" filesystem abstractions.
  */
-abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) extends StrictLogging {
-
-  private val downloadPath = new File(downloadFolder)
+abstract class BaseFileSystem extends StrictLogging {
 
   // The name of the filesystem, e.g. "S3", "HTTP", "Local"
   def name: String
@@ -56,53 +50,6 @@ abstract class BaseFileSystem(downloadFolder: String, maxLocalFileSize: Long) ex
    * not found, return an error.
    */
   def getFileSize(url: String): Either[FileSystemError, Long]
-
-  /**
-   * Gets a local path (on disk) for the given `url`. In some file systems this might require downloading; in others, it
-   * can be a no-op. Default implementation downloads the file to the local cache.
-   */
-  def getLocalUrl(url: String): Either[FileSystemError, String] = {
-
-    try {
-      // Ensure the download folder exists
-      if (!downloadPath.exists()) {
-        downloadPath.mkdirs()
-      } else if (!downloadPath.isDirectory) {
-        return Left(FileSystemError.Unsupported(s"Download folder ($downloadFolder) is not a directory"))
-      }
-
-      // get the file size first
-      val fileSize = getFileSize(url) match {
-        case Left(err) => return Left(err)
-        case Right(actualSize) if actualSize > maxLocalFileSize =>
-          logger.warn(s"File $url is too large ($actualSize bytes), downloading aborted")
-          return Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize))
-        case Right(size) =>
-          size
-      }
-
-      val uniqueName = UUID.randomUUID().toString
-      val outFile = new File(downloadFolder, uniqueName)
-      logger.info(s"Downloading $url, size=$fileSize to $outFile")
-      val inputStream = open(url) match {
-        case Right(is) => is
-        case Left(err) => return Left(err)
-      }
-      try {
-        Files.copy(inputStream, outFile.toPath, StandardCopyOption.REPLACE_EXISTING)
-        Right(outFile.getAbsolutePath)
-      } catch {
-        case NonFatal(e) =>
-          Files.deleteIfExists(outFile.toPath)
-          throw e
-      } finally {
-        inputStream.close()
-      }
-    } catch {
-      case e: java.nio.file.AccessDeniedException =>
-        Left(FileSystemError.PermissionDenied(e.getMessage))
-    }
-  }
 
   /**
    * Cleanly shuts down / closes resources if needed.

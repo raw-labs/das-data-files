@@ -36,8 +36,7 @@ import software.amazon.awssdk.services.s3.model._
 /**
  * S3FileSystem that uses the AWS SDK v2 for S3 operations (list, open, wildcard resolution, etc.).
  */
-class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Long = 100 * 1024 * 1024)
-    extends BaseFileSystem(cacheFolder, maxDownloadSize) {
+class S3FileSystem(s3Client: S3Client) extends BaseFileSystem() {
 
   // --------------------------------------------------------------------------
   // Public API
@@ -241,7 +240,7 @@ class S3FileSystem(s3Client: S3Client, cacheFolder: String, maxDownloadSize: Lon
 }
 
 object S3FileSystem {
-  def build(options: Map[String, String], cacheFolder: String, maxDownloadSize: Long): S3FileSystem = {
+  def build(options: Map[String, String]): S3FileSystem = {
     val builder = S3Client.builder()
     options.get("aws_region").foreach(region => builder.region(Region.of(region)))
 
@@ -258,6 +257,6 @@ object S3FileSystem {
 
     builder.credentialsProvider(credentials)
 
-    new S3FileSystem(builder.build(), cacheFolder, maxDownloadSize)
+    new S3FileSystem(builder.build())
   }
 }

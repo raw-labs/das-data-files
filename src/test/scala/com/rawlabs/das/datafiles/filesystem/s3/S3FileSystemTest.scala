@@ -41,7 +41,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
         .build())
 
     // 3) Create S3FileSystem with mock client
-    val fs = new S3FileSystem(mockClient, "/tmp/testcache")
+    val fs = new S3FileSystem(mockClient)
 
     // 4) Call list on a single object
     val url = "s3://mybucket/somefile.csv"
@@ -71,7 +71,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(mockClient.listObjectsV2(any[ListObjectsV2Request]))
       .thenReturn(resp)
 
-    val fs = new S3FileSystem(mockClient, "/tmp/test-cache")
+    val fs = new S3FileSystem(mockClient)
 
     val url = "s3://mybucket/folder/"
     val result = fs.list(url)
@@ -94,7 +94,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
     when(mockClient.getObject(any[GetObjectRequest])).thenReturn(ris)
 
-    val fs = new S3FileSystem(mockClient, "/tmp/test-cache")
+    val fs = new S3FileSystem(mockClient)
     val url = "s3://bucket/file.txt"
 
     val openResult = fs.open(url)
@@ -112,7 +112,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(mockClient.getObject(any[GetObjectRequest]))
       .thenThrow(NoSuchKeyException.builder().build())
 
-    val fs = new S3FileSystem(mockClient, "/tmp/test-cache")
+    val fs = new S3FileSystem(mockClient)
     val result = fs.open("s3://bucket/missing.txt")
 
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.NotFound]
@@ -143,7 +143,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(mockClient.listObjectsV2(any[ListObjectsV2Request])).thenReturn(objectsPage)
 
     // 3) Build S3FileSystem with our mock client
-    val fs = new S3FileSystem(mockClient, "/tmp/mock-cache")
+    val fs = new S3FileSystem(mockClient)
 
     val url = "s3://mybucket/data/*.csv"
     val result = fs.resolveWildcard(url)
@@ -169,7 +169,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
 
     when(mockClient.listObjectsV2(any[ListObjectsV2Request])).thenReturn(objectsPage)
 
-    val fs = new S3FileSystem(mockClient, "/tmp/cache")
+    val fs = new S3FileSystem(mockClient)
     val result = fs.resolveWildcard("s3://mybucket/data/*.csv")
     result.isRight shouldBe true
     result.toOption.get shouldBe empty
@@ -182,7 +182,7 @@ class S3FileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(mockClient.listObjectsV2(any[ListObjectsV2Request]))
       .thenThrow(NoSuchBucketException.builder().build())
 
-    val fs = new S3FileSystem(mockClient, "/tmp/cache")
+    val fs = new S3FileSystem(mockClient)
     val result = fs.resolveWildcard("s3://mybucket/data/*.csv")
 
     result.isLeft shouldBe true

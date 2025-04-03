@@ -35,7 +35,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     Files.write(csv1.toPath, "some,csv,content\n".getBytes)
     Files.write(json1.toPath, """{"foo":123}""".getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.resolveWildcard(tempDir.toURI.toString + "/*.csv")
 
     result.isRight shouldBe true
@@ -54,7 +54,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     Files.write(file1.toPath, "content".getBytes)
     Files.write(file2.toPath, "content".getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.list(tempDir.toURI.toString)
 
     result.isRight shouldBe true
@@ -69,7 +69,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     val tempFile = Files.createTempFile("local-single-test", ".txt").toFile
     Files.write(tempFile.toPath, "hello".getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.list(tempFile.toURI.toString)
 
     result.isRight shouldBe true
@@ -78,7 +78,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
 
   it should "return NotFound error when listing a non-existent file" in {
     val nonExistent = new File("non_existent_file.txt")
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.list(nonExistent.toURI.toString)
 
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.NotFound]
@@ -89,7 +89,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     val content = "Hello, world!"
     Files.write(tempFile.toPath, content.getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.open(tempFile.toURI.toString)
 
     result.isRight shouldBe true
@@ -101,7 +101,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
 
   it should "return error when opening a directory" in {
     val tempDir = Files.createTempDirectory("local-open-dir-test").toFile
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.open(tempDir.toURI.toString)
 
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.Unsupported]
@@ -109,7 +109,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
 
   it should "return NotFound error when opening a non-existent file" in {
     val nonExistent = new File("non_existent_file.txt")
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.open(nonExistent.toURI.toString)
 
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.NotFound]
@@ -124,7 +124,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     Files.write(file2.toPath, "text".getBytes)
     Files.write(file3.toPath, "image".getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.resolveWildcard(tempDir.toURI.toString + "/*.txt")
 
     result.isRight shouldBe true
@@ -140,7 +140,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     val file1 = new File(tempDir, "file1.txt")
     Files.write(file1.toPath, "content".getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.resolveWildcard(tempDir.toURI.toString + "/*.csv")
 
     result.isRight shouldBe true
@@ -152,7 +152,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     val content = "SizeTest"
     Files.write(tempFile.toPath, content.getBytes)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.getFileSize(tempFile.toURI.toString)
 
     result.isRight shouldBe true
@@ -161,37 +161,32 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
 
   it should "return error when getting file size on a directory" in {
     val tempDir = Files.createTempDirectory("local-size-dir-test").toFile
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.getFileSize(tempDir.toURI.toString)
 
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.Unsupported]
   }
 
   it should "support file URLs" in {
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     fs.supportsUrl("file:///tmp/somefile.txt") shouldBe true
     fs.supportsUrl("/tmp/somefile.txt") shouldBe true
   }
 
   it should "not support non-file URLs" in {
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     fs.supportsUrl("http://example.com/file.txt") shouldBe false
   }
 
-  it should "return original URL for getLocalUrl" in {
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
-    val url = "file:///tmp/somefile.txt"
-    fs.getLocalUrl(url) shouldEqual Right(url)
-  }
 
   it should "return InvalidUrl error for malformed URLs" in {
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.list("::invalid-url::")
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.InvalidUrl]
   }
 
   it should "stop without errors" in {
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     noException should be thrownBy fs.stop()
   }
 
@@ -201,7 +196,7 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     // Attempt to simulate a permission error by removing read permissions.
     tempFile.setReadable(false, false)
 
-    val fs = new LocalFileSystem("/tmp/cache", maxDownloadSize = 1000000L)
+    val fs = new LocalFileSystem()
     val result = fs.open(tempFile.toURI.toString)
     result.swap.getOrElse(fail("expected left")) shouldBe a[FileSystemError.PermissionDenied]
 

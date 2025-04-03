@@ -48,7 +48,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(mockContentFile.getPath).thenReturn("folder/file.csv")
 
     // 4) Instantiate GithubFileSystem with the mock
-    val fs = new GithubFileSystem(mockGitHub, "/tmp/test")
+    val fs = new GithubFileSystem(mockGitHub)
 
     // 5) Call list
     val url = "github://owner/repo/main/folder"
@@ -67,7 +67,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     val mockGitHub = mock[GitHub]
     when(mockGitHub.getRepository("owner/repo")).thenThrow(new GHFileNotFoundException("repo not found"))
 
-    val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
+    val fs = new GithubFileSystem(mockGitHub)
 
     val url = "github://owner/repo/main/doesnotmatter"
     val result = fs.list(url)
@@ -94,7 +94,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     // We'll mock as local temp file
     when(mockFile.getDownloadUrl).thenReturn("file:" + tempFile.getAbsolutePath)
 
-    val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
+    val fs = new GithubFileSystem(mockGitHub)
     val url = "github://owner/repo/main/folder/data.csv"
     val openResult = fs.open(url)
     openResult.isRight shouldBe true
@@ -128,7 +128,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(jsonFile.isFile).thenReturn(true)
     when(jsonFile.getPath).thenReturn("folder/data2.json")
 
-    val fs = new GithubFileSystem(mockGitHub, cacheFolder = "/tmp/cache")
+    val fs = new GithubFileSystem(mockGitHub)
 
     // Step 2: Actually call resolveWildcard
     val wildcardUrl = "github://owner/repo/main/folder/*.csv"
@@ -157,7 +157,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(fileObj.isFile).thenReturn(true)
     when(fileObj.getPath).thenReturn("file.csv")
 
-    val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
+    val fs = new GithubFileSystem(mockGitHub)
     val url = "github://owner/repo/main/file.csv" // no wildcard
     val result = fs.resolveWildcard(url)
 
@@ -172,7 +172,7 @@ class GithubFileSystemTest extends AnyFlatSpec with Matchers with MockitoSugar {
     when(mockGitHub.getRepository("owner/repo"))
       .thenThrow(new HttpException("Some GitHub error", 403, "Forbidden", "https://github.com"))
 
-    val fs = new GithubFileSystem(mockGitHub, "/tmp/cache")
+    val fs = new GithubFileSystem(mockGitHub)
     val result = fs.resolveWildcard("github://owner/repo/main/folder/*.csv")
 
     result.isLeft shouldBe true
