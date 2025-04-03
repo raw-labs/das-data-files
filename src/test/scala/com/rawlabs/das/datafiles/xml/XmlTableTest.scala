@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.xml
 
+import com.rawlabs.das.datafiles.SparkTestContext
+
 import java.io.File
 import java.net.URI
-
 import org.apache.commons.io.FileUtils
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._

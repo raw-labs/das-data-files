@@ -12,9 +12,10 @@
 
 package com.rawlabs.das.datafiles.parquet
 
+import com.rawlabs.das.datafiles.SparkTestContext
+
 import java.io.File
 import java.net.URI
-
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._

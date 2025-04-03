@@ -12,11 +12,11 @@
 
 package com.rawlabs.das.datafiles.json
 
+import com.rawlabs.das.datafiles.SparkTestContext
+
 import java.io.File
 import java.net.URI
-
 import scala.jdk.CollectionConverters.CollectionHasAsScala
-
 import org.apache.commons.io.FileUtils
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
