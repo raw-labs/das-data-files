@@ -99,7 +99,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: HttpException if Option(e.getCause).exists(_.isInstanceOf[JsonMappingException]) =>
         // If deserialization fails, assume it is folder
-        Left(FileSystemError.Unsupported(s"url refers to a directory ($url)"))
+        Left(FileSystemError.Unsupported(s"Path refers to a directory: $url"))
     }
   }
 
@@ -133,11 +133,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
 
     try {
       val fileContent = repo.getFileContent(file.path, file.branch)
-      if (fileContent.isFile) {
-        Right(fileContent.getSize) // size in bytes
-      } else {
-        Left(FileSystemError.Unsupported(s"Path refers to a directory, cannot get size: $url"))
-      }
+      Right(fileContent.getSize) // size in bytes
     } catch {
       case _: GHFileNotFoundException =>
         Left(FileSystemError.NotFound(url, s"File not found: $url"))
@@ -149,7 +145,7 @@ class GithubFileSystem(githubClient: GitHub, cacheFolder: String, maxDownloadSiz
         Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: HttpException if Option(e.getCause).exists(_.isInstanceOf[JsonMappingException]) =>
         // If deserialization fails, assume it is folder
-        Left(FileSystemError.Unsupported(s"url refers to a directory ($url)"))
+        Left(FileSystemError.Unsupported(s"url refers to a directory: $url"))
     }
 
   }

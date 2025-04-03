@@ -20,8 +20,6 @@ import org.apache.spark.sql.{types => sparkTypes}
 import org.apache.spark.unsafe.types.CalendarInterval
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException
 import com.rawlabs.protocol.das.v1.query._
 import com.rawlabs.protocol.das.v1.types.Value.ValueCase

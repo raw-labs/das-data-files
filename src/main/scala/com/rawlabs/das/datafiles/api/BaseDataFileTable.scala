@@ -169,20 +169,20 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
       case e: AnalysisException =>
         throw new DASSdkInvalidArgumentException(
-          s"Error while executing table $tableName, url: ${config.uri}, please verify that the url is a valid $format file",
+          s"Error while executing table $tableName, url: ${config.uri}, please verify that the path is a valid $format file",
           e)
       // Fallback to SparkException
       case e: SparkException =>
         throw new DASSdkInvalidArgumentException(
-          s"Error while executing table $tableName, url: ${config.uri}, please verify that the url is a valid $format file",
+          s"Error while executing table $tableName, url: ${config.uri}, please verify that the path is a valid $format file",
           e)
       // IO and FileSystem issues
       case e: AccessDeniedException =>
-        throw new DASSdkPermissionDeniedException(s"Access denied for ${config.uri}", e)
+        throw new DASSdkPermissionDeniedException(s"Access denied: ${config.uri}", e)
       case e: FileNotFoundException =>
         throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
       case e: IOException =>
-        throw new DASSdkInvalidArgumentException(s"IO error reading ${config.uri}", e)
+        throw new DASSdkInvalidArgumentException(s"IO error reading: ${config.uri}", e)
     }
   }
 
@@ -200,24 +200,24 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
         throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
       case e: AnalysisException if e.errorClass.contains("UNABLE_TO_INFER_SCHEMA") =>
         throw new DASSdkInvalidArgumentException(
-          s"Could not infer ${config.uri}, please verify that the url is a valid $format file",
+          s"Could not infer ${config.uri}, please verify that the path is a valid $format file",
           e)
       case e: AnalysisException =>
         throw new DASSdkInvalidArgumentException(
-          s"Error while inferring ${config.uri}, please verify that the url is a valid $format file",
+          s"Error while inferring ${config.uri}, please verify that the path is a valid $format file",
           e)
       // Fallback to SparkException
       case e: SparkException =>
         throw new DASSdkInvalidArgumentException(
-          s"Error while inferring ${config.uri}, please verify that the url is a valid $format file",
+          s"Error while inferring ${config.uri}, please verify that the path is a valid $format file",
           e)
       // IO and FileSystem issues
       case e: AccessDeniedException =>
-        throw new DASSdkPermissionDeniedException(s"Access denied for ${config.uri}", e)
+        throw new DASSdkPermissionDeniedException(s"Access denied: ${config.uri}", e)
       case e: FileNotFoundException =>
         throw new DASSdkInvalidArgumentException(s"File not found: ${config.uri}", e)
       case e: IOException =>
-        throw new DASSdkInvalidArgumentException(s"IO error reading ${config.uri}", e)
+        throw new DASSdkInvalidArgumentException(s"IO error reading: ${config.uri}", e)
     }
   }
 

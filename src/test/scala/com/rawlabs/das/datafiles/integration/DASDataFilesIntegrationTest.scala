@@ -14,12 +14,10 @@ package com.rawlabs.das.datafiles.integration
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-
-import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.datafiles.multiformat.DASDataFiles
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSdkPermissionDeniedException, DASSettings}
 
-class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTestContext {
+class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
 
   private val awsAccessKey = sys.env.getOrElse("RAW_AWS_ACCESS_KEY_ID", "")
   private val awsSecretKey = sys.env.getOrElse("RAW_AWS_SECRET_ACCESS_KEY", "")
@@ -115,7 +113,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Access denied for s3://rawlabs-private-test-data/winter_olympics.csv")
+    e.getMessage should be("Access denied: s3://rawlabs-private-test-data/winter_olympics.csv")
   }
 
   it should "fail if missing credentials for a private bucket" in {
@@ -135,7 +133,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Access denied for s3://rawlabs-private-test-data/winter_olympics.csv")
+    e.getMessage should be("Access denied: s3://rawlabs-private-test-data/winter_olympics.csv")
   }
 
   it should "fail if missing credentials for a private bucket with wildcard" in {
@@ -189,7 +187,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .hasNext
     }
     e.getMessage should be(
-      "Could not infer s3://rawlabs-public-test-data/demos, please verify that the url is a valid csv file")
+      "Could not infer s3://rawlabs-public-test-data/demos, please verify that the path is a valid csv file")
   }
 
   it should "fail if the s3 path is not a parquet file" in {
@@ -209,7 +207,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .hasNext
     }
     e.getMessage should be(
-      "Error while inferring s3://rawlabs-public-test-data/winter_olympics.csv, please verify that the url is a valid parquet file")
+      "Error while inferring s3://rawlabs-public-test-data/winter_olympics.csv, please verify that the path is a valid parquet file")
   }
 
   it should "fail if the s3 path is not a json file" in {
@@ -226,7 +224,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
         .hasNext
     }
     e.getMessage should be(
-      "Could not infer s3://rawlabs-public-test-data/winter_olympics.csv, please verify that the url is a valid json file")
+      "Could not infer s3://rawlabs-public-test-data/winter_olympics.csv, please verify that the path is a valid json file")
   }
 
   // -----------------------------------------------------------------------
@@ -334,7 +332,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       val table = das.tables.head._2
       table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
-    e.getMessage should be("Repository raw-labs/raw does not exist or requires credentials")
+    e.getMessage should be("File not found: github://raw-labs/raw/master/does-not-exist.csv")
   }
 
   it should "fail if the GitHub path is actually a directory with no direct file" in {
@@ -352,7 +350,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers with SparkTe
       val table = das.tables.head._2
       table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1)).hasNext
     }
-    e.getMessage should be("url refers to a directory (github://raw-labs/raw/master/docs/public/static/)")
+    e.getMessage should be("url refers to a directory: github://raw-labs/raw/master/docs/public/static/")
   }
 
 }

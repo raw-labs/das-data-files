@@ -22,8 +22,6 @@ import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-
-import com.rawlabs.das.datafiles.SparkTestContext
 import com.rawlabs.das.datafiles.api.DataFilesTableConfig
 import com.rawlabs.das.datafiles.filesystem.{FileCacheManager, FileSystemError}
 import com.rawlabs.das.sdk.DASSdkInvalidArgumentException

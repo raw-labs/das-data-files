@@ -48,11 +48,12 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
 
     val schema = super.inferDataframe(resolvedUrl)
     val mode = config.options.getOrElse("mode", "PERMISSIVE")
-    if (schema.size == 1 && mode == "PERMISSIVE") {
+    val corruptRecordColumn = config.options.getOrElse("columnNameOfCorruptRecord", "_corrupt_record")
+    if (schema.size == 1 && mode == "PERMISSIVE" && schema.head.name == corruptRecordColumn) {
       // If the schema is a single column and mode is PERMISSIVE, then it only has the corrupt record column.
       // So its not a valid json file.
       throw new DASSdkInvalidArgumentException(
-        s"Could not infer ${config.uri}, please verify that the url is a valid json file")
+        s"Could not infer ${config.uri}, please verify that the path is a valid json file")
     }
     schema
   }
