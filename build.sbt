@@ -14,12 +14,13 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       // DAS
       "com.raw-labs" %% "das-server-scala" % "0.6.3" % "compile->compile;test->test" excludeAll (commonExclusions *),
-      // spark hadoop dependencies
+      // spark
       "org.apache.spark" %% "spark-sql" % "3.5.5",
       "com.databricks" %% "spark-xml" % "0.18.0",
+      // hadoop
       "org.apache.hadoop" % "hadoop-aws" % "3.4.1",
       "org.apache.hadoop" % "hadoop-common" % "3.4.1",
-      // for github filesystem
+      // github
       "org.kohsuke" % "github-api" % "1.327" excludeAll (commonExclusions *),
       // ScalaTest for unit tests
       "org.scalatest" %% "scalatest" % "3.2.19" % "test",

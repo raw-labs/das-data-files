@@ -230,27 +230,21 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   }
 
   private def acquireUrl(): String = {
-    // sparks support s3 filesystem directly so convert it to s3a
-    if (config.uri.getScheme == "s3") {
-      "s3a://" + config.uri.getAuthority + config.uri.getPath
-    } else if (config.uri.getScheme == "s3a") {
-      config.uri.toString
-    } else {
-      config.fileCacheManager.getLocalPathForUrl(config.uri.toString) match {
-        case Right(url) =>
-          logger.info(s"Using local file cache for url ${config.uri}: $url")
-          url
-        case Left(FileSystemError.NotFound(_, message)) =>
-          throw new DASSdkInvalidArgumentException(message)
-        case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
-        case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
-        case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
-        case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
-        case Left(FileSystemError.InvalidUrl(url, message)) =>
-          throw new DASSdkInvalidArgumentException(s"Invalid URL:$url, $message")
-        case Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize)) =>
-          throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
-      }
+
+    config.fileCacheManager.getLocalPathForUrl(config.uri.toString) match {
+      case Right(url) =>
+        logger.info(s"Using local file cache for url ${config.uri}: $url")
+        url
+      case Left(FileSystemError.NotFound(_, message)) =>
+        throw new DASSdkInvalidArgumentException(message)
+      case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
+      case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
+      case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
+      case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
+      case Left(FileSystemError.InvalidUrl(url, message)) =>
+        throw new DASSdkInvalidArgumentException(s"Invalid URL:$url, $message")
+      case Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize)) =>
+        throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
     }
   }
 

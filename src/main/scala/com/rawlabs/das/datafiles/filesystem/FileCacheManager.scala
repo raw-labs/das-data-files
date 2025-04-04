@@ -106,14 +106,12 @@ class FileCacheManager(
       }
     }
 
-    // Find a filesystem that supports the URL
-    val maybeFs = fileSystems.find(_.supportsUrl(url))
-    if (maybeFs.isEmpty) {
-      logger.warn(s"No filesystem found that supports '$url'")
-      return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
+    val fs = fileSystems.find(_.supportsUrl(url)) match {
+      case Some(fs) => fs
+      case None =>
+        logger.warn(s"No filesystem found that supports '$url'")
+        return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
     }
-
-    val fs = maybeFs.get
 
     // Local filesystem: just return the URL as is
     if (fs.isInstanceOf[LocalFileSystem]) {

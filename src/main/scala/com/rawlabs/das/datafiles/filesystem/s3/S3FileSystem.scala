@@ -103,9 +103,9 @@ class S3FileSystem(s3Client: S3Client) extends BaseFileSystem() {
       Right(new BufferedInputStream(response))
     } catch {
       case _: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url, s"Bucket $bucket not: $url"))
+        Left(FileSystemError.NotFound(url, s"Bucket not found: $url"))
       case _: NoSuchKeyException =>
-        Left(FileSystemError.NotFound(url, s"Path $key not found: $url"))
+        Left(FileSystemError.NotFound(url, s"Not found: $url"))
       case _: LimitExceededException | _: TooManyRequestsException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: S3Exception if e.statusCode() == 403 =>
@@ -167,9 +167,9 @@ class S3FileSystem(s3Client: S3Client) extends BaseFileSystem() {
       Right(headResp.contentLength())
     } catch {
       case _: NoSuchBucketException =>
-        Left(FileSystemError.NotFound(url, s"Bucket $bucket not: $url"))
+        Left(FileSystemError.NotFound(url, s"Bucket not found: $url"))
       case _: NoSuchKeyException =>
-        Left(FileSystemError.NotFound(url, s"Path $key not found: $url"))
+        Left(FileSystemError.NotFound(url, s"Not found: $url"))
       case _: LimitExceededException | _: TooManyRequestsException =>
         Left(FileSystemError.TooManyRequests(s"Too many requests: $url"))
       case e: S3Exception if e.statusCode() == 403 =>

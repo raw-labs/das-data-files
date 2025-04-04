@@ -116,7 +116,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Access denied: s3://rawlabs-private-test-data/winter_olympics.csv")
+    e.getMessage should be("Forbidden: s3://rawlabs-private-test-data/winter_olympics.csv")
   }
 
   it should "fail if missing credentials for a private bucket" in {
@@ -136,7 +136,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Access denied: s3://rawlabs-private-test-data/winter_olympics.csv")
+    e.getMessage should be("Forbidden: s3://rawlabs-private-test-data/winter_olympics.csv")
   }
 
   it should "fail if missing credentials for a private bucket with wildcard" in {
@@ -173,7 +173,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("File not found: s3://rawlabs-public-test-data/this_file_does_not_exist.csv")
+    e.getMessage should be("Not found: s3://rawlabs-public-test-data/this_file_does_not_exist.csv")
   }
 
   it should "fail if the s3 path is actually a directory rather than a file" in {
@@ -189,8 +189,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be(
-      "Could not infer s3://rawlabs-public-test-data/demos, please verify that the path is a valid csv file")
+    e.getMessage should be("Not found: s3://rawlabs-public-test-data/demos")
   }
 
   it should "fail if the s3 path is not a parquet file" in {
