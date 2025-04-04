@@ -12,10 +12,10 @@
 
 package com.rawlabs.das.datafiles.filesystem.api
 
+import java.io.InputStream
+
 import com.rawlabs.das.datafiles.filesystem.FileSystemError
 import com.typesafe.scalalogging.StrictLogging
-
-import java.io.InputStream
 
 /**
  * Base class for "DAS" filesystem abstractions.

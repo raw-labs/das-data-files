@@ -12,17 +12,18 @@
 
 package com.rawlabs.das.datafiles.filesystem
 
-import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
-import com.rawlabs.das.datafiles.filesystem.local.LocalFileSystem
-import com.typesafe.scalalogging.StrictLogging
-
 import java.io.File
 import java.net.URI
 import java.nio.file.{Files, StandardCopyOption}
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent._
+
 import scala.util.control.NonFatal
+
+import com.rawlabs.das.datafiles.filesystem.api.BaseFileSystem
+import com.rawlabs.das.datafiles.filesystem.local.LocalFileSystem
+import com.typesafe.scalalogging.StrictLogging
 
 /**
  * Represents a cached entry for a given URL. We store the final local path (with `_finished` prefix) and the timestamp

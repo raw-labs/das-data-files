@@ -178,7 +178,6 @@ class LocalFileSystemTest extends AnyFlatSpec with Matchers {
     fs.supportsUrl("http://example.com/file.txt") shouldBe false
   }
 
-
   it should "return InvalidUrl error for malformed URLs" in {
     val fs = new LocalFileSystem()
     val result = fs.list("::invalid-url::")

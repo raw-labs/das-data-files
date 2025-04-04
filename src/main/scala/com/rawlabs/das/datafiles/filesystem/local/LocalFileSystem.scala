@@ -119,7 +119,6 @@ class LocalFileSystem extends BaseFileSystem() {
 
   override def stop(): Unit = {}
 
-
   /**
    * Return the size of the file in bytes, or an error if not found or a directory.
    */

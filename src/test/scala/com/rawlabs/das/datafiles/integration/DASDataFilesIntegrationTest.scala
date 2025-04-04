@@ -14,6 +14,7 @@ package com.rawlabs.das.datafiles.integration
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import com.rawlabs.das.datafiles.multiformat.DASDataFiles
 import com.rawlabs.das.sdk.{DASSdkInvalidArgumentException, DASSdkPermissionDeniedException, DASSettings}
 
@@ -68,6 +69,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
     val it = table.execute(quals = Seq.empty, columnsRequested = Seq.empty, sortKeys = Seq.empty, maybeLimit = Some(1))
     it.hasNext shouldBe true
     it.next().getColumns(0).getName should be("Year")
+    das.close()
   }
 
   it should "create multiple tables from an s3 path using wildcard *" in {
@@ -92,6 +94,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
       val it = table.execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
       it.hasNext shouldBe true
     }
+    das.close()
   }
 
   it should "fail if credentials are invalid for a private bucket" in {

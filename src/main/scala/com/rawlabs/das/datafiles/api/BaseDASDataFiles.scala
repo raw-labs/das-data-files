@@ -58,8 +58,7 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
   // Keep track of used names so we ensure uniqueness
   private val usedNames = mutable.Set[String]()
 
-  private val uuid = java.util.UUID.randomUUID().toString.take(8)
-  protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp-" + uuid, options)
+  protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", options)
 
   private val filesystems = {
     // Build a map of filesystems by scheme we only need one of each type
