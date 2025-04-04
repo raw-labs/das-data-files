@@ -50,7 +50,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
   it should "create a table from a private s3 bucket with valid credentials" in {
     // This test requires that the user running the test has a private
     // bucket accessible with the AWS credentials provided.
-    assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty, "AWS credentials must be set for this test to run.")
+     assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty, "AWS credentials must be set for this test to run.")
 
     val config = Map(
       "aws_region" -> "eu-west-1",
@@ -74,7 +74,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
 
   it should "create multiple tables from an s3 path using wildcard *" in {
     // We should have 2 tables: summer_olympics and winter_olympics
-    assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty)
+     assume(awsAccessKey.nonEmpty && awsSecretKey.nonEmpty)
 
     val config = Map(
       "aws_region" -> "eu-west-1",
@@ -116,7 +116,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Forbidden: s3://rawlabs-private-test-data/winter_olympics.csv")
+    e.getMessage should be("Access denied: s3://rawlabs-private-test-data/winter_olympics.csv")
   }
 
   it should "fail if missing credentials for a private bucket" in {
@@ -136,7 +136,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Forbidden: s3://rawlabs-private-test-data/winter_olympics.csv")
+    e.getMessage should be("Access denied: s3://rawlabs-private-test-data/winter_olympics.csv")
   }
 
   it should "fail if missing credentials for a private bucket with wildcard" in {
@@ -173,7 +173,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Not found: s3://rawlabs-public-test-data/this_file_does_not_exist.csv")
+    e.getMessage should be("File not found: s3://rawlabs-public-test-data/this_file_does_not_exist.csv")
   }
 
   it should "fail if the s3 path is actually a directory rather than a file" in {
@@ -189,7 +189,8 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
         .execute(Seq.empty, Seq.empty, Seq.empty, Some(1))
         .hasNext
     }
-    e.getMessage should be("Not found: s3://rawlabs-public-test-data/demos")
+    e.getMessage should be(
+      "Could not infer s3://rawlabs-public-test-data/demos, please verify that the path is a valid csv file")
   }
 
   it should "fail if the s3 path is not a parquet file" in {
@@ -255,7 +256,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
   it should "create a table from a private GitHub repo file (with token)" in {
     // This test requires a valid GitHub personal access token or GitHub App token
     // for a private repo that you control.
-    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
+     assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
 
     val config = Map(
       "paths" -> "1",
@@ -322,7 +323,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
   }
 
   it should "fail if the GitHub file does not exist" in {
-    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
+     assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
     val config = Map(
       "github_api_token" -> gitHubToken,
       "paths" -> "1",
@@ -338,7 +339,7 @@ class DASDataFilesIntegrationTest extends AnyFlatSpec with Matchers {
   }
 
   it should "fail if the GitHub path is actually a directory with no direct file" in {
-    assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
+     assume(gitHubToken.nonEmpty, "A GitHub API token is required for this test.")
     val config = Map(
       "github_api_token" -> gitHubToken,
       "paths" -> "1",

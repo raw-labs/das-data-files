@@ -26,6 +26,7 @@ case class PathConfig(uri: URI, maybeName: Option[String], maybeFormat: Option[S
  * Holds all parsed config from user’s definition for the entire DAS.
  */
 class DASDataFilesOptions(options: Map[String, String]) {
+  import com.rawlabs.das.datafiles.utils.DASDataFilesOptions._
 
   // Number of paths to load, e.g. paths=3 => path0_..., path1_..., path2_...
   val nrPaths: Int = options.get("paths").map(_.toInt).getOrElse(1)
@@ -58,4 +59,12 @@ class DASDataFilesOptions(options: Map[String, String]) {
     }
   }
 
+  // extract also global options
+  val globalOptions: Map[String, String] =
+    options.filterNot { case (k, _) => pathRegex.findFirstIn(k).isDefined || k == "paths" }
+
+}
+
+object DASDataFilesOptions {
+  private val pathRegex = "^path\\d+_".r
 }

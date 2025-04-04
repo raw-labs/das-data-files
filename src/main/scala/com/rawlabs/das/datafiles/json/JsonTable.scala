@@ -26,9 +26,9 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   override val format: String = "json"
 
   // Default multiLine to true for standard JSON (pretty printed or array of objects)
-  private val multiLine = config.options.getOrElse("multiLine", "true")
+  private val multiLine = config.pathOptions.getOrElse("multiLine", "true")
 
-  override protected val sparkOptions: Map[String, String] =
+  override protected val sparkFormatOptions: Map[String, String] =
     Map("multiLine" -> multiLine) ++
       // Map our custom configuration keys to the corresponding Spark options.
       remapOptions(
@@ -47,8 +47,8 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   override protected def inferDataframe(resolvedUrl: String): StructType = {
 
     val schema = super.inferDataframe(resolvedUrl)
-    val mode = config.options.getOrElse("mode", "PERMISSIVE")
-    val corruptRecordColumn = config.options.getOrElse("columnNameOfCorruptRecord", "_corrupt_record")
+    val mode = config.pathOptions.getOrElse("mode", "PERMISSIVE")
+    val corruptRecordColumn = config.pathOptions.getOrElse("columnNameOfCorruptRecord", "_corrupt_record")
     if (schema.size == 1 && mode == "PERMISSIVE" && schema.head.name == corruptRecordColumn) {
       // If the schema is a single column and mode is PERMISSIVE, then it only has the corrupt record column.
       // So its not a valid json file.

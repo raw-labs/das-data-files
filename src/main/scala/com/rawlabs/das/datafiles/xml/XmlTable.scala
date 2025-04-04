@@ -29,9 +29,11 @@ class XmlTable(config: DataFilesTableConfig, sparkSession: SparkSession)
 
   // The row tag is required for XML tables.
   private val rowTag =
-    config.options.getOrElse("row_tag", throw new DASSdkInvalidArgumentException("row_tag is required for xml tables"))
+    config.pathOptions.getOrElse(
+      "row_tag",
+      throw new DASSdkInvalidArgumentException("row_tag is required for xml tables"))
 
-  override protected val sparkOptions: Map[String, String] = {
+  override protected val sparkFormatOptions: Map[String, String] = {
     Map("rowTag" -> rowTag) ++
     // Map our custom configuration keys to the corresponding Spark options.
     remapOptions(

@@ -27,9 +27,9 @@ class CsvTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   override val format: String = "csv"
 
   // Default header to true, as most CSV files have a header row.
-  private val header = config.options.getOrElse("header", "true")
+  private val header = config.pathOptions.getOrElse("header", "true")
 
-  override protected val sparkOptions: Map[String, String] =
+  override protected val sparkFormatOptions: Map[String, String] =
     Map("header" -> header) ++
       // Map our custom configuration keys to the corresponding Spark options.
       remapOptions(

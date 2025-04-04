@@ -96,8 +96,9 @@ class ParquetTableTest
       name = "testParquetSingle",
       uri = new URI("file://mocked/testSingle.parquet"),
       format = Some("parquet"),
-      options = Map.empty,
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map.empty,
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new ParquetTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
@@ -123,11 +124,12 @@ class ParquetTableTest
       name = "testParquetMerged",
       uri = new URI("file://mocked/merged.parquet"),
       format = Some("parquet"),
-      options = Map(
+      pathOptions = Map(
         "merge_schema" -> "true",
         "recursive_file_lookup" -> "true" // needed because top-level has subfolders
       ),
-      fileCacheManager = mockCacheManager)
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new ParquetTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
@@ -170,8 +172,9 @@ class ParquetTableTest
       name = "testParquetRecursive",
       uri = new URI("file://mocked/testSingle.parquet"),
       format = Some("parquet"),
-      options = Map("recursive_file_lookup" -> "true"),
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map("recursive_file_lookup" -> "true"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
     val table = new ParquetTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
     val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList
@@ -183,8 +186,9 @@ class ParquetTableTest
       name = "testParquetGlob",
       uri = new URI("file://mocked/testSingle.parquet"),
       format = Some("parquet"),
-      options = Map("path_glob_filter" -> "*.parquet"),
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map("path_glob_filter" -> "*.parquet"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
     val table = new ParquetTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
     val rows = Iterator.continually(result).takeWhile(_.hasNext).map(_.next()).toList

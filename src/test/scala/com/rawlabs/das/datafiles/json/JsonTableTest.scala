@@ -72,8 +72,9 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJson",
       uri = new URI("file://mocked.com/test.json"),
       format = Some("json"),
-      options = Map.empty, // default multiLine -> "true" in the code
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map.empty, // default multiLine -> "true" in the code
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
@@ -104,8 +105,9 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJson",
       uri = new URI("file://mocked.com/test-lines.json"),
       format = Some("json"),
-      options = Map("multiLine" -> "false"),
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map("multiLine" -> "false"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val result = table.execute(Seq.empty[Qual], Seq.empty[String], Seq.empty, None)
@@ -148,8 +150,9 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJsonComments",
       uri = new URI("file://mocked.com/comments.json"),
       format = Some("json"),
-      options = Map("allow_comments" -> "true"),
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map("allow_comments" -> "true"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
@@ -177,8 +180,9 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJsonAllNull",
       uri = new URI("file://mocked.com/allnull.json"),
       format = Some("json"),
-      options = Map("multiLine" -> "true", "drop_field_if_all_null" -> "true"),
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map("multiLine" -> "true", "drop_field_if_all_null" -> "true"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val defn = table.tableDefinition
@@ -204,8 +208,10 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testBadJson",
       uri = new URI("file://mocked.com/bad.json"),
       format = Some("json"),
-      options = Map("multiLine" -> "false", "mode" -> "PERMISSIVE", "column_name_of_corrupt_record" -> "_corrupt_data"),
-      fileCacheManager = mockCacheManager)
+      pathOptions =
+        Map("multiLine" -> "false", "mode" -> "PERMISSIVE", "column_name_of_corrupt_record" -> "_corrupt_data"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val result = table.execute(Seq.empty, Seq.empty, Seq.empty, None)
@@ -235,11 +241,12 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJsonPrimitivesAsString",
       uri = new URI("file://mocked.com/primitives.json"),
       format = Some("json"),
-      options = Map(
+      pathOptions = Map(
         "multiLine" -> "false",
         "primitives_as_string" -> "true" // Our new option
       ),
-      fileCacheManager = mockCacheManager)
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)
@@ -272,8 +279,9 @@ class JsonTableTest extends AnyFlatSpec with Matchers with SparkTestContext with
       name = "testJsonUnquoted",
       uri = new URI("file://mocked.com/unquoted.json"),
       format = Some("json"),
-      options = Map("multiLine" -> "false", "allow_unquoted_field_names" -> "true"),
-      fileCacheManager = mockCacheManager)
+      pathOptions = Map("multiLine" -> "false", "allow_unquoted_field_names" -> "true"),
+      fileCacheManager = mockCacheManager,
+      globalOptions = Map.empty)
 
     val table = new JsonTable(config, spark)
     val result = table.execute(Nil, Nil, Nil, None)

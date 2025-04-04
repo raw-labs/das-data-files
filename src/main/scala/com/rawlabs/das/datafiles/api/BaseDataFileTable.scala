@@ -67,7 +67,11 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
 
   val format: String
 
-  protected val sparkOptions: Map[String, String]
+  // Extract s3a spark settings (credentials) from the config
+  private val sparkGlobalOptions: Map[String, String] = sparkS3aOptions(config.globalOptions)
+
+  //
+  protected val sparkFormatOptions: Map[String, String]
 
   private lazy val sparkSchema: StructType =
     inferDataframe(acquireUrl())
@@ -190,7 +194,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     try {
       sparkSession.read
         .option("inferSchema", "true")
-        .options(sparkOptions)
+        .options(sparkFormatOptions)
+        .options(sparkGlobalOptions)
         .format(format)
         .load(resolvedUrl)
         .schema
@@ -224,35 +229,60 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   protected def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
     sparkSession.read
       .schema(schema)
-      .options(sparkOptions)
+      .options(sparkFormatOptions)
+      .options(sparkGlobalOptions)
       .format(format)
       .load(resolvedUrl)
   }
 
   private def acquireUrl(): String = {
-
-    config.fileCacheManager.getLocalPathForUrl(config.uri.toString) match {
-      case Right(url) =>
-        logger.info(s"Using local file cache for url ${config.uri}: $url")
-        url
-      case Left(FileSystemError.NotFound(_, message)) =>
-        throw new DASSdkInvalidArgumentException(message)
-      case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
-      case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
-      case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
-      case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
-      case Left(FileSystemError.InvalidUrl(url, message)) =>
-        throw new DASSdkInvalidArgumentException(s"Invalid URL:$url, $message")
-      case Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize)) =>
-        throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
+    // sparks support s3 filesystem directly so convert it to s3a
+    if (config.uri.getScheme == "s3") {
+      "s3a://" + config.uri.getAuthority + config.uri.getPath
+    } else if (config.uri.getScheme == "s3a") {
+      config.uri.toString
+    } else {
+      config.fileCacheManager.getLocalPathForUrl(config.uri.toString) match {
+        case Right(url) =>
+          logger.info(s"Using local file cache for url ${config.uri}: $url")
+          url
+        case Left(FileSystemError.NotFound(_, message)) =>
+          throw new DASSdkInvalidArgumentException(message)
+        case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
+        case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
+        case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
+        case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
+        case Left(FileSystemError.InvalidUrl(url, message)) =>
+          throw new DASSdkInvalidArgumentException(s"Invalid URL:$url, $message")
+        case Left(FileSystemError.FileTooLarge(url, actualSize, maxLocalFileSize)) =>
+          throw new DASSdkInvalidArgumentException(s"File too large: $url ($actualSize > $maxLocalFileSize)")
+      }
     }
   }
 
   // Helper to remap options from our custom keys to Spark keys
   protected def remapOptions(options: Map[String, String]): Map[String, String] = {
     options.flatMap { case (key, option) =>
-      config.options.get(key).map(value => option -> value)
+      config.pathOptions.get(key).map(value => option -> value)
     }
+  }
+
+  private def sparkS3aOptions(options: Map[String, String]): Map[String, String] = {
+
+    val awsCredentials = if (options.contains("aws_access_key")) {
+      val acessKey = options("aws_access_key")
+      val secretKey = options.getOrElse(
+        "aws_secret_key",
+        throw new DASSdkInvalidArgumentException("aws_secret_key must be provided with aws_access_key"))
+      Seq("fs.s3a.access.key" -> acessKey, "fs.s3a.secret.key" -> secretKey)
+    } else {
+      Seq("fs.s3a.aws.credentials.provider" -> "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
+    }
+
+    val s3Options = awsCredentials ++
+      options.get("aws_region").map(region => "fs.s3a.endpoint" -> s"s3.$region.amazonaws.com").toSeq
+
+    s3Options.toMap
   }
 
 }

@@ -45,6 +45,7 @@ object SparkSessionBuilder {
       .getOrCreate()
       .newSession()
 
+    newSession.conf.set("fs.s3a.impl.disable.cache", "true")
     newSession
   }
 }

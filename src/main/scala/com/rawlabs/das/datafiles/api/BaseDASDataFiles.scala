@@ -36,8 +36,9 @@ case class DataFilesTableConfig(
     uri: URI,
     name: String,
     format: Option[String],
-    options: Map[String, String],
-    fileCacheManager: FileCacheManager)
+    pathOptions: Map[String, String],
+    fileCacheManager: FileCacheManager,
+    globalOptions: Map[String, String])
 
 /**
  * The main plugin class that registers one table per file.
@@ -58,7 +59,8 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
   // Keep track of used names so we ensure uniqueness
   private val usedNames = mutable.Set[String]()
 
-  protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp", options)
+  val uuid = java.util.UUID.randomUUID().toString.take(8)
+  protected lazy val sparkSession: SparkSession = SparkSessionBuilder.build("dasDataFilesApp-" + uuid, options)
 
   private val filesystems = {
     // Build a map of filesystems by scheme we only need one of each type
@@ -121,8 +123,15 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
         deriveNameFromUrl(url)
       }
 
+      // create options for s3a filesystem
       val unique = ensureUniqueName(name)
-      DataFilesTableConfig(new URI(url), unique, config.maybeFormat, config.options, fileCacheManager)
+      DataFilesTableConfig(
+        new URI(url),
+        unique,
+        config.maybeFormat,
+        config.options,
+        fileCacheManager,
+        dasOptions.globalOptions)
     }
   }
 
@@ -191,4 +200,5 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
       case scheme => scheme
     }
   }
+
 }
