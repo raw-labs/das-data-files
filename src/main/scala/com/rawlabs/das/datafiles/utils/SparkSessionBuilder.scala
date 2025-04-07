@@ -45,6 +45,19 @@ object SparkSessionBuilder {
       .getOrCreate()
       .newSession()
 
+    options.get("aws_region").foreach(region => newSession.conf.set("fs.s3a.endpoint", s"s3.$region.amazonaws.com"))
+
+    if (options.contains("aws_access_key")) {
+      val accessKey = options("aws_access_key")
+      val secretKey =
+        options.getOrElse("aws_secret_key", throw new DASSdkInvalidArgumentException("aws_secret_key not found"))
+      newSession.conf.set("fs.s3a.access.key", accessKey)
+      newSession.conf.set("fs.s3a.secret.key", secretKey)
+
+    } else {
+      newSession.conf.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
+    }
+
     newSession.conf.set("fs.s3a.impl.disable.cache", "true")
     newSession
   }

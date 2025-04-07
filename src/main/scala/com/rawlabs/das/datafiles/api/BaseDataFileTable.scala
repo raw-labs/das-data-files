@@ -66,12 +66,8 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   private val tableName: String = config.name
 
   val format: String
-
-  // Extract s3a spark settings (credentials) from the config
-  private val sparkGlobalOptions: Map[String, String] = sparkS3aOptions(config.globalOptions)
-
   //
-  protected val sparkFormatOptions: Map[String, String]
+  protected val sparkOptions: Map[String, String]
 
   private lazy val sparkSchema: StructType =
     inferDataframe(acquireUrl())
@@ -194,8 +190,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     try {
       sparkSession.read
         .option("inferSchema", "true")
-        .options(sparkFormatOptions)
-        .options(sparkGlobalOptions)
+        .options(sparkOptions)
         .format(format)
         .load(resolvedUrl)
         .schema
@@ -229,8 +224,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   protected def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
     sparkSession.read
       .schema(schema)
-      .options(sparkFormatOptions)
-      .options(sparkGlobalOptions)
+      .options(sparkOptions)
       .format(format)
       .load(resolvedUrl)
   }
@@ -265,24 +259,6 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     options.flatMap { case (key, option) =>
       config.pathOptions.get(key).map(value => option -> value)
     }
-  }
-
-  private def sparkS3aOptions(options: Map[String, String]): Map[String, String] = {
-
-    val awsCredentials = if (options.contains("aws_access_key")) {
-      val acessKey = options("aws_access_key")
-      val secretKey = options.getOrElse(
-        "aws_secret_key",
-        throw new DASSdkInvalidArgumentException("aws_secret_key must be provided with aws_access_key"))
-      Seq("fs.s3a.access.key" -> acessKey, "fs.s3a.secret.key" -> secretKey)
-    } else {
-      Seq("fs.s3a.aws.credentials.provider" -> "org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider")
-    }
-
-    val s3Options = awsCredentials ++
-      options.get("aws_region").map(region => "fs.s3a.endpoint" -> s"s3.$region.amazonaws.com").toSeq
-
-    s3Options.toMap
   }
 
 }

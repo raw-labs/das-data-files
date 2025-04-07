@@ -27,7 +27,7 @@ class ParquetTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   override val format: String = "parquet"
 
   // Map our custom configuration keys to the corresponding Spark options.
-  override protected val sparkFormatOptions: Map[String, String] = remapOptions(
+  override protected val sparkOptions: Map[String, String] = remapOptions(
     Map(
       "merge_schema" -> "mergeSchema", // Whether to merge schemas from different files when reading from a directory.
       "recursive_file_lookup" -> "recursiveFileLookup", // Whether to recursively search subdirectories for Parquet files.

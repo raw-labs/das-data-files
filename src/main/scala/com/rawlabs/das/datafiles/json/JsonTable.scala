@@ -28,7 +28,7 @@ class JsonTable(config: DataFilesTableConfig, sparkSession: SparkSession)
   // Default multiLine to true for standard JSON (pretty printed or array of objects)
   private val multiLine = config.pathOptions.getOrElse("multiLine", "true")
 
-  override protected val sparkFormatOptions: Map[String, String] =
+  override protected val sparkOptions: Map[String, String] =
     Map("multiLine" -> multiLine) ++
       // Map our custom configuration keys to the corresponding Spark options.
       remapOptions(
