@@ -26,7 +26,7 @@ import com.rawlabs.das.datafiles.filesystem.local.LocalFileSystem
 import com.typesafe.scalalogging.StrictLogging
 
 /**
- * Represents a cached entry for a given URL. We store the final local path (with `_finished` prefix) and the timestamp
+ * Represents a cached entry for a given URL.
  */
 case class CacheEntry(localPath: String, timestampMillis: Long)
 
@@ -49,6 +49,9 @@ class FileCacheManager(
   // Cache map: url -> CacheEntry
   private val cacheMap = new ConcurrentHashMap[String, CacheEntry]()
 
+  // A separate map for per-URL lock objects
+  private val urlLocks = new ConcurrentHashMap[String, AnyRef]()
+
   // Executor for periodic cleanup
   private val scheduler: ScheduledExecutorService = new ScheduledThreadPoolExecutor(1)
   private val scheduledCleanup = scheduler.scheduleWithFixedDelay(
@@ -65,25 +68,6 @@ class FileCacheManager(
     TimeUnit.MILLISECONDS)
 
   // ------------------------------------------------------------------------
-  // Initialization logic: on startup, clean leftover files
-  // ------------------------------------------------------------------------
-  initCleanupOnStartup()
-
-  private def initCleanupOnStartup(): Unit = {
-    logger.info("Performing initial cleanup of leftover _downloading / _finished files.")
-    if (downloadFolder.exists() && downloadFolder.isDirectory) {
-      val leftover = downloadFolder.listFiles().filter { f =>
-        val name = f.getName
-        name.startsWith("_downloading") || name.startsWith("_finished")
-      }
-      leftover.foreach { f =>
-        logger.debug(s"Deleting leftover file: ${f.getAbsolutePath}")
-        f.delete()
-      }
-    }
-  }
-
-  // ------------------------------------------------------------------------
   // Public API
   // ------------------------------------------------------------------------
 
@@ -92,39 +76,45 @@ class FileCacheManager(
    * the file ourselves.
    */
   def getLocalPathForUrl(url: String): Either[FileSystemError, String] = {
-    val now = System.currentTimeMillis()
-    val cached = cacheMap.get(url)
-    if (cached != null) {
-      val age = now - cached.timestampMillis
-      if (age < cacheTtlMillis) {
-        logger.debug(s"Reusing cached file for '$url' -> ${cached.localPath} (age=$age ms)")
-        return Right(cached.localPath)
-      } else {
-        logger.debug(s"Cache entry for '$url' is expired (age=$age ms). Deleting file and re-downloading.")
-        deleteFile(cached.localPath)
-        cacheMap.remove(url)
+
+    // Retrieve or create a per-URL lock object
+    val lockObj = urlLocks.computeIfAbsent(url, _ => new Object())
+
+    lockObj.synchronized {
+      val now = System.currentTimeMillis()
+      val cached = cacheMap.get(url)
+      if (cached != null) {
+        val age = now - cached.timestampMillis
+        if (age < cacheTtlMillis) {
+          logger.debug(s"Reusing cached file for '$url' -> ${cached.localPath} (age=$age ms)")
+          return Right(cached.localPath)
+        } else {
+          logger.debug(s"Cache entry for '$url' is expired (age=$age ms). Deleting file and re-downloading.")
+          deleteFile(cached.localPath)
+          cacheMap.remove(url)
+        }
       }
-    }
 
-    val fs = fileSystems.find(_.supportsUrl(url)) match {
-      case Some(fs) => fs
-      case None =>
-        logger.warn(s"No filesystem found that supports '$url'")
-        return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
-    }
+      val fs = fileSystems.find(_.supportsUrl(url)) match {
+        case Some(fs) => fs
+        case None =>
+          logger.warn(s"No filesystem found that supports '$url'")
+          return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
+      }
 
-    // Local filesystem: just return the URL as is
-    if (fs.isInstanceOf[LocalFileSystem]) {
-      logger.debug(s"Local filesystem found for '$url'")
-      return Right(url)
-    }
+      // Local filesystem: just return the URL as is
+      if (fs.isInstanceOf[LocalFileSystem]) {
+        logger.debug(s"Local filesystem found for '$url'")
+        return Right(url)
+      }
 
-    // Download the file
-    downloadFile(fs, url) match {
-      case Left(err) => Left(err)
-      case Right(localPath) =>
-        cacheMap.put(url, CacheEntry(localPath, now))
-        Right(localPath)
+      // Download the file
+      downloadFile(fs, url) match {
+        case Left(err) => Left(err)
+        case Right(localPath) =>
+          cacheMap.put(url, CacheEntry(localPath, now))
+          Right(localPath)
+      }
     }
   }
 

@@ -30,9 +30,7 @@ object FileSystemFactory {
    * @return A DASFileSystem instance (S3, GitHub, Local, etc.).
    */
   def build(uri: URI, options: Map[String, String])(implicit config: DASSettings): BaseFileSystem = {
-    val cacheFolder = config.getString("das.data-files.cache-dir")
     val allowLocal = config.getBoolean("das.data-files.allow-local-files")
-    val maxDownloadSize = config.getBytes("das.data-files.max-download-size")
     uri.getScheme match {
       case "s3" =>
         S3FileSystem.build(options)
