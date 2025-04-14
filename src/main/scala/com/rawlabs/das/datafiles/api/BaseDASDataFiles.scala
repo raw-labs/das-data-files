@@ -17,6 +17,7 @@ import java.net.URI
 
 import scala.collection.mutable
 
+import org.apache.commons.io.FileUtils
 import org.apache.spark.sql.SparkSession
 
 import com.rawlabs.das.datafiles.filesystem.{FileCacheManager, FileSystemError, FileSystemFactory}
@@ -70,8 +71,8 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
       scheme -> FileSystemFactory.build(uri, options)
     }
   }
-  val downloadFolder = new File(cacheFolder)
-  // create the download folder if it doesn't exist
+  val downloadFolder = new File(cacheFolder, uuid)
+  // Create the download unique download folder for this DAS
   if (!downloadFolder.exists()) {
     downloadFolder.mkdirs()
   }
@@ -164,6 +165,8 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
     sparkSession.stop()
     filesystems.values.foreach(_.stop())
     fileCacheManager.stop()
+    // Delete the download and all the files in it
+    FileUtils.deleteDirectory(downloadFolder)
   }
 
   /**
