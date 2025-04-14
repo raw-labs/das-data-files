@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 RAW Labs S.A.
+ * Copyright 2025 RAW Labs S.A.
  *
  * Use of this software is governed by the Business Source License
  * included in the file licenses/BSL.txt.
@@ -81,39 +81,44 @@ class FileCacheManager(
     val lockObj = urlLocks.computeIfAbsent(url, _ => new Object())
 
     lockObj.synchronized {
-      val now = System.currentTimeMillis()
-      val cached = cacheMap.get(url)
-      if (cached != null) {
-        val age = now - cached.timestampMillis
-        if (age < cacheTtlMillis) {
-          logger.debug(s"Reusing cached file for '$url' -> ${cached.localPath} (age=$age ms)")
-          return Right(cached.localPath)
-        } else {
-          logger.debug(s"Cache entry for '$url' is expired (age=$age ms). Deleting file and re-downloading.")
-          deleteFile(cached.localPath)
-          cacheMap.remove(url)
+      try {
+        val now = System.currentTimeMillis()
+        val cached = cacheMap.get(url)
+        if (cached != null) {
+          val age = now - cached.timestampMillis
+          if (age < cacheTtlMillis) {
+            logger.debug(s"Reusing cached file for '$url' -> ${cached.localPath} (age=$age ms)")
+            return Right(cached.localPath)
+          } else {
+            logger.debug(s"Cache entry for '$url' is expired (age=$age ms). Deleting file and re-downloading.")
+            deleteFile(cached.localPath)
+            cacheMap.remove(url)
+          }
         }
-      }
 
-      val fs = fileSystems.find(_.supportsUrl(url)) match {
-        case Some(fs) => fs
-        case None =>
-          logger.warn(s"No filesystem found that supports '$url'")
-          return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
-      }
+        val fs = fileSystems.find(_.supportsUrl(url)) match {
+          case Some(fs) => fs
+          case None =>
+            logger.warn(s"No filesystem found that supports '$url'")
+            return Left(FileSystemError.Unsupported(s"No filesystem supports '$url'"))
+        }
 
-      // Local filesystem: just return the URL as is
-      if (fs.isInstanceOf[LocalFileSystem]) {
-        logger.debug(s"Local filesystem found for '$url'")
-        return Right(url)
-      }
+        // Local filesystem: just return the URL as is
+        if (fs.isInstanceOf[LocalFileSystem]) {
+          logger.debug(s"Local filesystem found for '$url'")
+          return Right(url)
+        }
 
-      // Download the file
-      downloadFile(fs, url) match {
-        case Left(err) => Left(err)
-        case Right(localPath) =>
-          cacheMap.put(url, CacheEntry(localPath, now))
-          Right(localPath)
+        // Download the file
+        downloadFile(fs, url) match {
+          case Left(err) => Left(err)
+          case Right(localPath) =>
+            cacheMap.put(url, CacheEntry(localPath, now))
+            Right(localPath)
+        }
+      } finally {
+        // Remove the lock object for this URL
+        urlLocks.remove(url)
       }
     }
   }

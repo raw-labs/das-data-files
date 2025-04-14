@@ -35,7 +35,7 @@ object CopyrightHeader extends AutoPlugin {
   )
 
   def header: String = {
-    val currentYear = "2024"
+    val currentYear = "2025"
     s"""|/*
         | * Copyright $currentYear RAW Labs S.A.
         | *
