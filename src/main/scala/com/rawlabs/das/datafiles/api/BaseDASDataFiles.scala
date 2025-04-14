@@ -90,13 +90,12 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
     val filesystem = filesystems(resolveScheme(config.uri))
 
     val urls = filesystem.resolveWildcard(config.uri.toString) match {
-      case Right(url) => url
-      case Left(FileSystemError.NotFound(url, message)) =>
-        throw new DASSdkInvalidArgumentException(message)
-      case Left(FileSystemError.PermissionDenied(msg)) => throw new DASSdkPermissionDeniedException(msg)
-      case Left(FileSystemError.Unauthorized(msg))     => throw new DASSdkUnauthenticatedException(msg)
-      case Left(FileSystemError.Unsupported(msg))      => throw new DASSdkInvalidArgumentException(msg)
-      case Left(FileSystemError.TooManyRequests(msg))  => throw new DASSdkInvalidArgumentException(msg)
+      case Right(url)                                   => url
+      case Left(FileSystemError.NotFound(url, message)) => throw new DASSdkInvalidArgumentException(message)
+      case Left(FileSystemError.PermissionDenied(msg))  => throw new DASSdkPermissionDeniedException(msg)
+      case Left(FileSystemError.Unauthorized(msg))      => throw new DASSdkUnauthenticatedException(msg)
+      case Left(FileSystemError.Unsupported(msg))       => throw new DASSdkInvalidArgumentException(msg)
+      case Left(FileSystemError.TooManyRequests(msg))   => throw new DASSdkInvalidArgumentException(msg)
       case Left(FileSystemError.InvalidUrl(url, message)) =>
         throw new DASSdkInvalidArgumentException(s"Invalid URL $url: $message")
       case Left(FileSystemError.FileTooLarge(url, actualSize, maxFileSize)) =>
