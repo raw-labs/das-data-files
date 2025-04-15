@@ -413,12 +413,4 @@ class FileCacheManagerConcurrencyTest extends AnyFlatSpec with Matchers {
 
     manager.stop()
   }
-
-  /**
-   * 7) Forcing a re-download / manual invalidation scenario (only relevant if your manager has such an API). If you had
-   * something like `manager.invalidate(url)`, you'd test concurrency of that call vs getLocalPathForUrl.
-   *
-   * As it's not in the base code, skipping a full example here.
-   */
-
 }

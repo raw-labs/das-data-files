@@ -71,10 +71,14 @@ abstract class BaseDASDataFiles(options: Map[String, String])(implicit settings:
       scheme -> FileSystemFactory.build(uri, options)
     }
   }
-  val downloadFolder = new File(cacheFolder, uuid)
-  // Create the download unique download folder for this DAS
-  if (!downloadFolder.exists()) {
-    downloadFolder.mkdirs()
+
+  private val downloadFolder = {
+    val f = new File(cacheFolder, uuid)
+    // Create the download unique download folder for this DAS
+    if (!f.exists()) {
+      f.mkdirs()
+    }
+    f
   }
 
   private val fileCacheManager: FileCacheManager =
