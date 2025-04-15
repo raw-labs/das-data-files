@@ -61,7 +61,7 @@ You can also use wildcard patterns (e.g. *.csv) to match multiple files at once.
 
 **Amazon S3**
 
-* `s3://bucket/key` 
+* `s3://bucket/key`
 * The plugin uses the AWS SDK to list and download objects. If you do not provide aws_access_key and aws_secret_key, the
   code attempts anonymous credentials (which usually only work for public buckets).
 
@@ -107,24 +107,24 @@ different folders,
 
 ## DAS CSV "csv" Options
 
-| Config Key                            | Description                                                                                        | Example                                          |
-|---------------------------------------|----------------------------------------------------------------------------------------------------|--------------------------------------------------|
-| path{i}_header                        | Whether the first line is a header row (default: true).                                            | path0_header 'true'                              |
-| path{i}_delimiter                     | Field delimiter character (default: ,)                                                             | path0_delimiter ','                              |
-| path{i}_quote                         | Quote character for enclosed fields (default: ").                                                  | path0_quote '"'                                  |
-| path{i}_escape                        | Escape character for quotes inside quoted fields (default: \\).                                    | path0_escape '\\'                                |
-| path{i}_multiline                     | Whether a single record can span multiple lines (default: false).                                  | path0_multiline 'false'                          |
-| path{i}_mode                          | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST. (default: PERMISSIVE). | path0_mode 'PERMISSIVE'                          |
-| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                             | path0_date_format 'yyyy-MM-d'                    |
-| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                    | path0_timestamp_format 'yyyy-MM-dd''T''HH:mm:ss' |
-| path{i}_ignore_leading_white_space    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                                  |
-| path{i}_ignore_trailing_whiteSpace    | Ignore leading whitespaces in CSV fields. (default: false)                                         |                                                  |
-| path{i}_null_value                    | The string representation of a null value. (default: empty string "")                              | path0_null_value 'null'                          |
-| path{i}_nan_value                     | The string representation of a NaN value. (default NaN)                                            |                                                  |
-| path{i}_positive_inf                  | The string representation of a positive infinity value. (default: Inf)                             |                                                  |
-| path{i}_negative_inf                  | The string representation of a negative infinity value. (default -Inf)                             |                                                  |
-| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1.0)                            | path0_sampling_ratio '0.1'                       |
-| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)        |                                                  |
+| Config Key                            | Description                                                                      | Default Value   | Mandatory |
+|---------------------------------------|----------------------------------------------------------------------------------|-----------------|-----------|
+| path{i}_header                        | Whether the first line is a header row.                                          | true            | No        |
+| path{i}_delimiter                     | Field delimiter character                                                        | ,               | No        |
+| path{i}_quote                         | Quote character for enclosed fields.                                             | "               | No        |
+| path{i}_escape                        | Escape character for quotes inside quoted fields.                                | \               | No        |
+| path{i}_multiline                     | Whether a single record can span multiple lines .                                | false'          | No        |
+| path{i}_mode                          | The mode for parsing CSV files, one of PERMISSIVE, DROPMALFORMED, FAILFAST.      | PERMISSIVE      | No        |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d.                      |                 | No        |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss .                            |                 | No        |
+| path{i}_ignore_leading_white_space    | Ignore leading whitespaces in CSV fields.                                        | false           | No        |
+| path{i}_ignore_trailing_whiteSpace    | Ignore leading whitespaces in CSV fields.                                        | false           | No        |
+| path{i}_null_value                    | The string representation of a null value.                                       | empty string "" | No        |
+| path{i}_nan_value                     | The string representation of a NaN value.                                        | NaN             | No        |
+| path{i}_positive_inf                  | The string representation of a positive infinity value.                          | Inf             | No        |
+| path{i}_negative_inf                  | The string representation of a negative infinity value.                          | -Inf            | No        |
+| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring.                        | 1               | No        |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode |                 | No        |
 
 For example:
 
@@ -153,17 +153,17 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 
 ## DAS JSON "json" Options
 
-| Config Key                            | Description                                                                                                                                   | Example |
-|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|---------|
-| path{i}_multiline                     | Whether the JSON file is formatted as normal JSON (a single record may span multiple lines) or as JSON-lines (default: true for normal JSON). |         |
-| path{i}_mode                          | The mode for parsing JSON files: PERMISSIVE, DROPMALFORMED, or FAILFAST (default: PERMISSIVE).                                                |         |
-| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                                                                        |         |
-| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                                                                               |         |
-| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                                                                  |         |
-| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (default: false).                                                                                 |         |
-| path{i}_allow_unquoted_field_names    | Allows unquoted JSON field names. (default: false)                                                                                            |         |
-| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring. (default 1)                                                                         |         |
-| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional)                                                   |         |
+| Config Key                            | Description                                                                                                   | Default Value      | Mandatory |
+|---------------------------------------|---------------------------------------------------------------------------------------------------------------|--------------------|-----------|
+| path{i}_multiline                     | Whether the JSON file is formatted as normal JSON (a single record may span multiple lines) or as JSON-lines. | true (normal JSON) | No        |
+| path{i}_mode                          | The mode for parsing JSON files: PERMISSIVE, DROPMALFORMED, or FAILFAST .                                     | PERMISSIVE         | No        |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d.                                                   |                    | No        |
+| path{i}_timestamp_format              | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss.                                                          |                    | No        |
+| path{i}_allow_comments                | Whether to allow comments in the JSON file. (default: false)                                                  | false              | No        |
+| path{i}_drop_field_if_all_null        | Whether to drop fields that are always null (default: false).                                                 | false              | No        |
+| path{i}_allow_unquoted_field_names    | Allows unquoted JSON field names. (default: false)                                                            | false              | No        |
+| path{i}_sampling_ratio                | Fraction of input JSON objects used for schema inferring.                                                     | 1                  | No        |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode.                             |                    | No        |
 
 For example:
 
@@ -188,19 +188,19 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 
 ## DAS XML "xml" Options
 
-| Config Key                            | Description                                                                                 | Example           |
-|---------------------------------------|---------------------------------------------------------------------------------------------|-------------------|
-| path{i}_row_tag                       | The tag for each row in the XML document (mandatory).                                       | path0_row 'myTag' |
-| path{i}_root_tag                      | The tag for the root element in the XML document (optional).                                |                   |
-| path{i}_attribute_prefix              | Tag used to represent the element's text value when it has attributes (optional).           |                   | 
-| path{i}_values_tag                    | Tag used to represent the element's text value when it has attributes (optional).           |                   |
-| path{i}_sampling_ratio                | Ratio of rows to use for schema inference (between 0 and 1) (optional).                     |                   |
-| path{i}_treat_empty_values_as_nulls   | Whether to treat empty string values as null (optional).                                    |                   |
-| path{i}_charset                       | Character encoding of the XML file (default: UTF-8).                                        |                   |
-| path{i}_mode                          | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST (default: PERMISSIVE).          |                   |
-| path{i}_dateFormat                    | Custom date format for parsing date fields, e.g. yyyy-MM-d (optional).                      |                   |
-| path{i}_timestampFormat               | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss (optional).                             |                   |
-| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode (optional) |                   |
+| Config Key                            | Description                                                                      | Default Value | Mandatory |
+|---------------------------------------|----------------------------------------------------------------------------------|---------------|-----------|
+| path{i}_row_tag                       | The tag for each row in the XML document.                                        |               | yes       |
+| path{i}_root_tag                      | The tag for the root element in the XML document .                               |               | No        |
+| path{i}_attribute_prefix              | Tag used to represent the element's text value when it has attributes.           |               | No        |
+| path{i}_values_tag                    | Tag used to represent the element's text value when it has attributes.           |               | No        |
+| path{i}_sampling_ratio                | Ratio of rows to use for schema inference .                                      | 1             | No        |
+| path{i}_treat_empty_values_as_nulls   | Whether to treat empty string values as null.                                    |               | No        |
+| path{i}_charset                       | Character encoding of the XML file .                                             | UTF-8         | No        |
+| path{i}_mode                          | Error handling mode: PERMISSIVE, DROPMALFORMED, or FAILFAST.                     | PERMISSIVE    | No        |
+| path{i}_date_format                   | Custom date format for parsing date fields, e.g. yyyy-MM-d.                      |               | No        |
+| path{i}_timestampFormat               | Custom timestamp format, e.g. yyyy-MM-dd'T'HH:mm:ss .                            |               | No        |
+| path{i}_column_name_of_corrupt_record | Allows renaming the new field having malformed string created by PERMISSIVE mode |               | No        |
 
 For example:
 
@@ -222,11 +222,11 @@ CREATE SERVER datafiles FOREIGN DATA WRAPPER multicorn OPTIONS (
 
 ## DAS Parquet "parquet" Options
 
-| Config Key                    | Description                                                                             | Example |
-|-------------------------------|-----------------------------------------------------------------------------------------|---------|
-| path{i}_merge_schema          | Whether to merge schemas from different files when reading from a directory (optional). |         |
-| path{i}_recursive_file_lookup | Whether to recursively search subdirectories for Parquet files (default false).         |         |
-| path{i}_path_glob_filter      | Glob pattern to filter which files to read.                                             |         | 
+| Config Key                    | Description                                                                  | Default Value | Mandatory |
+|-------------------------------|------------------------------------------------------------------------------|---------------|-----------|
+| path{i}_merge_schema          | Whether to merge schemas from different files when reading from a directory. |               | No        |
+| path{i}_recursive_file_lookup | Whether to recursively search subdirectories for Parquet files.              | false         | No        |
+| path{i}_path_glob_filter      | Glob pattern to filter which files to read.                                  |               | No        |
 
 For example:
 
