@@ -48,8 +48,11 @@ import com.typesafe.scalalogging.StrictLogging
  *   - Managing table configuration (name, URI, Spark session).
  *   - Inferring the file schema via Spark and building a DAS TableDefinition.
  *   - Executing the data retrieval flow:
- *     1. Loading a DataFrame (child classes implement format-specific loading). 2. Applying filter qualifiers. 3.
- *        Projecting requested columns. 4. Sorting and limiting rows. 5. Converting Spark rows to DAS protocol rows.
+ *     1. Loading a DataFrame (child classes implement format-specific loading).
+ *     2. Applying filter qualifiers.
+ *     3. Projecting requested columns.
+ *     4. Sorting and limiting rows.
+ *     5. Converting Spark rows to DAS protocol rows.
  *
  * Errors during processing are reported using DASSdk exceptions (e.g. DASSdkInvalidArgumentException,
  * DASSdkPermissionDeniedException).
@@ -66,7 +69,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
   private val tableName: String = config.name
 
   val format: String
-  //
+
   protected val sparkOptions: Map[String, String]
 
   private lazy val sparkSchema: StructType =
@@ -221,7 +224,7 @@ abstract class BaseDataFileTable(config: DataFilesTableConfig, sparkSession: Spa
     }
   }
 
-  protected def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
+  private def loadDataframe(resolvedUrl: String, schema: StructType): DataFrame = {
     sparkSession.read
       .schema(schema)
       .options(sparkOptions)
