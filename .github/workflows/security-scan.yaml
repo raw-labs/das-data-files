@@ -7,6 +7,7 @@ on:
 jobs:
   security-scan:
     name: Security Scan
+    # Remove general once open source
     runs-on: [self-hosted,general]
     steps:
       - uses: actions/checkout@v4
