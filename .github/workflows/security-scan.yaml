@@ -14,6 +14,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: raw-labs/das-sec-scan@v0.2.0-beta
+      - uses: raw-labs/das-sec-scan@v0.3.0-rc1
         with:
           github-token: ${{ github.token }}
